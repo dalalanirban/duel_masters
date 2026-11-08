@@ -1,13 +1,75 @@
-# Duel Masters
+# Duel Masters Game (Android)
 
-A digital turn-based card game engine and simulator for the **Duel Masters** TCG.
+A Duel Masters card game for Android with local and online multiplayer support.
+
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Android UI** | Kotlin, Jetpack Compose, Material 3 |
+| **Local storage** | Room Database |
+| **Backend** | Kotlin, Ktor |
+| **Online database** | PostgreSQL |
+
+## Project structure
+
+```
+duel-masters-game-android/
+├── app/          # Android client (Compose + Room)
+├── backend/      # Ktor server for online multiplayer
+└── docs/         # Architecture and setup notes
+```
+
+## Prerequisites
+
+- **Android Studio** (Ladybug or newer recommended)
+- **JDK 17+**
+- **PostgreSQL 15+** (for online multiplayer backend)
+- **Gradle 8.9+** (wrapper included)
+
+## Getting started
+
+### Android app
+
+1. Open this repository in Android Studio.
+2. Sync Gradle when prompted.
+3. Run the `app` configuration on an emulator or device.
+
+### Backend (Ktor)
+
+1. Start PostgreSQL and create a database:
+
+```sql
+CREATE DATABASE duel_masters;
+```
+
+2. Copy the backend env template and set your connection details:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+3. Run the server:
+
+```bash
+./gradlew :backend:run
+```
+
+The server starts on `http://localhost:8080` by default.
 
 ## Documentation
-* [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md) — Comprehensive guide covering core rules, turn phases, zones, civilizations, and engine architecture.
 
-## Project Roadmap
-1. **Core Domain & Card Models:** Define cards, civilizations, types, races, and effects.
-2. **Game State & Zones:** Implement Deck, Hand, Shield Zone, Mana Zone, Battle Zone, and Graveyard.
-3. **Turn Loop & Action Engine:** Untap, Draw, Charge Mana, Summon/Cast, Attack/Block, and Shield Triggers.
-4. **AI & Player Controllers:** Support interactive player moves and automated AI opponents.
-5. **Interactive UI / Playable Interface:** Terminal interface and graphical/web interface.
+- [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md)
+- [Architecture & Setup Notes](docs/architecture.md)
+
+## Development roadmap
+
+- [ ] Core card game rules engine
+- [ ] Local single-player vs AI
+- [ ] Room persistence for decks and match history
+- [ ] Online matchmaking and real-time sync via Ktor WebSockets
+- [ ] PostgreSQL-backed player accounts and rankings
+
+## License
+
+MIT
