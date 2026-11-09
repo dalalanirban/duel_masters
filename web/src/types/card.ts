@@ -19,14 +19,48 @@ export interface CardDefinition {
   isBlocker: boolean;
   isSlayer: boolean;
   isSpeedAttacker: boolean;
+  isEvolution?: boolean;
+  isSurvivor?: boolean;
+  isCharger?: boolean;
+  isMultiCiv?: boolean;
+  evolutionRaces?: string[];
   powerAttackerBonus: number;
   breakerCount: number;
   rulesText: string;
-  flavorText: string | null;
+  flavorText?: string | null;
   rarity: Rarity;
-  illustrator: string | null;
-  imageAssetPath: string;
-  imageUrl: string;
+  illustrator?: string | null;
+  imageAssetPath: string | null;
+  imageUrl?: string;
+}
+
+export interface SetDefinition {
+  id: string;
+  name: string;
+  code: string;
+  fullName?: string;
+  releaseYear?: number;
+  cardCount: number;
+}
+
+export interface CardFilterOptions {
+  searchQuery?: string;
+  civilizations?: Civilization[];
+  types?: CardType[];
+  cardTypes?: CardType[];
+  set?: string; // e.g. "DM-01", "DM-02", ... or "all"
+  manaCosts?: number[];
+  keywords?: string[]; // trigger, blocker, slayer, speed-attacker, evolution, survivor, charger, multi-civ
+  isShieldTrigger?: boolean;
+  isBlocker?: boolean;
+  isSlayer?: boolean;
+  isDoubleBreaker?: boolean;
+  isPowerAttacker?: boolean;
+  minCost?: number;
+  maxCost?: number;
+  race?: string;
+  rarities?: Rarity[];
+  sortBy?: 'id-asc' | 'cost-asc' | 'cost-desc' | 'power-desc' | 'name-asc';
 }
 
 export interface DeckItem {

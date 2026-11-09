@@ -1,33 +1,25 @@
-import { CardDefinition, Civilization, CardType } from '../types/card';
-import rawData from './dm01.json';
+import type { CardDefinition, SetDefinition, CardFilterOptions } from '../types/card';
+import allCardsData from './all_cards.json' with { type: 'json' };
+import setsData from './sets.json' with { type: 'json' };
 
-export const DM01_CARDS: CardDefinition[] = rawData as CardDefinition[];
+export type { CardDefinition, SetDefinition, CardFilterOptions };
+
+export const CARD_LIST: CardDefinition[] = allCardsData as unknown as CardDefinition[];
+
+export const SETS: SetDefinition[] = setsData as unknown as SetDefinition[];
 
 export const CARD_MAP = new Map<string, CardDefinition>(
-  DM01_CARDS.map(c => [c.id, c])
+  CARD_LIST.map(card => [card.id, card])
 );
+
+export const DM01_CARDS: CardDefinition[] = CARD_LIST.filter(c => c.set === 'DM-01');
 
 export function getCardById(id: string): CardDefinition | undefined {
   return CARD_MAP.get(id);
 }
 
-export interface CardFilterOptions {
-  searchQuery?: string;
-  civilizations?: Civilization[];
-  cardTypes?: CardType[];
-  isShieldTrigger?: boolean;
-  isBlocker?: boolean;
-  isSlayer?: boolean;
-  isDoubleBreaker?: boolean;
-  isPowerAttacker?: boolean;
-  minCost?: number;
-  maxCost?: number;
-  race?: string;
-  sortBy?: 'cost-asc' | 'cost-desc' | 'power-desc' | 'name-asc' | 'id-asc';
-}
-
-export function filterCards(options: CardFilterOptions): CardDefinition[] {
-  let result = DM01_CARDS.filter(card => {
+export function filterCards(options: CardFilterOptions = {}): CardDefinition[] {
+  let result = CARD_LIST.filter(card => {
     // Search query matches name, races, or rulesText
     if (options.searchQuery && options.searchQuery.trim() !== '') {
       const q = options.searchQuery.toLowerCase().trim();
@@ -37,29 +29,82 @@ export function filterCards(options: CardFilterOptions): CardDefinition[] {
       if (!nameMatch && !textMatch && !raceMatch) return false;
     }
 
+    // Set filter
+    if (options.set && options.set.trim() !== '' && options.set.toLowerCase() !== 'all') {
+      if (card.set.toLowerCase() !== options.set.toLowerCase()) return false;
+    }
+
     // Civilization filter
     if (options.civilizations && options.civilizations.length > 0) {
       const hasMatchingCiv = card.civilizations.some(c => options.civilizations!.includes(c));
       if (!hasMatchingCiv) return false;
     }
 
-    // Card type filter
-    if (options.cardTypes && options.cardTypes.length > 0) {
-      if (!options.cardTypes.includes(card.type)) return false;
+    // Card type filter (supports options.types or legacy options.cardTypes)
+    const selectedTypes = options.types || options.cardTypes;
+    if (selectedTypes && selectedTypes.length > 0) {
+      if (!selectedTypes.includes(card.type)) return false;
     }
 
-    // Keyword filters
+    // Keyword filters via array
+    if (options.keywords && options.keywords.length > 0) {
+      for (const kw of options.keywords) {
+        const k = kw.toLowerCase().trim();
+        if (k === 'evolution' && !(card.isEvolution || card.type === 'Evolution Creature')) {
+          return false;
+        }
+        if (k === 'survivor' && !card.isSurvivor) {
+          return false;
+        }
+        if (k === 'charger' && !card.isCharger) {
+          return false;
+        }
+        if (k === 'multi-civ' && !(card.isMultiCiv || card.civilizations.length > 1)) {
+          return false;
+        }
+        if ((k === 'trigger' || k === 'shield-trigger') && !card.isShieldTrigger) {
+          return false;
+        }
+        if (k === 'blocker' && !card.isBlocker) {
+          return false;
+        }
+        if (k === 'slayer' && !card.isSlayer) {
+          return false;
+        }
+        if (k === 'speed-attacker' && !card.isSpeedAttacker) {
+          return false;
+        }
+        if (k === 'double-breaker' && card.breakerCount < 2) {
+          return false;
+        }
+        if (k === 'power-attacker' && card.powerAttackerBonus <= 0) {
+          return false;
+        }
+      }
+    }
+
+    // Legacy keyword boolean flags
     if (options.isShieldTrigger && !card.isShieldTrigger) return false;
     if (options.isBlocker && !card.isBlocker) return false;
     if (options.isSlayer && !card.isSlayer) return false;
     if (options.isDoubleBreaker && card.breakerCount < 2) return false;
     if (options.isPowerAttacker && card.powerAttackerBonus <= 0) return false;
 
-    // Cost range
+    // Mana cost list
+    if (options.manaCosts && options.manaCosts.length > 0) {
+      if (!options.manaCosts.includes(card.manaCost)) return false;
+    }
+
+    // Mana cost range
     if (options.minCost !== undefined && card.manaCost < options.minCost) return false;
     if (options.maxCost !== undefined && card.manaCost > options.maxCost) return false;
 
-    // Race
+    // Rarity filter
+    if (options.rarities && options.rarities.length > 0) {
+      if (!options.rarities.includes(card.rarity)) return false;
+    }
+
+    // Race filter
     if (options.race && !card.races.includes(options.race)) return false;
 
     return true;

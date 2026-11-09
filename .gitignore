@@ -45,3 +45,6 @@ Desktop.ini
 node_modules/
 dist/
 .vite/
+
+# Raw cached datasets
+data/raw_cards.json

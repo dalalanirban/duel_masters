@@ -25,7 +25,11 @@
     "rarity": "Rare",
     "illustrator": "Akira Hamada",
     "imageAssetPath": "cards/dm01/dm01-001.webp",
-    "imageUrl": "https://img.duelmasters.us/0011.webp"
+    "imageUrl": "https://img.duelmasters.us/0011.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-002",
@@ -53,7 +57,11 @@
     "rarity": "Rare",
     "illustrator": "Tomofumi Ogasawara",
     "imageAssetPath": "cards/dm01/dm01-002.webp",
-    "imageUrl": "https://img.duelmasters.us/0012.webp"
+    "imageUrl": "https://img.duelmasters.us/0012.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-003",
@@ -81,7 +89,11 @@
     "rarity": "Common",
     "illustrator": "Daisuke Izuka",
     "imageAssetPath": "cards/dm01/dm01-003.webp",
-    "imageUrl": "https://img.duelmasters.us/0013.webp"
+    "imageUrl": "https://img.duelmasters.us/0013.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-004",
@@ -105,11 +117,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "At the end of each of your turns, you may untap this creature.",
-    "flavorText": "\"Vizier of Air, arise. Your fingers are sacred swords.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Air, arise. Your fingers are sacred swords.\" —Hanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Yusaku Nakaaki",
     "imageAssetPath": "cards/dm01/dm01-004.webp",
-    "imageUrl": "https://img.duelmasters.us/0014.webp"
+    "imageUrl": "https://img.duelmasters.us/0014.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-005",
@@ -137,7 +153,11 @@
     "rarity": "Very Rare",
     "illustrator": "D-Suzuki",
     "imageAssetPath": "cards/dm01/dm01-005.webp",
-    "imageUrl": "https://img.duelmasters.us/0015.webp"
+    "imageUrl": "https://img.duelmasters.us/0015.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-006",
@@ -163,7 +183,11 @@
     "rarity": "Rare",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-006.webp",
-    "imageUrl": "https://img.duelmasters.us/0016.webp"
+    "imageUrl": "https://img.duelmasters.us/0016.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-007",
@@ -187,11 +211,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "",
-    "flavorText": "\"Vizier of Bullets, arise. Your will is an arrow that never misses the target.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Bullets, arise. Your will is an arrow that never misses the target.\" —Hanusa, Radiance Elemental",
     "rarity": "Common",
     "illustrator": "Akira Hamada",
     "imageAssetPath": "cards/dm01/dm01-007.webp",
-    "imageUrl": "https://img.duelmasters.us/0017.webp"
+    "imageUrl": "https://img.duelmasters.us/0017.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-008",
@@ -219,7 +247,11 @@
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-008.webp",
-    "imageUrl": "https://img.duelmasters.us/0018.webp"
+    "imageUrl": "https://img.duelmasters.us/0018.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-009",
@@ -247,7 +279,11 @@
     "rarity": "Common",
     "illustrator": "Kou1",
     "imageAssetPath": "cards/dm01/dm01-009.webp",
-    "imageUrl": "https://img.duelmasters.us/0019.webp"
+    "imageUrl": "https://img.duelmasters.us/0019.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-010",
@@ -275,7 +311,11 @@
     "rarity": "Rare",
     "illustrator": "Hideaki Takamura",
     "imageAssetPath": "cards/dm01/dm01-010.webp",
-    "imageUrl": "https://img.duelmasters.us/0020.webp"
+    "imageUrl": "https://img.duelmasters.us/0020.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-011",
@@ -301,7 +341,11 @@
     "rarity": "Rare",
     "illustrator": "Gyokan",
     "imageAssetPath": "cards/dm01/dm01-011.webp",
-    "imageUrl": "https://img.duelmasters.us/0021.webp"
+    "imageUrl": "https://img.duelmasters.us/0021.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-012",
@@ -325,11 +369,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "",
-    "flavorText": "\"Vizier of Hunting, arise. Your words are arrows of light.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Hunting, arise. Your words are arrows of light.\" —Hanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
     "imageAssetPath": "cards/dm01/dm01-012.webp",
-    "imageUrl": "https://img.duelmasters.us/0022.webp"
+    "imageUrl": "https://img.duelmasters.us/0022.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-013",
@@ -353,11 +401,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, you may choose 1 of your opponent's creatures in the battle zone and tap it.",
-    "flavorText": "\"Vizier of Lightning, arise. Your eyes are a bow of judgment.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Lightning, arise. Your eyes are a bow of judgment.\" —Hanusa, Radiance Elemental",
     "rarity": "Common",
     "illustrator": "Dai",
     "imageAssetPath": "cards/dm01/dm01-013.webp",
-    "imageUrl": "https://img.duelmasters.us/0023.webp"
+    "imageUrl": "https://img.duelmasters.us/0023.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-014",
@@ -383,7 +435,11 @@
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
     "imageAssetPath": "cards/dm01/dm01-014.webp",
-    "imageUrl": "https://img.duelmasters.us/0024.webp"
+    "imageUrl": "https://img.duelmasters.us/0024.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-015",
@@ -411,7 +467,11 @@
     "rarity": "Very Rare",
     "illustrator": "Dai",
     "imageAssetPath": "cards/dm01/dm01-015.webp",
-    "imageUrl": "https://img.duelmasters.us/0025.webp"
+    "imageUrl": "https://img.duelmasters.us/0025.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-016",
@@ -439,7 +499,11 @@
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
     "imageAssetPath": "cards/dm01/dm01-016.webp",
-    "imageUrl": "https://img.duelmasters.us/0026.webp"
+    "imageUrl": "https://img.duelmasters.us/0026.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-017",
@@ -467,7 +531,11 @@
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-017.webp",
-    "imageUrl": "https://img.duelmasters.us/0027.webp"
+    "imageUrl": "https://img.duelmasters.us/0027.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-018",
@@ -495,7 +563,11 @@
     "rarity": "Common",
     "illustrator": "Norikatsu Miyoshi",
     "imageAssetPath": "cards/dm01/dm01-018.webp",
-    "imageUrl": "https://img.duelmasters.us/0028.webp"
+    "imageUrl": "https://img.duelmasters.us/0028.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-019",
@@ -521,7 +593,11 @@
     "rarity": "Common",
     "illustrator": "Jason",
     "imageAssetPath": "cards/dm01/dm01-019.webp",
-    "imageUrl": "https://img.duelmasters.us/0029.webp"
+    "imageUrl": "https://img.duelmasters.us/0029.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-020",
@@ -547,7 +623,11 @@
     "rarity": "Common",
     "illustrator": "Masaki Hirooka",
     "imageAssetPath": "cards/dm01/dm01-020.webp",
-    "imageUrl": "https://img.duelmasters.us/0030.webp"
+    "imageUrl": "https://img.duelmasters.us/0030.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-021",
@@ -575,7 +655,11 @@
     "rarity": "Rare",
     "illustrator": "Ittoku",
     "imageAssetPath": "cards/dm01/dm01-021.webp",
-    "imageUrl": "https://img.duelmasters.us/0031.webp"
+    "imageUrl": "https://img.duelmasters.us/0031.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-022",
@@ -599,11 +683,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "At the end of each of your turns, you may untap all your creatures in the battle zone.",
-    "flavorText": "\"Vizier of Hope, arise. Your singing voice is a breeze of dawn.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Hope, arise. Your singing voice is a breeze of dawn.\" —Hanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Masaki Hirooka",
     "imageAssetPath": "cards/dm01/dm01-022.webp",
-    "imageUrl": "https://img.duelmasters.us/0032.webp"
+    "imageUrl": "https://img.duelmasters.us/0032.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-023",
@@ -631,7 +719,11 @@
     "rarity": "Common",
     "illustrator": "Eiji Kaneda",
     "imageAssetPath": "cards/dm01/dm01-023.webp",
-    "imageUrl": "https://img.duelmasters.us/0033.webp"
+    "imageUrl": "https://img.duelmasters.us/0033.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-024",
@@ -659,7 +751,11 @@
     "rarity": "Rare",
     "illustrator": "D-Suzuki",
     "imageAssetPath": "cards/dm01/dm01-024.webp",
-    "imageUrl": "https://img.duelmasters.us/0034.webp"
+    "imageUrl": "https://img.duelmasters.us/0034.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-025",
@@ -683,11 +779,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When this creature would be destroyed, return it to your hand instead.",
-    "flavorText": "\"What a spirit for such a skinny little thing.\" \u00e2\u20ac\u201dBrawler Zyler",
+    "flavorText": "\"What a spirit for such a skinny little thing.\" —Brawler Zyler",
     "rarity": "Uncommon",
     "illustrator": "Jason",
     "imageAssetPath": "cards/dm01/dm01-025.webp",
-    "imageUrl": "https://img.duelmasters.us/0035.webp"
+    "imageUrl": "https://img.duelmasters.us/0035.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-026",
@@ -715,7 +815,11 @@
     "rarity": "Common",
     "illustrator": "Atsushi Kawasaki",
     "imageAssetPath": "cards/dm01/dm01-026.webp",
-    "imageUrl": "https://img.duelmasters.us/0036.webp"
+    "imageUrl": "https://img.duelmasters.us/0036.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-027",
@@ -741,7 +845,11 @@
     "rarity": "Uncommon",
     "illustrator": "Dreamwave",
     "imageAssetPath": "cards/dm01/dm01-027.webp",
-    "imageUrl": "https://img.duelmasters.us/0037.webp"
+    "imageUrl": "https://img.duelmasters.us/0037.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-028",
@@ -769,7 +877,11 @@
     "rarity": "Common",
     "illustrator": "Gyokan",
     "imageAssetPath": "cards/dm01/dm01-028.webp",
-    "imageUrl": "https://img.duelmasters.us/0038.webp"
+    "imageUrl": "https://img.duelmasters.us/0038.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-029",
@@ -795,7 +907,11 @@
     "rarity": "Rare",
     "illustrator": "Ryoya Yuki",
     "imageAssetPath": "cards/dm01/dm01-029.webp",
-    "imageUrl": "https://img.duelmasters.us/0039.webp"
+    "imageUrl": "https://img.duelmasters.us/0039.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-030",
@@ -823,7 +939,11 @@
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
     "imageAssetPath": "cards/dm01/dm01-030.webp",
-    "imageUrl": "https://img.duelmasters.us/0040.webp"
+    "imageUrl": "https://img.duelmasters.us/0040.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-031",
@@ -851,7 +971,11 @@
     "rarity": "Common",
     "illustrator": "Masateru Ikeda",
     "imageAssetPath": "cards/dm01/dm01-031.webp",
-    "imageUrl": "https://img.duelmasters.us/0041.webp"
+    "imageUrl": "https://img.duelmasters.us/0041.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-032",
@@ -879,7 +1003,11 @@
     "rarity": "Uncommon",
     "illustrator": "Kou1",
     "imageAssetPath": "cards/dm01/dm01-032.webp",
-    "imageUrl": "https://img.duelmasters.us/0042.webp"
+    "imageUrl": "https://img.duelmasters.us/0042.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-033",
@@ -907,7 +1035,11 @@
     "rarity": "Uncommon",
     "illustrator": "Hideaki Takamura",
     "imageAssetPath": "cards/dm01/dm01-033.webp",
-    "imageUrl": "https://img.duelmasters.us/0043.webp"
+    "imageUrl": "https://img.duelmasters.us/0043.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-034",
@@ -935,7 +1067,11 @@
     "rarity": "Very Rare",
     "illustrator": "Miho Midorikawa",
     "imageAssetPath": "cards/dm01/dm01-034.webp",
-    "imageUrl": "https://img.duelmasters.us/0044.webp"
+    "imageUrl": "https://img.duelmasters.us/0044.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-035",
@@ -963,7 +1099,11 @@
     "rarity": "Common",
     "illustrator": "Hikaru Ikusa",
     "imageAssetPath": "cards/dm01/dm01-035.webp",
-    "imageUrl": "https://img.duelmasters.us/0045.webp"
+    "imageUrl": "https://img.duelmasters.us/0045.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-036",
@@ -991,7 +1131,11 @@
     "rarity": "Common",
     "illustrator": "Ittoku",
     "imageAssetPath": "cards/dm01/dm01-036.webp",
-    "imageUrl": "https://img.duelmasters.us/0046.webp"
+    "imageUrl": "https://img.duelmasters.us/0046.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-037",
@@ -1019,7 +1163,11 @@
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-037.webp",
-    "imageUrl": "https://img.duelmasters.us/0047.webp"
+    "imageUrl": "https://img.duelmasters.us/0047.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-038",
@@ -1043,11 +1191,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, return each creature in the battle zone that has power 2000 or less to its owner's hand.",
-    "flavorText": "\"Isn't it cool? The heads can be combined.\" \u00e2\u20ac\u201dTropico",
+    "flavorText": "\"Isn't it cool? The heads can be combined.\" —Tropico",
     "rarity": "Rare",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-038.webp",
-    "imageUrl": "https://img.duelmasters.us/0048.webp"
+    "imageUrl": "https://img.duelmasters.us/0048.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-039",
@@ -1075,7 +1227,11 @@
     "rarity": "Very Rare",
     "illustrator": "Tomofumi Ogasawara",
     "imageAssetPath": "cards/dm01/dm01-039.webp",
-    "imageUrl": "https://img.duelmasters.us/0049.webp"
+    "imageUrl": "https://img.duelmasters.us/0049.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-040",
@@ -1101,7 +1257,11 @@
     "rarity": "Common",
     "illustrator": "Tomofumi Ogasawara",
     "imageAssetPath": "cards/dm01/dm01-040.webp",
-    "imageUrl": "https://img.duelmasters.us/0050.webp"
+    "imageUrl": "https://img.duelmasters.us/0050.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-041",
@@ -1123,11 +1283,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Choose up to 2 creatures in the battle zone and return them to their owners' hands.",
-    "flavorText": "\"Start all over from your previous life!\" \u00e2\u20ac\u201dCrystal Lancer",
+    "flavorText": "\"Start all over from your previous life!\" —Crystal Lancer",
     "rarity": "Rare",
     "illustrator": "Akifumi Yamamoto",
     "imageAssetPath": "cards/dm01/dm01-041.webp",
-    "imageUrl": "https://img.duelmasters.us/0051.webp"
+    "imageUrl": "https://img.duelmasters.us/0051.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-042",
@@ -1155,7 +1319,11 @@
     "rarity": "Rare",
     "illustrator": "Jason",
     "imageAssetPath": "cards/dm01/dm01-042.webp",
-    "imageUrl": "https://img.duelmasters.us/0052.webp"
+    "imageUrl": "https://img.duelmasters.us/0052.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-043",
@@ -1183,7 +1351,11 @@
     "rarity": "Rare",
     "illustrator": "Hisanobu Kometani",
     "imageAssetPath": "cards/dm01/dm01-043.webp",
-    "imageUrl": "https://img.duelmasters.us/0053.webp"
+    "imageUrl": "https://img.duelmasters.us/0053.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-044",
@@ -1209,7 +1381,11 @@
     "rarity": "Common",
     "illustrator": "Akifumi Yamamoto",
     "imageAssetPath": "cards/dm01/dm01-044.webp",
-    "imageUrl": "https://img.duelmasters.us/0054.webp"
+    "imageUrl": "https://img.duelmasters.us/0054.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-045",
@@ -1237,7 +1413,11 @@
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
     "imageAssetPath": "cards/dm01/dm01-045.webp",
-    "imageUrl": "https://img.duelmasters.us/0055.webp"
+    "imageUrl": "https://img.duelmasters.us/0055.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-046",
@@ -1265,7 +1445,11 @@
     "rarity": "Common",
     "illustrator": "Atsushi Kawasaki",
     "imageAssetPath": "cards/dm01/dm01-046.webp",
-    "imageUrl": "https://img.duelmasters.us/0056.webp"
+    "imageUrl": "https://img.duelmasters.us/0056.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-047",
@@ -1293,7 +1477,11 @@
     "rarity": "Common",
     "illustrator": "Nottsuo",
     "imageAssetPath": "cards/dm01/dm01-047.webp",
-    "imageUrl": "https://img.duelmasters.us/0057.webp"
+    "imageUrl": "https://img.duelmasters.us/0057.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-048",
@@ -1321,7 +1509,11 @@
     "rarity": "Uncommon",
     "illustrator": "Dai",
     "imageAssetPath": "cards/dm01/dm01-048.webp",
-    "imageUrl": "https://img.duelmasters.us/0058.webp"
+    "imageUrl": "https://img.duelmasters.us/0058.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-049",
@@ -1338,7 +1530,7 @@
     "races": [],
     "isShieldTrigger": false,
     "isBlocker": false,
-    "isSlayer": true,
+    "isSlayer": false,
     "isSpeedAttacker": false,
     "powerAttackerBonus": 0,
     "breakerCount": 1,
@@ -1347,7 +1539,11 @@
     "rarity": "Rare",
     "illustrator": "Ryoya Yuki",
     "imageAssetPath": "cards/dm01/dm01-049.webp",
-    "imageUrl": "https://img.duelmasters.us/0059.webp"
+    "imageUrl": "https://img.duelmasters.us/0059.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-050",
@@ -1375,7 +1571,11 @@
     "rarity": "Rare",
     "illustrator": "Jason",
     "imageAssetPath": "cards/dm01/dm01-050.webp",
-    "imageUrl": "https://img.duelmasters.us/0060.webp"
+    "imageUrl": "https://img.duelmasters.us/0060.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-051",
@@ -1403,7 +1603,11 @@
     "rarity": "Uncommon",
     "illustrator": "Norikatsu Miyoshi",
     "imageAssetPath": "cards/dm01/dm01-051.webp",
-    "imageUrl": "https://img.duelmasters.us/0061.webp"
+    "imageUrl": "https://img.duelmasters.us/0061.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-052",
@@ -1429,7 +1633,11 @@
     "rarity": "Uncommon",
     "illustrator": "Nottsuo",
     "imageAssetPath": "cards/dm01/dm01-052.webp",
-    "imageUrl": "https://img.duelmasters.us/0062.webp"
+    "imageUrl": "https://img.duelmasters.us/0062.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-053",
@@ -1455,7 +1663,11 @@
     "rarity": "Common",
     "illustrator": "Dustmoss",
     "imageAssetPath": "cards/dm01/dm01-053.webp",
-    "imageUrl": "https://img.duelmasters.us/0063.webp"
+    "imageUrl": "https://img.duelmasters.us/0063.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-054",
@@ -1481,7 +1693,11 @@
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
     "imageAssetPath": "cards/dm01/dm01-054.webp",
-    "imageUrl": "https://img.duelmasters.us/0064.webp"
+    "imageUrl": "https://img.duelmasters.us/0064.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-055",
@@ -1509,7 +1725,11 @@
     "rarity": "Rare",
     "illustrator": "Katsuya",
     "imageAssetPath": "cards/dm01/dm01-055.webp",
-    "imageUrl": "https://img.duelmasters.us/0065.webp"
+    "imageUrl": "https://img.duelmasters.us/0065.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-056",
@@ -1537,7 +1757,11 @@
     "rarity": "Rare",
     "illustrator": "Hisashi Momose",
     "imageAssetPath": "cards/dm01/dm01-056.webp",
-    "imageUrl": "https://img.duelmasters.us/0066.webp"
+    "imageUrl": "https://img.duelmasters.us/0066.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-057",
@@ -1565,7 +1789,11 @@
     "rarity": "Very Rare",
     "illustrator": "Tsutomu Kawade",
     "imageAssetPath": "cards/dm01/dm01-057.webp",
-    "imageUrl": "https://img.duelmasters.us/0067.webp"
+    "imageUrl": "https://img.duelmasters.us/0067.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-058",
@@ -1593,7 +1821,11 @@
     "rarity": "Uncommon",
     "illustrator": "Gyokan",
     "imageAssetPath": "cards/dm01/dm01-058.webp",
-    "imageUrl": "https://img.duelmasters.us/0068.webp"
+    "imageUrl": "https://img.duelmasters.us/0068.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-059",
@@ -1621,7 +1853,11 @@
     "rarity": "Rare",
     "illustrator": "Hideaki Takamura",
     "imageAssetPath": "cards/dm01/dm01-059.webp",
-    "imageUrl": "https://img.duelmasters.us/0069.webp"
+    "imageUrl": "https://img.duelmasters.us/0069.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-060",
@@ -1649,7 +1885,11 @@
     "rarity": "Common",
     "illustrator": "Katsuya",
     "imageAssetPath": "cards/dm01/dm01-060.webp",
-    "imageUrl": "https://img.duelmasters.us/0070.webp"
+    "imageUrl": "https://img.duelmasters.us/0070.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-061",
@@ -1677,7 +1917,11 @@
     "rarity": "Uncommon",
     "illustrator": "Norikatsu Miyoshi",
     "imageAssetPath": "cards/dm01/dm01-061.webp",
-    "imageUrl": "https://img.duelmasters.us/0071.webp"
+    "imageUrl": "https://img.duelmasters.us/0071.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-062",
@@ -1705,7 +1949,11 @@
     "rarity": "Uncommon",
     "illustrator": "Youichi Kai",
     "imageAssetPath": "cards/dm01/dm01-062.webp",
-    "imageUrl": "https://img.duelmasters.us/0072.webp"
+    "imageUrl": "https://img.duelmasters.us/0072.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-063",
@@ -1731,7 +1979,11 @@
     "rarity": "Rare",
     "illustrator": "Yusaku Nakaaki",
     "imageAssetPath": "cards/dm01/dm01-063.webp",
-    "imageUrl": "https://img.duelmasters.us/0073.webp"
+    "imageUrl": "https://img.duelmasters.us/0073.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-064",
@@ -1759,7 +2011,11 @@
     "rarity": "Very Rare",
     "illustrator": "Masaki Hirooka",
     "imageAssetPath": "cards/dm01/dm01-064.webp",
-    "imageUrl": "https://img.duelmasters.us/0074.webp"
+    "imageUrl": "https://img.duelmasters.us/0074.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-065",
@@ -1787,7 +2043,11 @@
     "rarity": "Common",
     "illustrator": "Youichi Kai",
     "imageAssetPath": "cards/dm01/dm01-065.webp",
-    "imageUrl": "https://img.duelmasters.us/0075.webp"
+    "imageUrl": "https://img.duelmasters.us/0075.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-066",
@@ -1815,7 +2075,11 @@
     "rarity": "Common",
     "illustrator": "Eiji Kaneda",
     "imageAssetPath": "cards/dm01/dm01-066.webp",
-    "imageUrl": "https://img.duelmasters.us/0076.webp"
+    "imageUrl": "https://img.duelmasters.us/0076.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-067",
@@ -1843,7 +2107,11 @@
     "rarity": "Uncommon",
     "illustrator": "Tsutomu Kawade",
     "imageAssetPath": "cards/dm01/dm01-067.webp",
-    "imageUrl": "https://img.duelmasters.us/0077.webp"
+    "imageUrl": "https://img.duelmasters.us/0077.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-068",
@@ -1867,11 +2135,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, put 1 card from your mana zone into your graveyard.",
-    "flavorText": "\"Fix it? That's easy. Just hit it.\" \u00e2\u20ac\u201dLegendary Artisan Picora",
+    "flavorText": "\"Fix it? That's easy. Just hit it.\" —Legendary Artisan Picora",
     "rarity": "Common",
     "illustrator": "Akifumi Yamamoto",
     "imageAssetPath": "cards/dm01/dm01-068.webp",
-    "imageUrl": "https://img.duelmasters.us/0078.webp"
+    "imageUrl": "https://img.duelmasters.us/0078.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-069",
@@ -1899,7 +2171,11 @@
     "rarity": "Very Rare",
     "illustrator": "Ryoya Yuki",
     "imageAssetPath": "cards/dm01/dm01-069.webp",
-    "imageUrl": "https://img.duelmasters.us/0079.webp"
+    "imageUrl": "https://img.duelmasters.us/0079.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-070",
@@ -1927,7 +2203,11 @@
     "rarity": "Common",
     "illustrator": "Tsutomu Kawade",
     "imageAssetPath": "cards/dm01/dm01-070.webp",
-    "imageUrl": "https://img.duelmasters.us/0080.webp"
+    "imageUrl": "https://img.duelmasters.us/0080.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-071",
@@ -1953,7 +2233,11 @@
     "rarity": "Common",
     "illustrator": "Miho Midorikawa",
     "imageAssetPath": "cards/dm01/dm01-071.webp",
-    "imageUrl": "https://img.duelmasters.us/0081.webp"
+    "imageUrl": "https://img.duelmasters.us/0081.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-072",
@@ -1979,7 +2263,11 @@
     "rarity": "Rare",
     "illustrator": "Soushi Hirose",
     "imageAssetPath": "cards/dm01/dm01-072.webp",
-    "imageUrl": "https://img.duelmasters.us/0082.webp"
+    "imageUrl": "https://img.duelmasters.us/0082.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-073",
@@ -2005,7 +2293,11 @@
     "rarity": "Common",
     "illustrator": "Daisuke Izuka",
     "imageAssetPath": "cards/dm01/dm01-073.webp",
-    "imageUrl": "https://img.duelmasters.us/0083.webp"
+    "imageUrl": "https://img.duelmasters.us/0083.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-074",
@@ -2033,7 +2325,11 @@
     "rarity": "Common",
     "illustrator": "Yusaku Nakaaki",
     "imageAssetPath": "cards/dm01/dm01-074.webp",
-    "imageUrl": "https://img.duelmasters.us/0084.webp"
+    "imageUrl": "https://img.duelmasters.us/0084.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-075",
@@ -2061,7 +2357,11 @@
     "rarity": "Rare",
     "illustrator": "Ittoku",
     "imageAssetPath": "cards/dm01/dm01-075.webp",
-    "imageUrl": "https://img.duelmasters.us/0085.webp"
+    "imageUrl": "https://img.duelmasters.us/0085.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-076",
@@ -2089,7 +2389,11 @@
     "rarity": "Rare",
     "illustrator": "Hisanobu Kometani",
     "imageAssetPath": "cards/dm01/dm01-076.webp",
-    "imageUrl": "https://img.duelmasters.us/0086.webp"
+    "imageUrl": "https://img.duelmasters.us/0086.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-077",
@@ -2117,7 +2421,11 @@
     "rarity": "Common",
     "illustrator": "Dai",
     "imageAssetPath": "cards/dm01/dm01-077.webp",
-    "imageUrl": "https://img.duelmasters.us/0087.webp"
+    "imageUrl": "https://img.duelmasters.us/0087.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-078",
@@ -2145,7 +2453,11 @@
     "rarity": "Common",
     "illustrator": "Sansyu",
     "imageAssetPath": "cards/dm01/dm01-078.webp",
-    "imageUrl": "https://img.duelmasters.us/0088.webp"
+    "imageUrl": "https://img.duelmasters.us/0088.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-079",
@@ -2173,7 +2485,11 @@
     "rarity": "Very Rare",
     "illustrator": "Hisashi Momose",
     "imageAssetPath": "cards/dm01/dm01-079.webp",
-    "imageUrl": "https://img.duelmasters.us/0089.webp"
+    "imageUrl": "https://img.duelmasters.us/0089.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-080",
@@ -2201,7 +2517,11 @@
     "rarity": "Common",
     "illustrator": "Dustmoss",
     "imageAssetPath": "cards/dm01/dm01-080.webp",
-    "imageUrl": "https://img.duelmasters.us/0090.webp"
+    "imageUrl": "https://img.duelmasters.us/0090.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-081",
@@ -2221,13 +2541,17 @@
     "isSlayer": false,
     "isSpeedAttacker": false,
     "powerAttackerBonus": 4000,
-    "breakerCount": 2,
+    "breakerCount": 1,
     "rulesText": "One of your creatures gets \"power attacker +4000\" and \"double breaker\" until the end of the turn. (A creature that has \"power attacker +4000\" and \"double breaker\" gets +4000 power while attacking and breaks 2 shields.)",
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Masaki Hirooka",
     "imageAssetPath": "cards/dm01/dm01-081.webp",
-    "imageUrl": "https://img.duelmasters.us/0091.webp"
+    "imageUrl": "https://img.duelmasters.us/0091.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-082",
@@ -2255,7 +2579,11 @@
     "rarity": "Uncommon",
     "illustrator": "Masateru Ikeda",
     "imageAssetPath": "cards/dm01/dm01-082.webp",
-    "imageUrl": "https://img.duelmasters.us/0092.webp"
+    "imageUrl": "https://img.duelmasters.us/0092.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-083",
@@ -2279,11 +2607,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can attack untapped creatures.",
-    "flavorText": "\"Time to move on. So many unexplored worlds; so much trash to find!\" \u00e2\u20ac\u201dNomad Hero Gigio",
+    "flavorText": "\"Time to move on. So many unexplored worlds; so much trash to find!\" —Nomad Hero Gigio",
     "rarity": "Rare",
     "illustrator": "Eiji Kaneda",
     "imageAssetPath": "cards/dm01/dm01-083.webp",
-    "imageUrl": "https://img.duelmasters.us/0093.webp"
+    "imageUrl": "https://img.duelmasters.us/0093.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-084",
@@ -2311,7 +2643,11 @@
     "rarity": "Uncommon",
     "illustrator": "Katsuya",
     "imageAssetPath": "cards/dm01/dm01-084.webp",
-    "imageUrl": "https://img.duelmasters.us/0094.webp"
+    "imageUrl": "https://img.duelmasters.us/0094.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-085",
@@ -2339,7 +2675,11 @@
     "rarity": "Rare",
     "illustrator": "Seki",
     "imageAssetPath": "cards/dm01/dm01-085.webp",
-    "imageUrl": "https://img.duelmasters.us/0095.webp"
+    "imageUrl": "https://img.duelmasters.us/0095.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-086",
@@ -2367,7 +2707,11 @@
     "rarity": "Uncommon",
     "illustrator": "Miho Midorikawa",
     "imageAssetPath": "cards/dm01/dm01-086.webp",
-    "imageUrl": "https://img.duelmasters.us/0096.webp"
+    "imageUrl": "https://img.duelmasters.us/0096.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-087",
@@ -2395,7 +2739,11 @@
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
     "imageAssetPath": "cards/dm01/dm01-087.webp",
-    "imageUrl": "https://img.duelmasters.us/0097.webp"
+    "imageUrl": "https://img.duelmasters.us/0097.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-088",
@@ -2421,7 +2769,11 @@
     "rarity": "Uncommon",
     "illustrator": "Soushi Hirose",
     "imageAssetPath": "cards/dm01/dm01-088.webp",
-    "imageUrl": "https://img.duelmasters.us/0098.webp"
+    "imageUrl": "https://img.duelmasters.us/0098.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-089",
@@ -2447,7 +2799,11 @@
     "rarity": "Rare",
     "illustrator": "Nottsuo",
     "imageAssetPath": "cards/dm01/dm01-089.webp",
-    "imageUrl": "https://img.duelmasters.us/0099.webp"
+    "imageUrl": "https://img.duelmasters.us/0099.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-090",
@@ -2475,7 +2831,11 @@
     "rarity": "Common",
     "illustrator": "Yusaku Nakaaki",
     "imageAssetPath": "cards/dm01/dm01-090.webp",
-    "imageUrl": "https://img.duelmasters.us/0100.webp"
+    "imageUrl": "https://img.duelmasters.us/0100.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-091",
@@ -2503,7 +2863,11 @@
     "rarity": "Common",
     "illustrator": "Sansyu",
     "imageAssetPath": "cards/dm01/dm01-091.webp",
-    "imageUrl": "https://img.duelmasters.us/0101.webp"
+    "imageUrl": "https://img.duelmasters.us/0101.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-092",
@@ -2531,7 +2895,11 @@
     "rarity": "Uncommon",
     "illustrator": "D-Suzuki",
     "imageAssetPath": "cards/dm01/dm01-092.webp",
-    "imageUrl": "https://img.duelmasters.us/0102.webp"
+    "imageUrl": "https://img.duelmasters.us/0102.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-093",
@@ -2557,7 +2925,11 @@
     "rarity": "Common",
     "illustrator": "Jason",
     "imageAssetPath": "cards/dm01/dm01-093.webp",
-    "imageUrl": "https://img.duelmasters.us/0103.webp"
+    "imageUrl": "https://img.duelmasters.us/0103.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-094",
@@ -2585,7 +2957,11 @@
     "rarity": "Uncommon",
     "illustrator": "Hisashi Momose",
     "imageAssetPath": "cards/dm01/dm01-094.webp",
-    "imageUrl": "https://img.duelmasters.us/0104.webp"
+    "imageUrl": "https://img.duelmasters.us/0104.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-095",
@@ -2613,7 +2989,11 @@
     "rarity": "Common",
     "illustrator": "Norikatsu Miyoshi",
     "imageAssetPath": "cards/dm01/dm01-095.webp",
-    "imageUrl": "https://img.duelmasters.us/0105.webp"
+    "imageUrl": "https://img.duelmasters.us/0105.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-096",
@@ -2641,7 +3021,11 @@
     "rarity": "Uncommon",
     "illustrator": "Youichi Kai",
     "imageAssetPath": "cards/dm01/dm01-096.webp",
-    "imageUrl": "https://img.duelmasters.us/0106.webp"
+    "imageUrl": "https://img.duelmasters.us/0106.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-097",
@@ -2669,7 +3053,11 @@
     "rarity": "Common",
     "illustrator": "Miho Midorikawa",
     "imageAssetPath": "cards/dm01/dm01-097.webp",
-    "imageUrl": "https://img.duelmasters.us/0107.webp"
+    "imageUrl": "https://img.duelmasters.us/0107.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-098",
@@ -2697,7 +3085,11 @@
     "rarity": "Common",
     "illustrator": "Dustmoss",
     "imageAssetPath": "cards/dm01/dm01-098.webp",
-    "imageUrl": "https://img.duelmasters.us/0108.webp"
+    "imageUrl": "https://img.duelmasters.us/0108.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-099",
@@ -2723,7 +3115,11 @@
     "rarity": "Rare",
     "illustrator": "Sansyu",
     "imageAssetPath": "cards/dm01/dm01-099.webp",
-    "imageUrl": "https://img.duelmasters.us/0109.webp"
+    "imageUrl": "https://img.duelmasters.us/0109.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-100",
@@ -2745,11 +3141,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Put 1 of your creatures from the battle zone into your mana zone.",
-    "flavorText": "\"Here's something better for you to do.\" \u00e2\u20ac\u201dFighter Dual Fang",
+    "flavorText": "\"Here's something better for you to do.\" —Fighter Dual Fang",
     "rarity": "Uncommon",
     "illustrator": "Seki",
     "imageAssetPath": "cards/dm01/dm01-100.webp",
-    "imageUrl": "https://img.duelmasters.us/0110.webp"
+    "imageUrl": "https://img.duelmasters.us/0110.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-101",
@@ -2773,11 +3173,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can't attack players.",
-    "flavorText": "\"I will never give you up.\" \u00e2\u20ac\u201dSymbolic meaning of the poisonous dahlia in flower language",
+    "flavorText": "\"I will never give you up.\" —Symbolic meaning of the poisonous dahlia in flower language",
     "rarity": "Uncommon",
     "illustrator": "Hideaki Takamura",
     "imageAssetPath": "cards/dm01/dm01-101.webp",
-    "imageUrl": "https://img.duelmasters.us/0111.webp"
+    "imageUrl": "https://img.duelmasters.us/0111.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-102",
@@ -2805,7 +3209,11 @@
     "rarity": "Uncommon",
     "illustrator": "Daisuke Izuka",
     "imageAssetPath": "cards/dm01/dm01-102.webp",
-    "imageUrl": "https://img.duelmasters.us/0112.webp"
+    "imageUrl": "https://img.duelmasters.us/0112.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-103",
@@ -2833,7 +3241,11 @@
     "rarity": "Rare",
     "illustrator": "Kou1",
     "imageAssetPath": "cards/dm01/dm01-103.webp",
-    "imageUrl": "https://img.duelmasters.us/0113.webp"
+    "imageUrl": "https://img.duelmasters.us/0113.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-104",
@@ -2861,7 +3273,11 @@
     "rarity": "Rare",
     "illustrator": "Norikatsu Miyoshi",
     "imageAssetPath": "cards/dm01/dm01-104.webp",
-    "imageUrl": "https://img.duelmasters.us/0114.webp"
+    "imageUrl": "https://img.duelmasters.us/0114.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-105",
@@ -2885,11 +3301,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can't attack players.",
-    "flavorText": "\"Me big. Me tough. Me smash.\" \u00e2\u20ac\u201dIron Hammer, Boar Warrior",
+    "flavorText": "\"Me big. Me tough. Me smash.\" —Iron Hammer, Boar Warrior",
     "rarity": "Common",
     "illustrator": "Katsuya",
     "imageAssetPath": "cards/dm01/dm01-105.webp",
-    "imageUrl": "https://img.duelmasters.us/0115.webp"
+    "imageUrl": "https://img.duelmasters.us/0115.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-106",
@@ -2917,7 +3337,11 @@
     "rarity": "Rare",
     "illustrator": "Sansyu",
     "imageAssetPath": "cards/dm01/dm01-106.webp",
-    "imageUrl": "https://img.duelmasters.us/0116.webp"
+    "imageUrl": "https://img.duelmasters.us/0116.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-107",
@@ -2945,7 +3369,11 @@
     "rarity": "Very Rare",
     "illustrator": "Atsushi Kawasaki",
     "imageAssetPath": "cards/dm01/dm01-107.webp",
-    "imageUrl": "https://img.duelmasters.us/0117.webp"
+    "imageUrl": "https://img.duelmasters.us/0117.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-108",
@@ -2973,7 +3401,11 @@
     "rarity": "Very Rare",
     "illustrator": "Atsushi Kawasaki",
     "imageAssetPath": "cards/dm01/dm01-108.webp",
-    "imageUrl": "https://img.duelmasters.us/0118.webp"
+    "imageUrl": "https://img.duelmasters.us/0118.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-109",
@@ -3001,7 +3433,11 @@
     "rarity": "Rare",
     "illustrator": "Daisuke Izuka",
     "imageAssetPath": "cards/dm01/dm01-109.webp",
-    "imageUrl": "https://img.duelmasters.us/0119.webp"
+    "imageUrl": "https://img.duelmasters.us/0119.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-110",
@@ -3023,11 +3459,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Put the top 2 cards of your deck into your mana zone.",
-    "flavorText": "\"Great Earth, give me your might!\" \u00e2\u20ac\u201dFighter Dual Fang",
+    "flavorText": "\"Great Earth, give me your might!\" —Fighter Dual Fang",
     "rarity": "Common",
     "illustrator": "Sansyu",
     "imageAssetPath": "cards/dm01/dm01-110.webp",
-    "imageUrl": "https://img.duelmasters.us/0120.webp"
+    "imageUrl": "https://img.duelmasters.us/0120.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S01",
@@ -3055,7 +3495,11 @@
     "rarity": "Super Rare",
     "illustrator": "Masaki Hirooka",
     "imageAssetPath": "cards/dm01/dm01-s01.webp",
-    "imageUrl": "https://img.duelmasters.us/0001.webp"
+    "imageUrl": "https://img.duelmasters.us/0001.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S02",
@@ -3083,7 +3527,11 @@
     "rarity": "Super Rare",
     "illustrator": "Akifumi Yamamoto",
     "imageAssetPath": "cards/dm01/dm01-s02.webp",
-    "imageUrl": "https://img.duelmasters.us/0002.webp"
+    "imageUrl": "https://img.duelmasters.us/0002.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S03",
@@ -3111,7 +3559,11 @@
     "rarity": "Super Rare",
     "illustrator": "Seki",
     "imageAssetPath": "cards/dm01/dm01-s03.webp",
-    "imageUrl": "https://img.duelmasters.us/0003.webp"
+    "imageUrl": "https://img.duelmasters.us/0003.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S04",
@@ -3139,7 +3591,11 @@
     "rarity": "Super Rare",
     "illustrator": "Ryoya Yuki",
     "imageAssetPath": "cards/dm01/dm01-s04.webp",
-    "imageUrl": "https://img.duelmasters.us/0004.webp"
+    "imageUrl": "https://img.duelmasters.us/0004.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S05",
@@ -3167,7 +3623,11 @@
     "rarity": "Super Rare",
     "illustrator": "Atsushi Kawasaki",
     "imageAssetPath": "cards/dm01/dm01-s05.webp",
-    "imageUrl": "https://img.duelmasters.us/0005.webp"
+    "imageUrl": "https://img.duelmasters.us/0005.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S06",
@@ -3191,11 +3651,15 @@
     "powerAttackerBonus": 0,
     "breakerCount": 2,
     "rulesText": "Double breaker (This creature breaks 2 shields.)",
-    "flavorText": "\"If I were to send him to the field, he would overwhelm the enemy in an instant. Where is the fun in that?\" \u00e2\u20ac\u201dBallom, Master of Death",
+    "flavorText": "\"If I were to send him to the field, he would overwhelm the enemy in an instant. Where is the fun in that?\" —Ballom, Master of Death",
     "rarity": "Super Rare",
     "illustrator": "Tsutomu Kawade",
     "imageAssetPath": "cards/dm01/dm01-s06.webp",
-    "imageUrl": "https://img.duelmasters.us/0006.webp"
+    "imageUrl": "https://img.duelmasters.us/0006.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S07",
@@ -3223,7 +3687,11 @@
     "rarity": "Super Rare",
     "illustrator": "Yusaku Nakaaki",
     "imageAssetPath": "cards/dm01/dm01-s07.webp",
-    "imageUrl": "https://img.duelmasters.us/0007.webp"
+    "imageUrl": "https://img.duelmasters.us/0007.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S08",
@@ -3241,7 +3709,7 @@
       "Armored Wyvern"
     ],
     "isShieldTrigger": false,
-    "isBlocker": true,
+    "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
     "powerAttackerBonus": 0,
@@ -3251,7 +3719,11 @@
     "rarity": "Super Rare",
     "illustrator": "Tomofumi Ogasawara",
     "imageAssetPath": "cards/dm01/dm01-s08.webp",
-    "imageUrl": "https://img.duelmasters.us/0008.webp"
+    "imageUrl": "https://img.duelmasters.us/0008.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S09",
@@ -3279,7 +3751,11 @@
     "rarity": "Super Rare",
     "illustrator": "Dustmoss",
     "imageAssetPath": "cards/dm01/dm01-s09.webp",
-    "imageUrl": "https://img.duelmasters.us/0009.webp"
+    "imageUrl": "https://img.duelmasters.us/0009.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   },
   {
     "id": "DM01-S10",
@@ -3307,6 +3783,10 @@
     "rarity": "Super Rare",
     "illustrator": "Ittoku",
     "imageAssetPath": "cards/dm01/dm01-s10.webp",
-    "imageUrl": "https://img.duelmasters.us/0010.webp"
+    "imageUrl": "https://img.duelmasters.us/0010.webp",
+    "isEvolution": false,
+    "isSurvivor": false,
+    "isCharger": false,
+    "isMultiCiv": false
   }
 ]
