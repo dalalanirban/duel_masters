@@ -21,6 +21,8 @@ export const DuelCard: React.FC<Props> = ({
 }) => {
   const isMaxCopies = deckCount >= 4;
   const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
+  const isMultiCiv = Boolean(card.isMultiCiv || card.civilizations.length > 1);
+  const isEvolution = Boolean(card.isEvolution || card.type === 'Evolution Creature');
 
   return (
     <div
@@ -30,26 +32,51 @@ export const DuelCard: React.FC<Props> = ({
       }`}
     >
       {/* Authentic Physical Card Image */}
-      <div className="relative w-full aspect-[491/682] rounded-xl overflow-hidden shadow-lg shadow-black/70 group-hover:shadow-2xl group-hover:shadow-amber-500/25 group-hover:-translate-y-1.5 transition-all duration-200 border border-slate-800/90 group-hover:border-amber-400/80 bg-slate-900">
-        <img
-          src={imageSrc}
-          alt={card.name}
-          loading="lazy"
-          className="w-full h-full object-contain"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (card.imageUrl && target.src !== card.imageUrl) {
-              target.src = card.imageUrl;
-            }
-          }}
-        />
+      <div
+        className={`relative w-full aspect-[491/682] rounded-xl overflow-hidden shadow-lg shadow-black/70 group-hover:shadow-2xl group-hover:shadow-amber-500/25 group-hover:-translate-y-1.5 transition-all duration-200 bg-slate-900 ${
+          isMultiCiv
+            ? 'p-[2px] bg-gradient-to-br from-amber-500 via-yellow-400 to-sky-500 shadow-amber-500/10'
+            : 'border border-slate-800/90 group-hover:border-amber-400/80'
+        }`}
+      >
+        <div className="relative w-full h-full rounded-[10px] overflow-hidden bg-slate-900">
+          <img
+            src={imageSrc}
+            alt={card.name}
+            loading="lazy"
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (card.imageUrl && target.src !== card.imageUrl) {
+                target.src = card.imageUrl;
+              }
+            }}
+          />
 
-        {/* In-Deck Count Overlay Badge in Top-Right */}
-        {deckCount > 0 && (
-          <div className="absolute top-2 right-2 bg-slate-950/90 border border-amber-400 text-amber-300 font-cinzel font-black text-xs px-2 py-0.5 rounded-md shadow-md backdrop-blur-sm">
-            x{deckCount}
-          </div>
-        )}
+          {/* Evolution Badge in Top-Left */}
+          {isEvolution && (
+            <div
+              className="absolute top-2 left-2 z-10 bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black text-[10px] tracking-wider px-2 py-0.5 rounded shadow-md border border-amber-300 font-cinzel"
+              title="Evolution Creature"
+            >
+              EVO
+            </div>
+          )}
+
+          {/* In-Deck Count Overlay Badge in Top-Right */}
+          {deckCount > 0 && (
+            <div className="absolute top-2 right-2 z-10 bg-slate-950/90 border border-amber-400 text-amber-300 font-cinzel font-black text-xs px-2 py-0.5 rounded-md shadow-md backdrop-blur-sm">
+              x{deckCount}
+            </div>
+          )}
+
+          {/* Card Set Badge in Bottom-Right */}
+          {card.set && (
+            <div className="absolute bottom-2 right-2 z-10 bg-slate-950/85 backdrop-blur-sm border border-slate-700/80 text-slate-300 font-mono text-[10px] px-1.5 py-0.5 rounded shadow">
+              {card.set}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Deck Controls Underneath Card */}

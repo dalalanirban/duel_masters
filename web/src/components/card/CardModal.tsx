@@ -1,5 +1,6 @@
 import React from 'react';
 import { CardDefinition } from '../../types/card';
+import { SETS } from '../../data/cardLoader';
 import { X, Plus, Minus, Info, Sparkles } from 'lucide-react';
 
 interface Props {
@@ -20,6 +21,19 @@ export const CardModal: React.FC<Props> = ({
   if (!card) return null;
 
   const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
+  const setDef = SETS.find(s => s.code === card.set || s.id === card.set);
+  const isEvolution = Boolean(card.isEvolution || card.type === 'Evolution Creature');
+  const isMultiCiv = Boolean(card.isMultiCiv || card.civilizations.length > 1);
+
+  // Determine evolution requirement text
+  const evoMatch = card.rulesText.match(/Evolution[—\-]([^\n\.]+)/i);
+  const evoRequirement = (card.evolutionRaces && card.evolutionRaces.length > 0)
+    ? `Put on one of your ${card.evolutionRaces.join(' or ')}.`
+    : evoMatch
+      ? `${evoMatch[1].trim()}.`
+      : (card.races && card.races.length > 0)
+        ? `Put on one of your ${card.races.join(' or ')}.`
+        : null;
 
   return (
     <div
@@ -59,12 +73,12 @@ export const CardModal: React.FC<Props> = ({
         {/* Extended Details & Lore Panel */}
         <div className="flex-1 flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700 font-bold">
                 {card.id}
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                {card.set} · #{card.collectorNumber}
+              <span className="text-xs text-slate-300 font-medium bg-slate-800/60 px-2 py-0.5 rounded border border-slate-700/60">
+                Set: <strong className="text-amber-300">{card.set}</strong>{setDef ? ` (${setDef.name})` : ''} · #{card.collectorNumber}
               </span>
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                 {card.rarity}
@@ -99,6 +113,67 @@ export const CardModal: React.FC<Props> = ({
                 </span>
               )}
             </div>
+
+            {/* Mechanic Badges */}
+            {(isEvolution || card.isSurvivor || card.isCharger || isMultiCiv || card.isShieldTrigger || card.isBlocker || card.isSlayer || card.isSpeedAttacker || card.breakerCount >= 2) && (
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {isEvolution && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
+                    ⚡ Evolution Creature
+                  </span>
+                )}
+                {card.isSurvivor && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-400/50">
+                    👥 Survivor
+                  </span>
+                )}
+                {card.isCharger && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/50">
+                    🔋 Charger
+                  </span>
+                )}
+                {isMultiCiv && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-gradient-to-r from-amber-500/20 to-sky-500/20 text-amber-200 border border-amber-400/50">
+                    🌐 Multi-Civilization
+                  </span>
+                )}
+                {card.isShieldTrigger && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    ⚡ Shield Trigger
+                  </span>
+                )}
+                {card.isBlocker && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                    🛡 Blocker
+                  </span>
+                )}
+                {card.isSlayer && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                    ☠ Slayer
+                  </span>
+                )}
+                {card.isSpeedAttacker && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30">
+                    💨 Speed Attacker
+                  </span>
+                )}
+                {card.breakerCount >= 2 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                    ⚔ {card.breakerCount}x Breaker
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Evolution Requirement Callout */}
+            {isEvolution && evoRequirement && (
+              <div className="mt-2.5 flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+                <span className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 whitespace-nowrap">
+                  Evolution Requirement
+                </span>
+                <span>{evoRequirement}</span>
+              </div>
+            )}
           </div>
 
           {/* Rules & Effects */}

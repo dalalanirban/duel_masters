@@ -1,8 +1,8 @@
 import React from 'react';
 import { Civilization, CardType } from '../../types/card';
-import { CardFilterOptions } from '../../data/cardLoader';
+import { CardFilterOptions, SETS } from '../../data/cardLoader';
 import { CivilizationIcon } from '../card/CivilizationIcon';
-import { Search, X, Zap, Shield, Swords, RotateCcw } from 'lucide-react';
+import { Search, X, Zap, Shield, Swords, RotateCcw, Sparkles, Users, BatteryCharging, Combine } from 'lucide-react';
 
 interface Props {
   filters: CardFilterOptions;
@@ -57,7 +57,20 @@ export const FilterBar: React.FC<Props> = ({
     });
   };
 
-  const toggleKeyword = (key: keyof CardFilterOptions) => {
+  const isKeywordActive = (kw: string) => (filters.keywords || []).includes(kw);
+
+  const toggleKeyword = (kw: string) => {
+    const current = filters.keywords || [];
+    const next = current.includes(kw)
+      ? current.filter(k => k !== kw)
+      : [...current, kw];
+    onChange({
+      ...filters,
+      keywords: next.length > 0 ? next : undefined
+    });
+  };
+
+  const toggleLegacyKeyword = (key: keyof CardFilterOptions) => {
     onChange({
       ...filters,
       [key]: !filters[key]
@@ -66,8 +79,10 @@ export const FilterBar: React.FC<Props> = ({
 
   const isFiltered =
     Boolean(filters.searchQuery) ||
+    Boolean(filters.set && filters.set !== 'all') ||
     Boolean(filters.civilizations && filters.civilizations.length > 0) ||
     Boolean(filters.cardTypes && filters.cardTypes.length > 0) ||
+    Boolean(filters.keywords && filters.keywords.length > 0) ||
     Boolean(filters.isShieldTrigger) ||
     Boolean(filters.isBlocker) ||
     Boolean(filters.isSlayer) ||
@@ -76,7 +91,7 @@ export const FilterBar: React.FC<Props> = ({
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-4">
-      {/* Row 1: Search & Sort */}
+      {/* Row 1: Search, Set Selector, & Sort */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         {/* Search Bar */}
         <div className="relative flex-1">
@@ -98,11 +113,25 @@ export const FilterBar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Sort Dropdown & Matches count */}
-        <div className="flex items-center gap-3">
+        {/* Set Selector, Sort Dropdown & Matches count */}
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-xs text-slate-400 whitespace-nowrap">
             Showing <strong className="text-amber-400 font-bold">{totalMatches}</strong> cards
           </div>
+
+          {/* Set / Expansion Dropdown */}
+          <select
+            value={filters.set || 'all'}
+            onChange={e => onChange({ ...filters, set: e.target.value === 'all' ? undefined : e.target.value })}
+            className="text-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+          >
+            <option value="all">All Sets (900 cards)</option>
+            {SETS.map(s => (
+              <option key={s.id} value={s.code}>
+                {s.code}: {s.name} ({s.cardCount} cards)
+              </option>
+            ))}
+          </select>
 
           <select
             value={filters.sortBy || 'id-asc'}
@@ -173,10 +202,61 @@ export const FilterBar: React.FC<Props> = ({
           })}
         </div>
 
-        {/* Combat Keyword Badges */}
+        {/* Combat & Mechanic Keyword Badges */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* Mechanic Badges */}
           <button
-            onClick={() => toggleKeyword('isShieldTrigger')}
+            type="button"
+            onClick={() => toggleKeyword('evolution')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+              isKeywordActive('evolution')
+                ? 'bg-yellow-500/20 border-yellow-400 text-yellow-300 font-bold shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 text-yellow-400" /> Evolution
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleKeyword('survivor')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+              isKeywordActive('survivor')
+                ? 'bg-teal-500/20 border-teal-400 text-teal-300 font-bold shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-3 h-3 text-teal-400" /> Survivor
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleKeyword('charger')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+              isKeywordActive('charger')
+                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <BatteryCharging className="w-3 h-3 text-cyan-400" /> Charger
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleKeyword('multi-civ')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+              isKeywordActive('multi-civ')
+                ? 'bg-gradient-to-r from-amber-500/20 to-sky-500/20 border-amber-400 text-amber-300 font-bold shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Combine className="w-3 h-3 text-amber-400" /> Multi-Civ
+          </button>
+
+          {/* Combat Keyword Badges */}
+          <button
+            type="button"
+            onClick={() => toggleLegacyKeyword('isShieldTrigger')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
               filters.isShieldTrigger
                 ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-sm'
@@ -187,7 +267,8 @@ export const FilterBar: React.FC<Props> = ({
           </button>
 
           <button
-            onClick={() => toggleKeyword('isBlocker')}
+            type="button"
+            onClick={() => toggleLegacyKeyword('isBlocker')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
               filters.isBlocker
                 ? 'bg-sky-500/20 border-sky-400 text-sky-300 font-bold shadow-sm'
@@ -198,7 +279,8 @@ export const FilterBar: React.FC<Props> = ({
           </button>
 
           <button
-            onClick={() => toggleKeyword('isSlayer')}
+            type="button"
+            onClick={() => toggleLegacyKeyword('isSlayer')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
               filters.isSlayer
                 ? 'bg-purple-500/20 border-purple-400 text-purple-300 font-bold shadow-sm'
@@ -209,7 +291,8 @@ export const FilterBar: React.FC<Props> = ({
           </button>
 
           <button
-            onClick={() => toggleKeyword('isDoubleBreaker')}
+            type="button"
+            onClick={() => toggleLegacyKeyword('isDoubleBreaker')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
               filters.isDoubleBreaker
                 ? 'bg-red-500/20 border-red-400 text-red-300 font-bold shadow-sm'
@@ -220,7 +303,8 @@ export const FilterBar: React.FC<Props> = ({
           </button>
 
           <button
-            onClick={() => toggleKeyword('isPowerAttacker')}
+            type="button"
+            onClick={() => toggleLegacyKeyword('isPowerAttacker')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
               filters.isPowerAttacker
                 ? 'bg-orange-500/20 border-orange-400 text-orange-300 font-bold shadow-sm'
