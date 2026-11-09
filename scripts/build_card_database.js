@@ -52,6 +52,97 @@ function cleanText(text) {
     .trim();
 }
 
+function checkBlocker(cardType, text) {
+  if (cardType === 'Spell') return false;
+  if (!/blocker/i.test(text)) return false;
+
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (/^\s*(?:[a-zA-Z\s]+)?blocker\b/i.test(line)) {
+      if (!/(?:destroy|return|tap|attack only|choose)\b[^\n]*blocker/i.test(line)) {
+        return true;
+      }
+    }
+  }
+
+  if (/(?:Survivor|Wave striker|Silent skill)[^\n:]*:\s*(?:[a-zA-Z\s]+)?blocker\b/i.test(text)) {
+    return true;
+  }
+
+  const textWithoutParens = text.replace(/\([^\)]*\)/g, '');
+  if ((/this creature (?:gets|has)\s+(?:[a-zA-Z0-9\+\s]*\band\s+has\s+)?[\"\']?(?:[a-zA-Z\s]+)?blocker\b/i.test(textWithoutParens) ||
+       /and has [\"\']?(?:[a-zA-Z\s]+)?blocker\b/i.test(textWithoutParens)) &&
+      !/(?:each of your other|creatures? that have?|opponent's creature)/i.test(textWithoutParens)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getBreakerCount(cardType, text) {
+  if (cardType === 'Spell') return 1;
+  const textWithoutParens = text.replace(/\([^\)]*\)/g, '');
+
+  if (/(?:^|\n|\.\s+|:\s*|\—\s*)triple breaker\b/i.test(textWithoutParens) ||
+      /this creature [^\n.]*\bhas\s+[\"\']?triple breaker/i.test(textWithoutParens)) {
+    return 3;
+  }
+
+  if (/(?:^|\n|\.\s+|:\s*|\—\s*)double breaker\b/i.test(textWithoutParens) ||
+      /this creature [^\n.]*\b(?:has|gets)\s+[\"\']?double breaker/i.test(textWithoutParens) ||
+      (/has\s+[\"\']?double breaker/i.test(textWithoutParens) && !/(?:one of your|each of your other)/i.test(textWithoutParens))) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function checkSlayer(cardType, text) {
+  if (cardType === 'Spell') return false;
+  if (!/slayer/i.test(text)) return false;
+
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (/^\s*(?:[a-zA-Z\s]+)?slayer\b/i.test(line)) {
+      return true;
+    }
+  }
+
+  if (/(?:Survivor|Wave striker|Silent skill)[^\n:]*:\s*(?:[a-zA-Z\s]+)?slayer\b/i.test(text)) {
+    return true;
+  }
+
+  const textWithoutParens = text.replace(/\([^\)]*\)/g, '');
+  if (/this creature gets "slayer"|Each creature in the battle zone has "slayer"/i.test(textWithoutParens)) {
+    return true;
+  }
+
+  return false;
+}
+
+function checkSpeedAttacker(cardType, text) {
+  if (cardType === 'Spell') return false;
+  if (!/speed attacker/i.test(text)) return false;
+
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (/^\s*(?:[a-zA-Z\s]+)?speed attacker\b/i.test(line)) {
+      return true;
+    }
+  }
+
+  if (/(?:Survivor|Wave striker|Silent skill)[^\n:]*:\s*(?:[a-zA-Z\s]+)?speed attacker\b/i.test(text)) {
+    return true;
+  }
+
+  const textWithoutParens = text.replace(/\([^\)]*\)/g, '');
+  if (/Each of your creatures in the battle zone has "speed attacker\."/i.test(textWithoutParens)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function buildDatabase() {
   console.log('--- Duel Masters Card Database Builder (DM-01 to DM-12) ---');
 
@@ -64,16 +155,24 @@ async function buildDatabase() {
   if (fs.existsSync(existingDm01Path)) {
     console.log('Loading existing DM-01 dataset...');
     const existing = JSON.parse(fs.readFileSync(existingDm01Path, 'utf8'));
-    dm01Cards = existing.map(c => ({
-      ...c,
-      name: cleanText(c.name),
-      rulesText: cleanText(c.rulesText),
-      flavorText: c.flavorText ? cleanText(c.flavorText) : null,
-      isEvolution: false,
-      isSurvivor: false,
-      isCharger: false,
-      isMultiCiv: false
-    }));
+    dm01Cards = existing.map(c => {
+      const cardType = c.type;
+      const text = cleanText(c.rulesText || '');
+      return {
+        ...c,
+        name: cleanText(c.name),
+        rulesText: text,
+        flavorText: c.flavorText ? cleanText(c.flavorText) : null,
+        isEvolution: false,
+        isSurvivor: false,
+        isCharger: false,
+        isMultiCiv: false,
+        isBlocker: checkBlocker(cardType, text),
+        breakerCount: getBreakerCount(cardType, text),
+        isSlayer: checkSlayer(cardType, text),
+        isSpeedAttacker: checkSpeedAttacker(cardType, text)
+      };
+    });
   } else {
     throw new Error('data/cards/dm01.json must exist to preserve canonical DM-01 data!');
   }
@@ -129,19 +228,21 @@ async function buildDatabase() {
         const cardName = cleanText(card.name);
 
         const isShieldTrigger = /shield trigger/i.test(text);
-        const isBlocker = /blocker\b/i.test(text);
-        const isSlayer = /slayer\b/i.test(text);
-        const isSpeedAttacker = /speed attacker/i.test(text);
-        const isEvolution = Boolean((card.type && card.type.includes('Evolution')) || /evolution/i.test(text));
-        const isSurvivor = Boolean(/survivor/i.test(text) || (card.subtypes && card.subtypes.includes('Survivor')));
-        const isCharger = Boolean(/charger\b/i.test(cardName) || /charger\b/i.test(text));
 
         let cardType = 'Creature';
         if (card.type === 'Spell') {
           cardType = 'Spell';
-        } else if (isEvolution) {
+        } else if ((card.type && card.type.includes('Evolution')) || /evolution/i.test(text)) {
           cardType = 'Evolution Creature';
         }
+
+        // Spells must never be Evolution creatures
+        const isEvolution = cardType === 'Evolution Creature';
+        const isBlocker = checkBlocker(cardType, text);
+        const isSlayer = checkSlayer(cardType, text);
+        const isSpeedAttacker = checkSpeedAttacker(cardType, text);
+        const isSurvivor = Boolean(/survivor/i.test(text) || (card.subtypes && card.subtypes.includes('Survivor')));
+        const isCharger = Boolean(/charger\b/i.test(cardName) || /charger\b/i.test(text));
 
         let power = null;
         if (cardType !== 'Spell' && card.power !== undefined && card.power !== null) {
@@ -151,12 +252,7 @@ async function buildDatabase() {
         const paMatch = text.match(/power attacker\s*(\+\d+)/i) || text.match(/(\+\d+)\s*power attacker/i);
         const powerAttackerBonus = paMatch ? parseInt(paMatch[1].replace('+', ''), 10) : 0;
 
-        let breakerCount = 1;
-        if (/triple breaker/i.test(text)) {
-          breakerCount = 3;
-        } else if (/double breaker/i.test(text)) {
-          breakerCount = 2;
-        }
+        const breakerCount = getBreakerCount(cardType, text);
 
         // Image URL mapping: Super Rares first, then regular cards
         const offset = setOffsets[set.id];
