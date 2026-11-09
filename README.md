@@ -60,6 +60,7 @@ The server starts on `http://localhost:8080` by default.
 ## Documentation
 
 - [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md)
+- [Card Sets Knowledge & Database Roadmap](docs/CARD_SETS_AND_DATABASE_ROADMAP.md)
 - [Architecture & Setup Notes](docs/architecture.md)
 
 ## Development roadmap
