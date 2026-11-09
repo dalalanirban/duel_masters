@@ -25,8 +25,12 @@ export interface CardDefinition {
   flavorText: string | null;
   rarity: Rarity;
   illustrator: string | null;
-  imageAssetPath: string;
+  imageAssetPath: string | null;
   imageUrl: string;
+  isEvolution?: boolean;
+  isSurvivor?: boolean;
+  isCharger?: boolean;
+  isMultiCiv?: boolean;
 }
 
 export interface DeckItem {
