@@ -1547,7 +1547,7 @@
     "civilizations": [
       "Nature"
     ],
-    "type": "Evolution Creature",
+    "type": "Creature",
     "manaCost": 4,
     "manaNumber": 1,
     "power": 1000,
@@ -1558,7 +1558,7 @@
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
-    "isEvolution": true,
+    "isEvolution": false,
     "isSurvivor": false,
     "isCharger": false,
     "isMultiCiv": false,

@@ -37,7 +37,7 @@
     "civilizations": [
       "Light"
     ],
-    "type": "Evolution Creature",
+    "type": "Creature",
     "manaCost": 5,
     "manaNumber": 1,
     "power": 4000,
@@ -48,7 +48,7 @@
     "isBlocker": true,
     "isSlayer": false,
     "isSpeedAttacker": false,
-    "isEvolution": true,
+    "isEvolution": false,
     "isSurvivor": false,
     "isCharger": false,
     "isMultiCiv": false,
@@ -3231,7 +3231,7 @@
     "civilizations": [
       "Nature"
     ],
-    "type": "Evolution Creature",
+    "type": "Creature",
     "manaCost": 4,
     "manaNumber": 1,
     "power": 1000,
@@ -3242,7 +3242,7 @@
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
-    "isEvolution": true,
+    "isEvolution": false,
     "isSurvivor": false,
     "isCharger": false,
     "isMultiCiv": false,

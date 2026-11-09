@@ -232,7 +232,11 @@ async function buildDatabase() {
         let cardType = 'Creature';
         if (card.type === 'Spell') {
           cardType = 'Spell';
-        } else if ((card.type && card.type.includes('Evolution')) || /evolution/i.test(text)) {
+        } else if (
+          (card.type && card.type.includes('Evolution')) ||
+          /evolution\s*(?:—|-|–)\s*put on/i.test(text) ||
+          /vortex evolution/i.test(text)
+        ) {
           cardType = 'Evolution Creature';
         }
 
