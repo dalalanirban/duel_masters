@@ -1,11 +1,12 @@
 import React from 'react';
 import { CardDefinition } from '../../types/card';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 
 interface Props {
   card: CardDefinition;
   deckCount?: number;
   onAdd?: (card: CardDefinition) => void;
+  onRemove?: (card: CardDefinition) => void;
   onClick?: (card: CardDefinition) => void;
   compact?: boolean;
 }
@@ -14,6 +15,7 @@ export const DuelCard: React.FC<Props> = ({
   card,
   deckCount = 0,
   onAdd,
+  onRemove,
   onClick,
   compact = false
 }) => {
@@ -50,37 +52,58 @@ export const DuelCard: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Quick Add Button Underneath Card */}
-      {onAdd && !compact && (
+      {/* Deck Controls Underneath Card */}
+      {!compact && (
         <div className="w-full mt-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => {
-              if (!isMaxCopies) onAdd(card);
-            }}
-            disabled={isMaxCopies}
-            className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-bold text-xs transition-all shadow-sm ${
-              isMaxCopies
-                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30 cursor-not-allowed'
-                : deckCount > 0
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                : 'bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-700'
-            }`}
-            title={isMaxCopies ? 'Maximum 4 copies reached' : 'Add to Deck'}
-          >
-            {isMaxCopies ? (
-              <>MAX (4)</>
-            ) : deckCount > 0 ? (
-              <>
-                <Check className="w-3.5 h-3.5" /> Added ({deckCount})
-              </>
-            ) : (
-              <>
-                <Plus className="w-3.5 h-3.5" /> Add to Deck
-              </>
-            )}
-          </button>
+          {deckCount === 0 ? (
+            /* 1. Not in deck yet: Show '+ Add to Deck' */
+            <button
+              onClick={() => onAdd?.(card)}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-bold text-xs bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-700 transition-all shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add to Deck
+            </button>
+          ) : isMaxCopies ? (
+            /* 2. Reached MAX permitted copies (4): Show '-' button only */
+            <div className="flex items-center justify-between w-full bg-slate-900/90 border border-amber-500/40 rounded-lg p-0.5 shadow-sm">
+              <button
+                onClick={() => onRemove?.(card)}
+                className="p-1.5 rounded-md bg-slate-800 hover:bg-red-950/80 hover:text-red-300 text-slate-300 transition-colors"
+                title="Remove 1 copy"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="font-mono font-bold text-xs text-amber-400 px-3 flex-1 text-center">
+                MAX (4)
+              </span>
+            </div>
+          ) : (
+            /* 3. Already added (1 to 3 copies): Show both '-' and '+' buttons */
+            <div className="flex items-center justify-between w-full bg-slate-900/90 border border-emerald-500/50 rounded-lg p-0.5 shadow-sm">
+              <button
+                onClick={() => onRemove?.(card)}
+                className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                title="Remove 1 copy"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="font-mono font-bold text-xs text-emerald-400 px-2 flex-1 text-center">
+                {deckCount} in deck
+              </span>
+
+              <button
+                onClick={() => onAdd?.(card)}
+                className="p-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm"
+                title="Add another copy"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+

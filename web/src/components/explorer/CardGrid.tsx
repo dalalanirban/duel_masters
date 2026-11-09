@@ -7,6 +7,7 @@ interface Props {
   cards: CardDefinition[];
   getDeckCount: (cardId: string) => number;
   onAdd: (card: CardDefinition) => void;
+  onRemove: (card: CardDefinition) => void;
   onInspect: (card: CardDefinition) => void;
   onResetFilters: () => void;
 }
@@ -15,6 +16,7 @@ export const CardGrid: React.FC<Props> = ({
   cards,
   getDeckCount,
   onAdd,
+  onRemove,
   onInspect,
   onResetFilters
 }) => {
@@ -44,6 +46,7 @@ export const CardGrid: React.FC<Props> = ({
           card={card}
           deckCount={getDeckCount(card.id)}
           onAdd={onAdd}
+          onRemove={onRemove}
           onClick={onInspect}
         />
       ))}

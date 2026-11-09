@@ -111,6 +111,7 @@ export const App: React.FC = () => {
               cards={displayedCards}
               getDeckCount={getCardCountInDeck}
               onAdd={addCard}
+              onRemove={removeCard}
               onInspect={setInspectedCard}
               onResetFilters={resetFilters}
             />
