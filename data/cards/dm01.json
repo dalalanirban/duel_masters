@@ -1,0 +1,3192 @@
+[
+  {
+    "id": "DM01-001",
+    "name": "Chilias, the Oracle",
+    "set": "DM-01",
+    "collectorNumber": "1",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 2500,
+    "races": [
+      "Light Bringer"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, put it into your hand instead.",
+    "flavorText": "The shining towers in the sky exist to protect the oracles.",
+    "rarity": "Rare",
+    "illustrator": "Akira Hamada",
+    "imageAssetPath": "cards/dm01/dm01-001.webp"
+  },
+  {
+    "id": "DM01-002",
+    "name": "Dia Nork, Moonlight Guardian",
+    "set": "DM-01",
+    "collectorNumber": "2",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Guardian"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": "Flying is the greatest taboo of any race that has encountered the Guardians.",
+    "rarity": "Rare",
+    "illustrator": "Tomofumi Ogasawara",
+    "imageAssetPath": "cards/dm01/dm01-002.webp"
+  },
+  {
+    "id": "DM01-003",
+    "name": "Emerald Grass",
+    "set": "DM-01",
+    "collectorNumber": "3",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Starlight Tree"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Daisuke Izuka",
+    "imageAssetPath": "cards/dm01/dm01-003.webp"
+  },
+  {
+    "id": "DM01-004",
+    "name": "Frei, Vizier of Air",
+    "set": "DM-01",
+    "collectorNumber": "4",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Initiate"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "At the end of each of your turns, you may untap this creature.",
+    "flavorText": "\"Vizier of Air, arise. Your fingers are sacred swords.\" â€”Hanusa, Radiance Elemental",
+    "rarity": "Uncommon",
+    "illustrator": "Yusaku Nakaaki",
+    "imageAssetPath": "cards/dm01/dm01-004.webp"
+  },
+  {
+    "id": "DM01-005",
+    "name": "Gran Gure, Space Guardian",
+    "set": "DM-01",
+    "collectorNumber": "5",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 9000,
+    "races": [
+      "Guardian"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": "Those who defile the Sky Castle are doomed, for they shall know the wrath of the Guardians.",
+    "rarity": "Very Rare",
+    "illustrator": "D-Suzuki",
+    "imageAssetPath": "cards/dm01/dm01-005.webp"
+  },
+  {
+    "id": "DM01-006",
+    "name": "Holy Awe",
+    "set": "DM-01",
+    "collectorNumber": "6",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Spell",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nTap all your opponent's creatures in the battle zone.",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-006.webp"
+  },
+  {
+    "id": "DM01-007",
+    "name": "Iere, Vizier of Bullets",
+    "set": "DM-01",
+    "collectorNumber": "7",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Initiate"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "\"Vizier of Bullets, arise. Your will is an arrow that never misses the target.\" â€”Hanusa, Radiance Elemental",
+    "rarity": "Common",
+    "illustrator": "Akira Hamada",
+    "imageAssetPath": "cards/dm01/dm01-007.webp"
+  },
+  {
+    "id": "DM01-008",
+    "name": "Iocant, the Oracle",
+    "set": "DM-01",
+    "collectorNumber": "8",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Light Bringer"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nWhile you have at least 1 Angel Command in the battle zone, this creature gets +2000 power.\nThis creature can't attack players.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-008.webp"
+  },
+  {
+    "id": "DM01-009",
+    "name": "La Ura Giga, Sky Guardian",
+    "set": "DM-01",
+    "collectorNumber": "9",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Guardian"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": "To protect their floating cities, Guardians are gifted with shining wings.",
+    "rarity": "Common",
+    "illustrator": "Kou1",
+    "imageAssetPath": "cards/dm01/dm01-009.webp"
+  },
+  {
+    "id": "DM01-010",
+    "name": "Lah, Purification Enforcer",
+    "set": "DM-01",
+    "collectorNumber": "10",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 5500,
+    "races": [
+      "Berserker"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "Those who have seen this Enforcer believe that eclipses are omens of disaster.",
+    "rarity": "Rare",
+    "illustrator": "Hideaki Takamura",
+    "imageAssetPath": "cards/dm01/dm01-010.webp"
+  },
+  {
+    "id": "DM01-011",
+    "name": "Laser Wing",
+    "set": "DM-01",
+    "collectorNumber": "11",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Spell",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose up to 2 of your creatures in the battle zone. They can't be blocked this turn.",
+    "flavorText": "This is light speed.",
+    "rarity": "Rare",
+    "illustrator": "Gyokan",
+    "imageAssetPath": "cards/dm01/dm01-011.webp"
+  },
+  {
+    "id": "DM01-012",
+    "name": "Lok, Vizier of Hunting",
+    "set": "DM-01",
+    "collectorNumber": "12",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Initiate"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "\"Vizier of Hunting, arise. Your words are arrows of light.\" â€”Hanusa, Radiance Elemental",
+    "rarity": "Uncommon",
+    "illustrator": "Hisanobu Kometani",
+    "imageAssetPath": "cards/dm01/dm01-012.webp"
+  },
+  {
+    "id": "DM01-013",
+    "name": "Miele, Vizier of Lightning",
+    "set": "DM-01",
+    "collectorNumber": "13",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Initiate"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may choose 1 of your opponent's creatures in the battle zone and tap it.",
+    "flavorText": "\"Vizier of Lightning, arise. Your eyes are a bow of judgment.\" â€”Hanusa, Radiance Elemental",
+    "rarity": "Common",
+    "illustrator": "Dai",
+    "imageAssetPath": "cards/dm01/dm01-013.webp"
+  },
+  {
+    "id": "DM01-014",
+    "name": "Moonlight Flash",
+    "set": "DM-01",
+    "collectorNumber": "14",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Spell",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose up to 2 of your opponent's creatures in the battle zone and tap them.",
+    "flavorText": "Cower before the purity of the Angel Commands!",
+    "rarity": "Uncommon",
+    "illustrator": "Hisanobu Kometani",
+    "imageAssetPath": "cards/dm01/dm01-014.webp"
+  },
+  {
+    "id": "DM01-015",
+    "name": "Rayla, Truth Enforcer",
+    "set": "DM-01",
+    "collectorNumber": "15",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Berserker"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, search your deck. You may take a spell from your deck, show that spell to your opponent, and put it into your hand. Then shuffle your deck.",
+    "flavorText": "The Enforcers deliver the oracles' words, which bear the power of truth.",
+    "rarity": "Very Rare",
+    "illustrator": "Dai",
+    "imageAssetPath": "cards/dm01/dm01-015.webp"
+  },
+  {
+    "id": "DM01-016",
+    "name": "Reusol, the Oracle",
+    "set": "DM-01",
+    "collectorNumber": "16",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Light Bringer"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "Soul and light enmeshed in a web of glory.",
+    "rarity": "Common",
+    "illustrator": "Soushi Hirose",
+    "imageAssetPath": "cards/dm01/dm01-016.webp"
+  },
+  {
+    "id": "DM01-017",
+    "name": "Ruby Grass",
+    "set": "DM-01",
+    "collectorNumber": "17",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Starlight Tree"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.\nAt the end of each of your turns, you may untap this creature.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-017.webp"
+  },
+  {
+    "id": "DM01-018",
+    "name": "Senatine Jade Tree",
+    "set": "DM-01",
+    "collectorNumber": "18",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Starlight Tree"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": "Floating trees in the sky generate beautiful light from poisoned air.",
+    "rarity": "Common",
+    "illustrator": "Norikatsu Miyoshi",
+    "imageAssetPath": "cards/dm01/dm01-018.webp"
+  },
+  {
+    "id": "DM01-019",
+    "name": "Solar Ray",
+    "set": "DM-01",
+    "collectorNumber": "19",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nChoose 1 of your opponent's creatures in the battle zone and tap it.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Jason",
+    "imageAssetPath": "cards/dm01/dm01-019.webp"
+  },
+  {
+    "id": "DM01-020",
+    "name": "Sonic Wing",
+    "set": "DM-01",
+    "collectorNumber": "20",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Spell",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose 1 of your creatures in the battle zone. It can't be blocked this turn.",
+    "flavorText": "\"Can't catch me!\"",
+    "rarity": "Common",
+    "illustrator": "Masaki Hirooka",
+    "imageAssetPath": "cards/dm01/dm01-020.webp"
+  },
+  {
+    "id": "DM01-021",
+    "name": "Szubs Kin, Twilight Guardian",
+    "set": "DM-01",
+    "collectorNumber": "21",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Guardian"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack players.",
+    "flavorText": "Those who dwell in the sky towers eradicate all intruders.",
+    "rarity": "Rare",
+    "illustrator": "Ittoku",
+    "imageAssetPath": "cards/dm01/dm01-021.webp"
+  },
+  {
+    "id": "DM01-022",
+    "name": "Toel, Vizier of Hope",
+    "set": "DM-01",
+    "collectorNumber": "22",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Initiate"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "At the end of each of your turns, you may untap all your creatures in the battle zone.",
+    "flavorText": "\"Vizier of Hope, arise. Your singing voice is a breeze of dawn.\" â€”Hanusa, Radiance Elemental",
+    "rarity": "Uncommon",
+    "illustrator": "Masaki Hirooka",
+    "imageAssetPath": "cards/dm01/dm01-022.webp"
+  },
+  {
+    "id": "DM01-023",
+    "name": "Aqua Hulcus",
+    "set": "DM-01",
+    "collectorNumber": "23",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Liquid People"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may draw a card.",
+    "flavorText": "Liquid People freely control liquid. For them, water is armor and shield.",
+    "rarity": "Common",
+    "illustrator": "Eiji Kaneda",
+    "imageAssetPath": "cards/dm01/dm01-023.webp"
+  },
+  {
+    "id": "DM01-024",
+    "name": "Aqua Knight",
+    "set": "DM-01",
+    "collectorNumber": "24",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Liquid People"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, return it to your hand instead.",
+    "flavorText": "Like a whirlpool, it never seems to end.",
+    "rarity": "Rare",
+    "illustrator": "D-Suzuki",
+    "imageAssetPath": "cards/dm01/dm01-024.webp"
+  },
+  {
+    "id": "DM01-025",
+    "name": "Aqua Soldier",
+    "set": "DM-01",
+    "collectorNumber": "25",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Liquid People"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, return it to your hand instead.",
+    "flavorText": "\"What a spirit for such a skinny little thing.\" â€”Brawler Zyler",
+    "rarity": "Uncommon",
+    "illustrator": "Jason",
+    "imageAssetPath": "cards/dm01/dm01-025.webp"
+  },
+  {
+    "id": "DM01-026",
+    "name": "Aqua Vehicle",
+    "set": "DM-01",
+    "collectorNumber": "26",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Liquid People"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "The chip implanted in its head lets the Cyber Lords control its brain waves.",
+    "rarity": "Common",
+    "illustrator": "Atsushi Kawasaki",
+    "imageAssetPath": "cards/dm01/dm01-026.webp"
+  },
+  {
+    "id": "DM01-027",
+    "name": "Brain Serum",
+    "set": "DM-01",
+    "collectorNumber": "27",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Spell",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nDraw up to 2 cards.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Dreamwave",
+    "imageAssetPath": "cards/dm01/dm01-027.webp"
+  },
+  {
+    "id": "DM01-028",
+    "name": "Candy Drop",
+    "set": "DM-01",
+    "collectorNumber": "28",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Cyber Virus"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't be blocked.",
+    "flavorText": "No mouth. Big bite.",
+    "rarity": "Common",
+    "illustrator": "Gyokan",
+    "imageAssetPath": "cards/dm01/dm01-028.webp"
+  },
+  {
+    "id": "DM01-029",
+    "name": "Crystal Memory",
+    "set": "DM-01",
+    "collectorNumber": "29",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Spell",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nSearch your deck. You may take a card from your deck and put it into your hand. Then shuffle your deck.",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Ryoya Yuki",
+    "imageAssetPath": "cards/dm01/dm01-029.webp"
+  },
+  {
+    "id": "DM01-030",
+    "name": "Faerie Child",
+    "set": "DM-01",
+    "collectorNumber": "30",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Cyber Virus"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't be blocked.",
+    "flavorText": "A school of teeny, tiny points of light. Stopping them all is impossible.",
+    "rarity": "Uncommon",
+    "illustrator": "Hisanobu Kometani",
+    "imageAssetPath": "cards/dm01/dm01-030.webp"
+  },
+  {
+    "id": "DM01-031",
+    "name": "Hunter Fish",
+    "set": "DM-01",
+    "collectorNumber": "31",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.",
+    "flavorText": "It lies in wait, hidden in coral reefs, lashing out ferociously when it senses prey.",
+    "rarity": "Common",
+    "illustrator": "Masateru Ikeda",
+    "imageAssetPath": "cards/dm01/dm01-031.webp"
+  },
+  {
+    "id": "DM01-032",
+    "name": "Illusionary Merfolk",
+    "set": "DM-01",
+    "collectorNumber": "32",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Gel Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, if you have a Cyber Lord in the battle zone, draw up to 3 cards.",
+    "flavorText": "The Cyber Lords' devotion to beauty is so extreme, they even designed their warrior race to have a pleasant appearance.",
+    "rarity": "Uncommon",
+    "illustrator": "Kou1",
+    "imageAssetPath": "cards/dm01/dm01-032.webp"
+  },
+  {
+    "id": "DM01-033",
+    "name": "King Coral",
+    "set": "DM-01",
+    "collectorNumber": "33",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Leviathan"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)",
+    "flavorText": "Leviathans mature slowly, eventually growing to become the largest creatures in the world.",
+    "rarity": "Uncommon",
+    "illustrator": "Hideaki Takamura",
+    "imageAssetPath": "cards/dm01/dm01-033.webp"
+  },
+  {
+    "id": "DM01-034",
+    "name": "King Ripped-Hide",
+    "set": "DM-01",
+    "collectorNumber": "34",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Leviathan"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, draw up to 2 cards.",
+    "flavorText": "Long ago, the Cyber Lords built a city on his back.",
+    "rarity": "Very Rare",
+    "illustrator": "Miho Midorikawa",
+    "imageAssetPath": "cards/dm01/dm01-034.webp"
+  },
+  {
+    "id": "DM01-035",
+    "name": "Marine Flower",
+    "set": "DM-01",
+    "collectorNumber": "35",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Cyber Virus"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.",
+    "flavorText": "It blooms in the ocean depths, far from any light.",
+    "rarity": "Common",
+    "illustrator": "Hikaru Ikusa",
+    "imageAssetPath": "cards/dm01/dm01-035.webp"
+  },
+  {
+    "id": "DM01-036",
+    "name": "Phantom Fish",
+    "set": "DM-01",
+    "collectorNumber": "36",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Gel Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Ittoku",
+    "imageAssetPath": "cards/dm01/dm01-036.webp"
+  },
+  {
+    "id": "DM01-037",
+    "name": "Revolver Fish",
+    "set": "DM-01",
+    "collectorNumber": "37",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Gel Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-037.webp"
+  },
+  {
+    "id": "DM01-038",
+    "name": "Saucer-Head Shark",
+    "set": "DM-01",
+    "collectorNumber": "38",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Gel Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, return each creature in the battle zone that has power 2000 or less to its owner's hand.",
+    "flavorText": "\"Isn't it cool? The heads can be combined.\" â€”Tropico",
+    "rarity": "Rare",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-038.webp"
+  },
+  {
+    "id": "DM01-039",
+    "name": "Seamine",
+    "set": "DM-01",
+    "collectorNumber": "39",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)",
+    "flavorText": "If the last thing in your life you want to see is something beautiful, attack an underwater city.",
+    "rarity": "Very Rare",
+    "illustrator": "Tomofumi Ogasawara",
+    "imageAssetPath": "cards/dm01/dm01-039.webp"
+  },
+  {
+    "id": "DM01-040",
+    "name": "Spiral Gate",
+    "set": "DM-01",
+    "collectorNumber": "40",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nChoose a creature in the battle zone and return it to its owner's hand.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Tomofumi Ogasawara",
+    "imageAssetPath": "cards/dm01/dm01-040.webp"
+  },
+  {
+    "id": "DM01-041",
+    "name": "Teleportation",
+    "set": "DM-01",
+    "collectorNumber": "41",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Spell",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose up to 2 creatures in the battle zone and return them to their owners' hands.",
+    "flavorText": "\"Start all over from your previous life!\" â€”Crystal Lancer",
+    "rarity": "Rare",
+    "illustrator": "Akifumi Yamamoto",
+    "imageAssetPath": "cards/dm01/dm01-041.webp"
+  },
+  {
+    "id": "DM01-042",
+    "name": "Tropico",
+    "set": "DM-01",
+    "collectorNumber": "42",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Cyber Lord"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't be blocked while you have at least 2 other creatures in the battle zone.",
+    "flavorText": "\"I will lead you into battle.\"",
+    "rarity": "Rare",
+    "illustrator": "Jason",
+    "imageAssetPath": "cards/dm01/dm01-042.webp"
+  },
+  {
+    "id": "DM01-043",
+    "name": "Unicorn Fish",
+    "set": "DM-01",
+    "collectorNumber": "43",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Fish"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may choose 1 creature in the battle zone and return it to its owner's hand.",
+    "flavorText": "It attacks anything that enters its territory, even Leviathans.",
+    "rarity": "Rare",
+    "illustrator": "Hisanobu Kometani",
+    "imageAssetPath": "cards/dm01/dm01-043.webp"
+  },
+  {
+    "id": "DM01-044",
+    "name": "Virtual Tripwire",
+    "set": "DM-01",
+    "collectorNumber": "44",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Spell",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose 1 of your opponent's creatures in the battle zone and tap it.",
+    "flavorText": "It will stay until it dies.",
+    "rarity": "Common",
+    "illustrator": "Akifumi Yamamoto",
+    "imageAssetPath": "cards/dm01/dm01-044.webp"
+  },
+  {
+    "id": "DM01-045",
+    "name": "Black Feather, Shadow of Rage",
+    "set": "DM-01",
+    "collectorNumber": "45",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Ghost"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, destroy 1 of your creatures.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Soushi Hirose",
+    "imageAssetPath": "cards/dm01/dm01-045.webp"
+  },
+  {
+    "id": "DM01-046",
+    "name": "Bloody Squito",
+    "set": "DM-01",
+    "collectorNumber": "46",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Brain Jacker"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.\nWhen this creature wins a battle, destroy it.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Atsushi Kawasaki",
+    "imageAssetPath": "cards/dm01/dm01-046.webp"
+  },
+  {
+    "id": "DM01-047",
+    "name": "Bone Assassin, the Ripper",
+    "set": "DM-01",
+    "collectorNumber": "47",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Living Dead"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": true,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Slayer (When this creature loses a battle, destroy the other creature.)",
+    "flavorText": "Commanders send them to the front line. It's too dangerous to have them close.",
+    "rarity": "Common",
+    "illustrator": "Nottsuo",
+    "imageAssetPath": "cards/dm01/dm01-047.webp"
+  },
+  {
+    "id": "DM01-048",
+    "name": "Bone Spider",
+    "set": "DM-01",
+    "collectorNumber": "48",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Living Dead"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature wins a battle, destroy it.",
+    "flavorText": "They can wait forever, for they know they will not die alone.",
+    "rarity": "Uncommon",
+    "illustrator": "Dai",
+    "imageAssetPath": "cards/dm01/dm01-048.webp"
+  },
+  {
+    "id": "DM01-049",
+    "name": "Creeping Plague",
+    "set": "DM-01",
+    "collectorNumber": "49",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Spell",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": true,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Whenever any of your creatures becomes blocked this turn, it gets \"slayer\" until the end of the turn. (When a creature that has \"slayer\" loses a battle, destroy the other creature.)",
+    "flavorText": "Witness the power of the Dark!",
+    "rarity": "Rare",
+    "illustrator": "Ryoya Yuki",
+    "imageAssetPath": "cards/dm01/dm01-049.webp"
+  },
+  {
+    "id": "DM01-050",
+    "name": "Dark Clown",
+    "set": "DM-01",
+    "collectorNumber": "50",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Brain Jacker"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.\nWhen this creature wins a battle, destroy it.",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Jason",
+    "imageAssetPath": "cards/dm01/dm01-050.webp"
+  },
+  {
+    "id": "DM01-051",
+    "name": "Dark Raven, Shadow of Grief",
+    "set": "DM-01",
+    "collectorNumber": "51",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Ghost"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)",
+    "flavorText": "If you've ever thought there was something hiding in the dark, you were right.",
+    "rarity": "Uncommon",
+    "illustrator": "Norikatsu Miyoshi",
+    "imageAssetPath": "cards/dm01/dm01-051.webp"
+  },
+  {
+    "id": "DM01-052",
+    "name": "Dark Reversal",
+    "set": "DM-01",
+    "collectorNumber": "52",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nReturn a creature from your graveyard to your hand.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Nottsuo",
+    "imageAssetPath": "cards/dm01/dm01-052.webp"
+  },
+  {
+    "id": "DM01-053",
+    "name": "Death Smoke",
+    "set": "DM-01",
+    "collectorNumber": "53",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Spell",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Destroy one of your opponent's untapped creatures.",
+    "flavorText": "Savor the taste of fear!",
+    "rarity": "Common",
+    "illustrator": "Dustmoss",
+    "imageAssetPath": "cards/dm01/dm01-053.webp"
+  },
+  {
+    "id": "DM01-054",
+    "name": "Ghost Touch",
+    "set": "DM-01",
+    "collectorNumber": "54",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nYour opponent discards a card at random from his hand.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Soushi Hirose",
+    "imageAssetPath": "cards/dm01/dm01-054.webp"
+  },
+  {
+    "id": "DM01-055",
+    "name": "Gigaberos",
+    "set": "DM-01",
+    "collectorNumber": "55",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 8000,
+    "races": [
+      "Chimera"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "When you put this creature into the battle zone, destroy 2 of your other creatures or destroy this creature.\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Katsuya",
+    "imageAssetPath": "cards/dm01/dm01-055.webp"
+  },
+  {
+    "id": "DM01-056",
+    "name": "Gigagiele",
+    "set": "DM-01",
+    "collectorNumber": "56",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Chimera"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": true,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Slayer (When this creature loses a battle, destroy the other creature.)",
+    "flavorText": "By assembling parts of different magical beasts, the Dark Lords created a nightmare.",
+    "rarity": "Rare",
+    "illustrator": "Hisashi Momose",
+    "imageAssetPath": "cards/dm01/dm01-056.webp"
+  },
+  {
+    "id": "DM01-057",
+    "name": "Gigargon",
+    "set": "DM-01",
+    "collectorNumber": "57",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 8,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Chimera"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, return up to 2 creatures from your graveyard to your hand.",
+    "flavorText": "There is no rest in the Dark Realm, even after death.",
+    "rarity": "Very Rare",
+    "illustrator": "Tsutomu Kawade",
+    "imageAssetPath": "cards/dm01/dm01-057.webp"
+  },
+  {
+    "id": "DM01-058",
+    "name": "Masked Horror, Shadow of Scorn",
+    "set": "DM-01",
+    "collectorNumber": "58",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Ghost"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, your opponent discards a card at random from his hand.",
+    "flavorText": "Seeking to live forever, they left their bodies behind.",
+    "rarity": "Uncommon",
+    "illustrator": "Gyokan",
+    "imageAssetPath": "cards/dm01/dm01-058.webp"
+  },
+  {
+    "id": "DM01-059",
+    "name": "Night Master, Shadow of Decay",
+    "set": "DM-01",
+    "collectorNumber": "59",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Ghost"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)",
+    "flavorText": "Don't turn around. You wouldn't want to see what's behind you.",
+    "rarity": "Rare",
+    "illustrator": "Hideaki Takamura",
+    "imageAssetPath": "cards/dm01/dm01-059.webp"
+  },
+  {
+    "id": "DM01-060",
+    "name": "Skeleton Soldier, the Defiled",
+    "set": "DM-01",
+    "collectorNumber": "60",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Living Dead"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "\"Rip. Tear. Gnash. They all make the same delightful noises.\"",
+    "rarity": "Common",
+    "illustrator": "Katsuya",
+    "imageAssetPath": "cards/dm01/dm01-060.webp"
+  },
+  {
+    "id": "DM01-061",
+    "name": "Stinger Worm",
+    "set": "DM-01",
+    "collectorNumber": "61",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Parasite Worm"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, destroy 1 of your creatures.",
+    "flavorText": "When worms kill a creature, they can still make it move.",
+    "rarity": "Uncommon",
+    "illustrator": "Norikatsu Miyoshi",
+    "imageAssetPath": "cards/dm01/dm01-061.webp"
+  },
+  {
+    "id": "DM01-062",
+    "name": "Swamp Worm",
+    "set": "DM-01",
+    "collectorNumber": "62",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Parasite Worm"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, your opponent chooses 1 of his creatures and destroys it.",
+    "flavorText": "Flesh is its food. Bones are its toothpicks.",
+    "rarity": "Uncommon",
+    "illustrator": "Youichi Kai",
+    "imageAssetPath": "cards/dm01/dm01-062.webp"
+  },
+  {
+    "id": "DM01-063",
+    "name": "Terror Pit",
+    "set": "DM-01",
+    "collectorNumber": "63",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Spell",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nDestroy 1 of your opponent's creatures.",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Yusaku Nakaaki",
+    "imageAssetPath": "cards/dm01/dm01-063.webp"
+  },
+  {
+    "id": "DM01-064",
+    "name": "Vampire Silphy",
+    "set": "DM-01",
+    "collectorNumber": "64",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 8,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Dark Lord"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, destroy all creatures that have power 3000 or less.",
+    "flavorText": "Dark Lords have no mercy for the weak.",
+    "rarity": "Very Rare",
+    "illustrator": "Masaki Hirooka",
+    "imageAssetPath": "cards/dm01/dm01-064.webp"
+  },
+  {
+    "id": "DM01-065",
+    "name": "Wandering Braineater",
+    "set": "DM-01",
+    "collectorNumber": "65",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Living Dead"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Blocker (When an opponent's creature attacks, you may tap this creature to stop the attack. Then the two creatures battle.)\nThis creature can't attack.",
+    "flavorText": "Devouring nice, fresh brains is all they know . . . and all they care about.",
+    "rarity": "Common",
+    "illustrator": "Youichi Kai",
+    "imageAssetPath": "cards/dm01/dm01-065.webp"
+  },
+  {
+    "id": "DM01-066",
+    "name": "Writhing Bone Ghoul",
+    "set": "DM-01",
+    "collectorNumber": "66",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Living Dead"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "Seeking power, they gave up their intelligence. What they found was pain.",
+    "rarity": "Common",
+    "illustrator": "Eiji Kaneda",
+    "imageAssetPath": "cards/dm01/dm01-066.webp"
+  },
+  {
+    "id": "DM01-067",
+    "name": "Armored Walker Urherion",
+    "set": "DM-01",
+    "collectorNumber": "67",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Armorloid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "While you have at least 1 Human in the battle zone, this creature gets +2000 power during its attacks.",
+    "flavorText": "\"The world at peace? I'd rather see the world in pieces.\"",
+    "rarity": "Uncommon",
+    "illustrator": "Tsutomu Kawade",
+    "imageAssetPath": "cards/dm01/dm01-067.webp"
+  },
+  {
+    "id": "DM01-068",
+    "name": "Artisan Picora",
+    "set": "DM-01",
+    "collectorNumber": "68",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Machine Eater"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, put 1 card from your mana zone into your graveyard.",
+    "flavorText": "\"Fix it? That's easy. Just hit it.\" â€”Legendary Artisan Picora",
+    "rarity": "Common",
+    "illustrator": "Akifumi Yamamoto",
+    "imageAssetPath": "cards/dm01/dm01-068.webp"
+  },
+  {
+    "id": "DM01-069",
+    "name": "Bolshack Dragon",
+    "set": "DM-01",
+    "collectorNumber": "69",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Armored Dragon"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "While attacking, this creature gets +1000 power for each fire card in your graveyard.\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "The last city that offended it is now a ruin.",
+    "rarity": "Very Rare",
+    "illustrator": "Ryoya Yuki",
+    "imageAssetPath": "cards/dm01/dm01-069.webp"
+  },
+  {
+    "id": "DM01-070",
+    "name": "Brawler Zyler",
+    "set": "DM-01",
+    "collectorNumber": "70",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Human"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)",
+    "flavorText": "\"I wouldn't, if I were you. You don't want to get hurt.\"",
+    "rarity": "Common",
+    "illustrator": "Tsutomu Kawade",
+    "imageAssetPath": "cards/dm01/dm01-070.webp"
+  },
+  {
+    "id": "DM01-071",
+    "name": "Burning Power",
+    "set": "DM-01",
+    "collectorNumber": "71",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Spell",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "One of your creatures gets \"power attacker +2000\" until the end of the turn. (While attacking, a creature that has \"power attacker +2000\" gets +2000 power.)",
+    "flavorText": "Witness the power of whirling fire!",
+    "rarity": "Common",
+    "illustrator": "Miho Midorikawa",
+    "imageAssetPath": "cards/dm01/dm01-071.webp"
+  },
+  {
+    "id": "DM01-072",
+    "name": "Chaos Strike",
+    "set": "DM-01",
+    "collectorNumber": "72",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Choose 1 of your opponent's untapped creatures in the battle zone. Your creatures can attack it this turn as though it were tapped.",
+    "flavorText": "\"You won't escape me!\"",
+    "rarity": "Rare",
+    "illustrator": "Soushi Hirose",
+    "imageAssetPath": "cards/dm01/dm01-072.webp"
+  },
+  {
+    "id": "DM01-073",
+    "name": "Crimson Hammer",
+    "set": "DM-01",
+    "collectorNumber": "73",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Spell",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Destroy 1 of your opponent's creatures that has power 2000 or less.",
+    "flavorText": "There's nothing a Machine Eater enjoys more than a good game of Whack-a-Hulcus.",
+    "rarity": "Common",
+    "illustrator": "Daisuke Izuka",
+    "imageAssetPath": "cards/dm01/dm01-073.webp"
+  },
+  {
+    "id": "DM01-074",
+    "name": "Deadly Fighter Braid Claw",
+    "set": "DM-01",
+    "collectorNumber": "74",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Dragonoid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature attacks each turn if able.",
+    "flavorText": "A Dragonoid's true home is the battlefield.",
+    "rarity": "Common",
+    "illustrator": "Yusaku Nakaaki",
+    "imageAssetPath": "cards/dm01/dm01-074.webp"
+  },
+  {
+    "id": "DM01-075",
+    "name": "Draglide",
+    "set": "DM-01",
+    "collectorNumber": "75",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Armored Wyvern"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature attacks each turn if able.",
+    "flavorText": "Draglides grow with their mounts. Their bond is their weapon.",
+    "rarity": "Rare",
+    "illustrator": "Ittoku",
+    "imageAssetPath": "cards/dm01/dm01-075.webp"
+  },
+  {
+    "id": "DM01-076",
+    "name": "Explosive Fighter Ucarn",
+    "set": "DM-01",
+    "collectorNumber": "76",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 9000,
+    "races": [
+      "Dragonoid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "When you put this creature into the battle zone, put 2 cards from your mana zone into your graveyard.\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "Dragonoid fighters never retreat. They believe that a heroic fighter will become a Dragon in his next life.",
+    "rarity": "Rare",
+    "illustrator": "Hisanobu Kometani",
+    "imageAssetPath": "cards/dm01/dm01-076.webp"
+  },
+  {
+    "id": "DM01-077",
+    "name": "Fatal Attacker Horvath",
+    "set": "DM-01",
+    "collectorNumber": "77",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Human"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "While you have at least 1 Armorloid in the battle zone, this creature gets +2000 power during its attacks.",
+    "flavorText": "\"Any final words?\"",
+    "rarity": "Common",
+    "illustrator": "Dai",
+    "imageAssetPath": "cards/dm01/dm01-077.webp"
+  },
+  {
+    "id": "DM01-078",
+    "name": "Fire Sweeper Burning Hellion",
+    "set": "DM-01",
+    "collectorNumber": "78",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Dragonoid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)",
+    "flavorText": "Those who leave battle last are the ones who savor victory the longest.",
+    "rarity": "Common",
+    "illustrator": "Sansyu",
+    "imageAssetPath": "cards/dm01/dm01-078.webp"
+  },
+  {
+    "id": "DM01-079",
+    "name": "Gatling Skyterror",
+    "set": "DM-01",
+    "collectorNumber": "79",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 7000,
+    "races": [
+      "Armored Wyvern"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "This creature can attack untapped creatures.\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "Part chopper, part chomper.",
+    "rarity": "Very Rare",
+    "illustrator": "Hisashi Momose",
+    "imageAssetPath": "cards/dm01/dm01-079.webp"
+  },
+  {
+    "id": "DM01-080",
+    "name": "Immortal Baron, Vorg",
+    "set": "DM-01",
+    "collectorNumber": "80",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Human"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "\"You see? The one who wins is the one who has the bigger weapon.\"",
+    "rarity": "Common",
+    "illustrator": "Dustmoss",
+    "imageAssetPath": "cards/dm01/dm01-080.webp"
+  },
+  {
+    "id": "DM01-081",
+    "name": "Magma Gazer",
+    "set": "DM-01",
+    "collectorNumber": "81",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Spell",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 4000,
+    "breakerCount": 2,
+    "rulesText": "One of your creatures gets \"power attacker +4000\" and \"double breaker\" until the end of the turn. (A creature that has \"power attacker +4000\" and \"double breaker\" gets +4000 power while attacking and breaks 2 shields.)",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Masaki Hirooka",
+    "imageAssetPath": "cards/dm01/dm01-081.webp"
+  },
+  {
+    "id": "DM01-082",
+    "name": "Meteosaur",
+    "set": "DM-01",
+    "collectorNumber": "82",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Rock Beast"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may destroy 1 of your opponent's creatures that has power 2000 or less.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Masateru Ikeda",
+    "imageAssetPath": "cards/dm01/dm01-082.webp"
+  },
+  {
+    "id": "DM01-083",
+    "name": "Nomad Hero Gigio",
+    "set": "DM-01",
+    "collectorNumber": "83",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Machine Eater"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can attack untapped creatures.",
+    "flavorText": "\"Time to move on. So many unexplored worlds; so much trash to find!\" â€”Nomad Hero Gigio",
+    "rarity": "Rare",
+    "illustrator": "Eiji Kaneda",
+    "imageAssetPath": "cards/dm01/dm01-083.webp"
+  },
+  {
+    "id": "DM01-084",
+    "name": "Onslaughter Triceps",
+    "set": "DM-01",
+    "collectorNumber": "84",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Dragonoid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, put 1 card from your mana zone into your graveyard.",
+    "flavorText": "The first to the front lines are the first to taste victory.",
+    "rarity": "Uncommon",
+    "illustrator": "Katsuya",
+    "imageAssetPath": "cards/dm01/dm01-084.webp"
+  },
+  {
+    "id": "DM01-085",
+    "name": "Rothus, the Traveler",
+    "set": "DM-01",
+    "collectorNumber": "85",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Armorloid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, destroy 1 of your creatures. Then your opponent chooses 1 of his creatures and destroys it.",
+    "flavorText": "\"Though battered and scarred, I march on through wars, storms, and strife. I march on.\"",
+    "rarity": "Rare",
+    "illustrator": "Seki",
+    "imageAssetPath": "cards/dm01/dm01-085.webp"
+  },
+  {
+    "id": "DM01-086",
+    "name": "Stonesaur",
+    "set": "DM-01",
+    "collectorNumber": "86",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Rock Beast"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)",
+    "flavorText": "There is no sanctuary in the Fire Territory. Especially on the featureless, rocky plains.",
+    "rarity": "Uncommon",
+    "illustrator": "Miho Midorikawa",
+    "imageAssetPath": "cards/dm01/dm01-086.webp"
+  },
+  {
+    "id": "DM01-087",
+    "name": "Super Explosive Volcanodon",
+    "set": "DM-01",
+    "collectorNumber": "87",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Dragonoid"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 4000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +4000 (While attacking, this creature gets +4000 power.)",
+    "flavorText": "After it attacks, the lucky are left with rubble.",
+    "rarity": "Uncommon",
+    "illustrator": "Naoki Saito",
+    "imageAssetPath": "cards/dm01/dm01-087.webp"
+  },
+  {
+    "id": "DM01-088",
+    "name": "Tornado Flame",
+    "set": "DM-01",
+    "collectorNumber": "88",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Spell",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nDestroy 1 of your opponent's creatures that has power 4000 or less.",
+    "flavorText": null,
+    "rarity": "Uncommon",
+    "illustrator": "Soushi Hirose",
+    "imageAssetPath": "cards/dm01/dm01-088.webp"
+  },
+  {
+    "id": "DM01-089",
+    "name": "Aura Blast",
+    "set": "DM-01",
+    "collectorNumber": "89",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Spell",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Each of your creatures in the battle zone gets \"power attacker +2000\" until the end of the turn. (While attacking, a creature that has \"power attacker +2000\" gets +2000 power.)",
+    "flavorText": "Hear the roar of the mighty Earth!",
+    "rarity": "Rare",
+    "illustrator": "Nottsuo",
+    "imageAssetPath": "cards/dm01/dm01-089.webp"
+  },
+  {
+    "id": "DM01-090",
+    "name": "Bronze-Arm Tribe",
+    "set": "DM-01",
+    "collectorNumber": "90",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, put the top card of your deck into your mana zone.",
+    "flavorText": "They're bringing some friends to the party.",
+    "rarity": "Common",
+    "illustrator": "Yusaku Nakaaki",
+    "imageAssetPath": "cards/dm01/dm01-090.webp"
+  },
+  {
+    "id": "DM01-091",
+    "name": "Burning Mane",
+    "set": "DM-01",
+    "collectorNumber": "91",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "It pulled a young tree up by the roots, swinging it over its head as though it were a twig.",
+    "rarity": "Common",
+    "illustrator": "Sansyu",
+    "imageAssetPath": "cards/dm01/dm01-091.webp"
+  },
+  {
+    "id": "DM01-092",
+    "name": "Coiling Vines",
+    "set": "DM-01",
+    "collectorNumber": "92",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Tree Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, put it into your mana zone instead.",
+    "flavorText": "They eat vegetarians.",
+    "rarity": "Uncommon",
+    "illustrator": "D-Suzuki",
+    "imageAssetPath": "cards/dm01/dm01-092.webp"
+  },
+  {
+    "id": "DM01-093",
+    "name": "Dimension Gate",
+    "set": "DM-01",
+    "collectorNumber": "93",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Spell",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nSearch your deck. You may take a creature from your deck, show that creature to your opponent, and put it into your hand. Then shuffle your deck.",
+    "flavorText": null,
+    "rarity": "Common",
+    "illustrator": "Jason",
+    "imageAssetPath": "cards/dm01/dm01-093.webp"
+  },
+  {
+    "id": "DM01-094",
+    "name": "Dome Shell",
+    "set": "DM-01",
+    "collectorNumber": "94",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Colony Beetle"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)",
+    "flavorText": "Colony Beetles feed on the World Tree to build gigantic nests on their backs.",
+    "rarity": "Uncommon",
+    "illustrator": "Hisashi Momose",
+    "imageAssetPath": "cards/dm01/dm01-094.webp"
+  },
+  {
+    "id": "DM01-095",
+    "name": "Fear Fang",
+    "set": "DM-01",
+    "collectorNumber": "95",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "The Beast Folk are gifted with huge muscles to withstand the tremendous gravity of the World Tree.",
+    "rarity": "Common",
+    "illustrator": "Norikatsu Miyoshi",
+    "imageAssetPath": "cards/dm01/dm01-095.webp"
+  },
+  {
+    "id": "DM01-096",
+    "name": "Forest Hornet",
+    "set": "DM-01",
+    "collectorNumber": "96",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Giant Insect"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "With its deadly sting and crushing jaws, it makes the Horned Beasts cower.",
+    "rarity": "Uncommon",
+    "illustrator": "Youichi Kai",
+    "imageAssetPath": "cards/dm01/dm01-096.webp"
+  },
+  {
+    "id": "DM01-097",
+    "name": "Golden Wing Striker",
+    "set": "DM-01",
+    "collectorNumber": "97",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 1,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)",
+    "flavorText": "Hawk warriors hunt faster than the wind.",
+    "rarity": "Common",
+    "illustrator": "Miho Midorikawa",
+    "imageAssetPath": "cards/dm01/dm01-097.webp"
+  },
+  {
+    "id": "DM01-098",
+    "name": "Mighty Shouter",
+    "set": "DM-01",
+    "collectorNumber": "98",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 3,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, put it into your mana zone instead.",
+    "flavorText": "\"I am not pink!\"",
+    "rarity": "Common",
+    "illustrator": "Dustmoss",
+    "imageAssetPath": "cards/dm01/dm01-098.webp"
+  },
+  {
+    "id": "DM01-099",
+    "name": "Natural Snare",
+    "set": "DM-01",
+    "collectorNumber": "99",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Spell",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": true,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Shield trigger (When this spell is put into your hand from your shield zone, you may cast it immediately for no cost.)\nChoose 1 of your opponent's creatures in the battle zone and put it into his mana zone.",
+    "flavorText": null,
+    "rarity": "Rare",
+    "illustrator": "Sansyu",
+    "imageAssetPath": "cards/dm01/dm01-099.webp"
+  },
+  {
+    "id": "DM01-100",
+    "name": "Pangaea's Song",
+    "set": "DM-01",
+    "collectorNumber": "100",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Spell",
+    "manaCost": 1,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Put 1 of your creatures from the battle zone into your mana zone.",
+    "flavorText": "\"Here's something better for you to do.\" â€”Fighter Dual Fang",
+    "rarity": "Uncommon",
+    "illustrator": "Seki",
+    "imageAssetPath": "cards/dm01/dm01-100.webp"
+  },
+  {
+    "id": "DM01-101",
+    "name": "Poisonous Dahlia",
+    "set": "DM-01",
+    "collectorNumber": "101",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 4,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Tree Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't attack players.",
+    "flavorText": "\"I will never give you up.\" â€”Symbolic meaning of the poisonous dahlia in flower language",
+    "rarity": "Uncommon",
+    "illustrator": "Hideaki Takamura",
+    "imageAssetPath": "cards/dm01/dm01-101.webp"
+  },
+  {
+    "id": "DM01-102",
+    "name": "Poisonous Mushroom",
+    "set": "DM-01",
+    "collectorNumber": "102",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 1000,
+    "races": [
+      "Balloon Mushroom"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may put 1 card from your hand into your mana zone.",
+    "flavorText": "You won't find these mushrooms on salads.",
+    "rarity": "Uncommon",
+    "illustrator": "Daisuke Izuka",
+    "imageAssetPath": "cards/dm01/dm01-102.webp"
+  },
+  {
+    "id": "DM01-103",
+    "name": "Red-Eye Scorpion",
+    "set": "DM-01",
+    "collectorNumber": "103",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Giant Insect"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When this creature would be destroyed, put it into your mana zone instead.",
+    "flavorText": "Never start a fire in the depths of a forest. Enraged red-eye scorpions will come after you.",
+    "rarity": "Rare",
+    "illustrator": "Kou1",
+    "imageAssetPath": "cards/dm01/dm01-103.webp"
+  },
+  {
+    "id": "DM01-104",
+    "name": "Stampeding Longhorn",
+    "set": "DM-01",
+    "collectorNumber": "104",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Horned Beast"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't be blocked by any creature that has power 3000 or less.",
+    "flavorText": "A stampeding longhorn leaves nothing but dust in its wake.",
+    "rarity": "Rare",
+    "illustrator": "Norikatsu Miyoshi",
+    "imageAssetPath": "cards/dm01/dm01-104.webp"
+  },
+  {
+    "id": "DM01-105",
+    "name": "Steel Smasher",
+    "set": "DM-01",
+    "collectorNumber": "105",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 2,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Beast Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't attack players.",
+    "flavorText": "\"Me big. Me tough. Me smash.\" â€”Iron Hammer, Boar Warrior",
+    "rarity": "Common",
+    "illustrator": "Katsuya",
+    "imageAssetPath": "cards/dm01/dm01-105.webp"
+  },
+  {
+    "id": "DM01-106",
+    "name": "Storm Shell",
+    "set": "DM-01",
+    "collectorNumber": "106",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 2000,
+    "races": [
+      "Colony Beetle"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, your opponent chooses 1 of his creatures in the battle zone and puts it into his mana zone.",
+    "flavorText": "A Colony Beetle's spawning is a virtual nightmare. It covers the earth with a hail of its bullet-like eggs.",
+    "rarity": "Rare",
+    "illustrator": "Sansyu",
+    "imageAssetPath": "cards/dm01/dm01-106.webp"
+  },
+  {
+    "id": "DM01-107",
+    "name": "Thorny Mandra",
+    "set": "DM-01",
+    "collectorNumber": "107",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 4000,
+    "races": [
+      "Tree Folk"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, you may put 1 creature from your graveyard into your mana zone.",
+    "flavorText": "A beautiful flower, an alluring scent...and deadly thorns.",
+    "rarity": "Very Rare",
+    "illustrator": "Atsushi Kawasaki",
+    "imageAssetPath": "cards/dm01/dm01-107.webp"
+  },
+  {
+    "id": "DM01-108",
+    "name": "Tower Shell",
+    "set": "DM-01",
+    "collectorNumber": "108",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Colony Beetle"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "This creature can't be blocked by any creature that has power 4000 or less.",
+    "flavorText": "Not many things want to get in its way.",
+    "rarity": "Very Rare",
+    "illustrator": "Atsushi Kawasaki",
+    "imageAssetPath": "cards/dm01/dm01-108.webp"
+  },
+  {
+    "id": "DM01-109",
+    "name": "Tri-horn Shepherd",
+    "set": "DM-01",
+    "collectorNumber": "109",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Horned Beast"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "",
+    "flavorText": "Sometimes weeks pass before it realizes it has a gored enemy stuck to its horns.",
+    "rarity": "Rare",
+    "illustrator": "Daisuke Izuka",
+    "imageAssetPath": "cards/dm01/dm01-109.webp"
+  },
+  {
+    "id": "DM01-110",
+    "name": "Ultimate Force",
+    "set": "DM-01",
+    "collectorNumber": "110",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Spell",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": null,
+    "races": [],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "Put the top 2 cards of your deck into your mana zone.",
+    "flavorText": "\"Great Earth, give me your might!\" â€”Fighter Dual Fang",
+    "rarity": "Common",
+    "illustrator": "Sansyu",
+    "imageAssetPath": "cards/dm01/dm01-110.webp"
+  },
+  {
+    "id": "DM01-S01",
+    "name": "Hanusa, Radiance Elemental",
+    "set": "DM-01",
+    "collectorNumber": "S1",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 9500,
+    "races": [
+      "Angel Command"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "Double breaker (This creature breaks 2 shields.)",
+    "flavorText": "The sky was scorched by Dragons' fire, and the earth gouged by elementals' rays. The battle raged for seven nights and seven days.",
+    "rarity": "Super Rare",
+    "illustrator": "Masaki Hirooka",
+    "imageAssetPath": "cards/dm01/dm01-s01.webp"
+  },
+  {
+    "id": "DM01-S02",
+    "name": "Urth, Purifying Elemental",
+    "set": "DM-01",
+    "collectorNumber": "S2",
+    "civilizations": [
+      "Light"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Angel Command"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "Double breaker (This creature breaks 2 shields.)\nAt the end of each of your turns, you may untap this creature.",
+    "flavorText": "It is said the destruction of the Ancient Empire was caused by the descent of the elementals.",
+    "rarity": "Super Rare",
+    "illustrator": "Akifumi Yamamoto",
+    "imageAssetPath": "cards/dm01/dm01-s02.webp"
+  },
+  {
+    "id": "DM01-S03",
+    "name": "Aqua Sniper",
+    "set": "DM-01",
+    "collectorNumber": "S3",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 8,
+    "manaNumber": 1,
+    "power": 5000,
+    "races": [
+      "Liquid People"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, choose up to 2 creatures in the battle zone and return them to their owners' hands.",
+    "flavorText": "Water surrounds, enfolds, buoys...and attacks.",
+    "rarity": "Super Rare",
+    "illustrator": "Seki",
+    "imageAssetPath": "cards/dm01/dm01-s03.webp"
+  },
+  {
+    "id": "DM01-S04",
+    "name": "King Depthcon",
+    "set": "DM-01",
+    "collectorNumber": "S4",
+    "civilizations": [
+      "Water"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Leviathan"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "Double breaker (This creature breaks 2 shields.)\nThis creature can't be blocked.",
+    "flavorText": "Leviathans are just like storms. All you can do is wait until they pass.",
+    "rarity": "Super Rare",
+    "illustrator": "Ryoya Yuki",
+    "imageAssetPath": "cards/dm01/dm01-s04.webp"
+  },
+  {
+    "id": "DM01-S05",
+    "name": "Deathliger, Lion of Chaos",
+    "set": "DM-01",
+    "collectorNumber": "S5",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 9000,
+    "races": [
+      "Demon Command"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "Double breaker (This creature breaks 2 shields.)",
+    "flavorText": "The world is deafened by the roar of the deathliger.",
+    "rarity": "Super Rare",
+    "illustrator": "Atsushi Kawasaki",
+    "imageAssetPath": "cards/dm01/dm01-s05.webp"
+  },
+  {
+    "id": "DM01-S06",
+    "name": "Zagaan, Knight of Darkness",
+    "set": "DM-01",
+    "collectorNumber": "S6",
+    "civilizations": [
+      "Darkness"
+    ],
+    "type": "Creature",
+    "manaCost": 6,
+    "manaNumber": 1,
+    "power": 7000,
+    "races": [
+      "Demon Command"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 2,
+    "rulesText": "Double breaker (This creature breaks 2 shields.)",
+    "flavorText": "\"If I were to send him to the field, he would overwhelm the enemy in an instant. Where is the fun in that?\" â€”Ballom, Master of Death",
+    "rarity": "Super Rare",
+    "illustrator": "Tsutomu Kawade",
+    "imageAssetPath": "cards/dm01/dm01-s06.webp"
+  },
+  {
+    "id": "DM01-S07",
+    "name": "Astrocomet Dragon",
+    "set": "DM-01",
+    "collectorNumber": "S7",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 6000,
+    "races": [
+      "Armored Dragon"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 4000,
+    "breakerCount": 2,
+    "rulesText": "Power attacker +4000 (While attacking, this creature gets +4000 power.)\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "Even the smallest weapon attached to it has enough firepower to lay waste to an entire nation.",
+    "rarity": "Super Rare",
+    "illustrator": "Yusaku Nakaaki",
+    "imageAssetPath": "cards/dm01/dm01-s07.webp"
+  },
+  {
+    "id": "DM01-S08",
+    "name": "Scarlet Skyterror",
+    "set": "DM-01",
+    "collectorNumber": "S8",
+    "civilizations": [
+      "Fire"
+    ],
+    "type": "Creature",
+    "manaCost": 8,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Armored Wyvern"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": true,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 0,
+    "breakerCount": 1,
+    "rulesText": "When you put this creature into the battle zone, destroy all creatures that have \"blocker.\"",
+    "flavorText": "The forces of Fire will never relent.",
+    "rarity": "Super Rare",
+    "illustrator": "Tomofumi Ogasawara",
+    "imageAssetPath": "cards/dm01/dm01-s08.webp"
+  },
+  {
+    "id": "DM01-S09",
+    "name": "Deathblade Beetle",
+    "set": "DM-01",
+    "collectorNumber": "S9",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 5,
+    "manaNumber": 1,
+    "power": 3000,
+    "races": [
+      "Giant Insect"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 4000,
+    "breakerCount": 2,
+    "rulesText": "Power attacker +4000 (While attacking, this creature gets +4000 power.)\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "It devours all.",
+    "rarity": "Super Rare",
+    "illustrator": "Dustmoss",
+    "imageAssetPath": "cards/dm01/dm01-s09.webp"
+  },
+  {
+    "id": "DM01-S10",
+    "name": "Roaring Great-Horn",
+    "set": "DM-01",
+    "collectorNumber": "S10",
+    "civilizations": [
+      "Nature"
+    ],
+    "type": "Creature",
+    "manaCost": 7,
+    "manaNumber": 1,
+    "power": 8000,
+    "races": [
+      "Horned Beast"
+    ],
+    "isShieldTrigger": false,
+    "isBlocker": false,
+    "isSlayer": false,
+    "isSpeedAttacker": false,
+    "powerAttackerBonus": 2000,
+    "breakerCount": 2,
+    "rulesText": "Power attacker +2000 (While attacking, this creature gets +2000 power.)\nDouble breaker (This creature breaks 2 shields.)",
+    "flavorText": "With a mighty, earthshaking roar, the King of Beasts arose.",
+    "rarity": "Super Rare",
+    "illustrator": "Ittoku",
+    "imageAssetPath": "cards/dm01/dm01-s10.webp"
+  }
+]
