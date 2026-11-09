@@ -145,8 +145,24 @@ export const DuelCard: React.FC<Props> = ({
 
       {/* Card Visual Illustration Frame */}
       <div className={`relative flex-1 rounded-md border border-white/10 overflow-hidden bg-gradient-to-br ${theme.artGradient} bg-slate-950 flex items-center justify-center`}>
-        {/* Procedural Artwork Crest Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+        {/* Real Card Art Image */}
+        <img
+          src={card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl}
+          alt={card.name}
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover object-[center_30%] transition-transform duration-300 group-hover:scale-105 z-0"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (card.imageUrl && target.src !== card.imageUrl) {
+              target.src = card.imageUrl;
+            } else {
+              target.style.display = 'none';
+            }
+          }}
+        />
+
+        {/* Procedural Artwork Crest Background (Fallback / Underlay) */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none z-0">
           <CivilizationIcon civilization={primaryCiv} className="w-24 h-24" />
         </div>
 

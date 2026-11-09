@@ -24,7 +24,8 @@
     "flavorText": "The shining towers in the sky exist to protect the oracles.",
     "rarity": "Rare",
     "illustrator": "Akira Hamada",
-    "imageAssetPath": "cards/dm01/dm01-001.webp"
+    "imageAssetPath": "cards/dm01/dm01-001.webp",
+    "imageUrl": "https://img.duelmasters.us/0011.webp"
   },
   {
     "id": "DM01-002",
@@ -51,7 +52,8 @@
     "flavorText": "Flying is the greatest taboo of any race that has encountered the Guardians.",
     "rarity": "Rare",
     "illustrator": "Tomofumi Ogasawara",
-    "imageAssetPath": "cards/dm01/dm01-002.webp"
+    "imageAssetPath": "cards/dm01/dm01-002.webp",
+    "imageUrl": "https://img.duelmasters.us/0012.webp"
   },
   {
     "id": "DM01-003",
@@ -78,7 +80,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Daisuke Izuka",
-    "imageAssetPath": "cards/dm01/dm01-003.webp"
+    "imageAssetPath": "cards/dm01/dm01-003.webp",
+    "imageUrl": "https://img.duelmasters.us/0013.webp"
   },
   {
     "id": "DM01-004",
@@ -102,10 +105,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "At the end of each of your turns, you may untap this creature.",
-    "flavorText": "\"Vizier of Air, arise. Your fingers are sacred swords.\" â€”Hanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Air, arise. Your fingers are sacred swords.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Yusaku Nakaaki",
-    "imageAssetPath": "cards/dm01/dm01-004.webp"
+    "imageAssetPath": "cards/dm01/dm01-004.webp",
+    "imageUrl": "https://img.duelmasters.us/0014.webp"
   },
   {
     "id": "DM01-005",
@@ -132,7 +136,8 @@
     "flavorText": "Those who defile the Sky Castle are doomed, for they shall know the wrath of the Guardians.",
     "rarity": "Very Rare",
     "illustrator": "D-Suzuki",
-    "imageAssetPath": "cards/dm01/dm01-005.webp"
+    "imageAssetPath": "cards/dm01/dm01-005.webp",
+    "imageUrl": "https://img.duelmasters.us/0015.webp"
   },
   {
     "id": "DM01-006",
@@ -157,7 +162,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-006.webp"
+    "imageAssetPath": "cards/dm01/dm01-006.webp",
+    "imageUrl": "https://img.duelmasters.us/0016.webp"
   },
   {
     "id": "DM01-007",
@@ -181,10 +187,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "",
-    "flavorText": "\"Vizier of Bullets, arise. Your will is an arrow that never misses the target.\" â€”Hanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Bullets, arise. Your will is an arrow that never misses the target.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
     "rarity": "Common",
     "illustrator": "Akira Hamada",
-    "imageAssetPath": "cards/dm01/dm01-007.webp"
+    "imageAssetPath": "cards/dm01/dm01-007.webp",
+    "imageUrl": "https://img.duelmasters.us/0017.webp"
   },
   {
     "id": "DM01-008",
@@ -211,7 +218,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-008.webp"
+    "imageAssetPath": "cards/dm01/dm01-008.webp",
+    "imageUrl": "https://img.duelmasters.us/0018.webp"
   },
   {
     "id": "DM01-009",
@@ -238,7 +246,8 @@
     "flavorText": "To protect their floating cities, Guardians are gifted with shining wings.",
     "rarity": "Common",
     "illustrator": "Kou1",
-    "imageAssetPath": "cards/dm01/dm01-009.webp"
+    "imageAssetPath": "cards/dm01/dm01-009.webp",
+    "imageUrl": "https://img.duelmasters.us/0019.webp"
   },
   {
     "id": "DM01-010",
@@ -265,7 +274,8 @@
     "flavorText": "Those who have seen this Enforcer believe that eclipses are omens of disaster.",
     "rarity": "Rare",
     "illustrator": "Hideaki Takamura",
-    "imageAssetPath": "cards/dm01/dm01-010.webp"
+    "imageAssetPath": "cards/dm01/dm01-010.webp",
+    "imageUrl": "https://img.duelmasters.us/0020.webp"
   },
   {
     "id": "DM01-011",
@@ -290,7 +300,8 @@
     "flavorText": "This is light speed.",
     "rarity": "Rare",
     "illustrator": "Gyokan",
-    "imageAssetPath": "cards/dm01/dm01-011.webp"
+    "imageAssetPath": "cards/dm01/dm01-011.webp",
+    "imageUrl": "https://img.duelmasters.us/0021.webp"
   },
   {
     "id": "DM01-012",
@@ -314,10 +325,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "",
-    "flavorText": "\"Vizier of Hunting, arise. Your words are arrows of light.\" â€”Hanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Hunting, arise. Your words are arrows of light.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
-    "imageAssetPath": "cards/dm01/dm01-012.webp"
+    "imageAssetPath": "cards/dm01/dm01-012.webp",
+    "imageUrl": "https://img.duelmasters.us/0022.webp"
   },
   {
     "id": "DM01-013",
@@ -341,10 +353,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, you may choose 1 of your opponent's creatures in the battle zone and tap it.",
-    "flavorText": "\"Vizier of Lightning, arise. Your eyes are a bow of judgment.\" â€”Hanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Lightning, arise. Your eyes are a bow of judgment.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
     "rarity": "Common",
     "illustrator": "Dai",
-    "imageAssetPath": "cards/dm01/dm01-013.webp"
+    "imageAssetPath": "cards/dm01/dm01-013.webp",
+    "imageUrl": "https://img.duelmasters.us/0023.webp"
   },
   {
     "id": "DM01-014",
@@ -369,7 +382,8 @@
     "flavorText": "Cower before the purity of the Angel Commands!",
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
-    "imageAssetPath": "cards/dm01/dm01-014.webp"
+    "imageAssetPath": "cards/dm01/dm01-014.webp",
+    "imageUrl": "https://img.duelmasters.us/0024.webp"
   },
   {
     "id": "DM01-015",
@@ -396,7 +410,8 @@
     "flavorText": "The Enforcers deliver the oracles' words, which bear the power of truth.",
     "rarity": "Very Rare",
     "illustrator": "Dai",
-    "imageAssetPath": "cards/dm01/dm01-015.webp"
+    "imageAssetPath": "cards/dm01/dm01-015.webp",
+    "imageUrl": "https://img.duelmasters.us/0025.webp"
   },
   {
     "id": "DM01-016",
@@ -423,7 +438,8 @@
     "flavorText": "Soul and light enmeshed in a web of glory.",
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
-    "imageAssetPath": "cards/dm01/dm01-016.webp"
+    "imageAssetPath": "cards/dm01/dm01-016.webp",
+    "imageUrl": "https://img.duelmasters.us/0026.webp"
   },
   {
     "id": "DM01-017",
@@ -450,7 +466,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-017.webp"
+    "imageAssetPath": "cards/dm01/dm01-017.webp",
+    "imageUrl": "https://img.duelmasters.us/0027.webp"
   },
   {
     "id": "DM01-018",
@@ -477,7 +494,8 @@
     "flavorText": "Floating trees in the sky generate beautiful light from poisoned air.",
     "rarity": "Common",
     "illustrator": "Norikatsu Miyoshi",
-    "imageAssetPath": "cards/dm01/dm01-018.webp"
+    "imageAssetPath": "cards/dm01/dm01-018.webp",
+    "imageUrl": "https://img.duelmasters.us/0028.webp"
   },
   {
     "id": "DM01-019",
@@ -502,7 +520,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Jason",
-    "imageAssetPath": "cards/dm01/dm01-019.webp"
+    "imageAssetPath": "cards/dm01/dm01-019.webp",
+    "imageUrl": "https://img.duelmasters.us/0029.webp"
   },
   {
     "id": "DM01-020",
@@ -527,7 +546,8 @@
     "flavorText": "\"Can't catch me!\"",
     "rarity": "Common",
     "illustrator": "Masaki Hirooka",
-    "imageAssetPath": "cards/dm01/dm01-020.webp"
+    "imageAssetPath": "cards/dm01/dm01-020.webp",
+    "imageUrl": "https://img.duelmasters.us/0030.webp"
   },
   {
     "id": "DM01-021",
@@ -554,7 +574,8 @@
     "flavorText": "Those who dwell in the sky towers eradicate all intruders.",
     "rarity": "Rare",
     "illustrator": "Ittoku",
-    "imageAssetPath": "cards/dm01/dm01-021.webp"
+    "imageAssetPath": "cards/dm01/dm01-021.webp",
+    "imageUrl": "https://img.duelmasters.us/0031.webp"
   },
   {
     "id": "DM01-022",
@@ -578,10 +599,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "At the end of each of your turns, you may untap all your creatures in the battle zone.",
-    "flavorText": "\"Vizier of Hope, arise. Your singing voice is a breeze of dawn.\" â€”Hanusa, Radiance Elemental",
+    "flavorText": "\"Vizier of Hope, arise. Your singing voice is a breeze of dawn.\" \u00e2\u20ac\u201dHanusa, Radiance Elemental",
     "rarity": "Uncommon",
     "illustrator": "Masaki Hirooka",
-    "imageAssetPath": "cards/dm01/dm01-022.webp"
+    "imageAssetPath": "cards/dm01/dm01-022.webp",
+    "imageUrl": "https://img.duelmasters.us/0032.webp"
   },
   {
     "id": "DM01-023",
@@ -608,7 +630,8 @@
     "flavorText": "Liquid People freely control liquid. For them, water is armor and shield.",
     "rarity": "Common",
     "illustrator": "Eiji Kaneda",
-    "imageAssetPath": "cards/dm01/dm01-023.webp"
+    "imageAssetPath": "cards/dm01/dm01-023.webp",
+    "imageUrl": "https://img.duelmasters.us/0033.webp"
   },
   {
     "id": "DM01-024",
@@ -635,7 +658,8 @@
     "flavorText": "Like a whirlpool, it never seems to end.",
     "rarity": "Rare",
     "illustrator": "D-Suzuki",
-    "imageAssetPath": "cards/dm01/dm01-024.webp"
+    "imageAssetPath": "cards/dm01/dm01-024.webp",
+    "imageUrl": "https://img.duelmasters.us/0034.webp"
   },
   {
     "id": "DM01-025",
@@ -659,10 +683,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When this creature would be destroyed, return it to your hand instead.",
-    "flavorText": "\"What a spirit for such a skinny little thing.\" â€”Brawler Zyler",
+    "flavorText": "\"What a spirit for such a skinny little thing.\" \u00e2\u20ac\u201dBrawler Zyler",
     "rarity": "Uncommon",
     "illustrator": "Jason",
-    "imageAssetPath": "cards/dm01/dm01-025.webp"
+    "imageAssetPath": "cards/dm01/dm01-025.webp",
+    "imageUrl": "https://img.duelmasters.us/0035.webp"
   },
   {
     "id": "DM01-026",
@@ -689,7 +714,8 @@
     "flavorText": "The chip implanted in its head lets the Cyber Lords control its brain waves.",
     "rarity": "Common",
     "illustrator": "Atsushi Kawasaki",
-    "imageAssetPath": "cards/dm01/dm01-026.webp"
+    "imageAssetPath": "cards/dm01/dm01-026.webp",
+    "imageUrl": "https://img.duelmasters.us/0036.webp"
   },
   {
     "id": "DM01-027",
@@ -714,7 +740,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Dreamwave",
-    "imageAssetPath": "cards/dm01/dm01-027.webp"
+    "imageAssetPath": "cards/dm01/dm01-027.webp",
+    "imageUrl": "https://img.duelmasters.us/0037.webp"
   },
   {
     "id": "DM01-028",
@@ -741,7 +768,8 @@
     "flavorText": "No mouth. Big bite.",
     "rarity": "Common",
     "illustrator": "Gyokan",
-    "imageAssetPath": "cards/dm01/dm01-028.webp"
+    "imageAssetPath": "cards/dm01/dm01-028.webp",
+    "imageUrl": "https://img.duelmasters.us/0038.webp"
   },
   {
     "id": "DM01-029",
@@ -766,7 +794,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Ryoya Yuki",
-    "imageAssetPath": "cards/dm01/dm01-029.webp"
+    "imageAssetPath": "cards/dm01/dm01-029.webp",
+    "imageUrl": "https://img.duelmasters.us/0039.webp"
   },
   {
     "id": "DM01-030",
@@ -793,7 +822,8 @@
     "flavorText": "A school of teeny, tiny points of light. Stopping them all is impossible.",
     "rarity": "Uncommon",
     "illustrator": "Hisanobu Kometani",
-    "imageAssetPath": "cards/dm01/dm01-030.webp"
+    "imageAssetPath": "cards/dm01/dm01-030.webp",
+    "imageUrl": "https://img.duelmasters.us/0040.webp"
   },
   {
     "id": "DM01-031",
@@ -820,7 +850,8 @@
     "flavorText": "It lies in wait, hidden in coral reefs, lashing out ferociously when it senses prey.",
     "rarity": "Common",
     "illustrator": "Masateru Ikeda",
-    "imageAssetPath": "cards/dm01/dm01-031.webp"
+    "imageAssetPath": "cards/dm01/dm01-031.webp",
+    "imageUrl": "https://img.duelmasters.us/0041.webp"
   },
   {
     "id": "DM01-032",
@@ -847,7 +878,8 @@
     "flavorText": "The Cyber Lords' devotion to beauty is so extreme, they even designed their warrior race to have a pleasant appearance.",
     "rarity": "Uncommon",
     "illustrator": "Kou1",
-    "imageAssetPath": "cards/dm01/dm01-032.webp"
+    "imageAssetPath": "cards/dm01/dm01-032.webp",
+    "imageUrl": "https://img.duelmasters.us/0042.webp"
   },
   {
     "id": "DM01-033",
@@ -874,7 +906,8 @@
     "flavorText": "Leviathans mature slowly, eventually growing to become the largest creatures in the world.",
     "rarity": "Uncommon",
     "illustrator": "Hideaki Takamura",
-    "imageAssetPath": "cards/dm01/dm01-033.webp"
+    "imageAssetPath": "cards/dm01/dm01-033.webp",
+    "imageUrl": "https://img.duelmasters.us/0043.webp"
   },
   {
     "id": "DM01-034",
@@ -901,7 +934,8 @@
     "flavorText": "Long ago, the Cyber Lords built a city on his back.",
     "rarity": "Very Rare",
     "illustrator": "Miho Midorikawa",
-    "imageAssetPath": "cards/dm01/dm01-034.webp"
+    "imageAssetPath": "cards/dm01/dm01-034.webp",
+    "imageUrl": "https://img.duelmasters.us/0044.webp"
   },
   {
     "id": "DM01-035",
@@ -928,7 +962,8 @@
     "flavorText": "It blooms in the ocean depths, far from any light.",
     "rarity": "Common",
     "illustrator": "Hikaru Ikusa",
-    "imageAssetPath": "cards/dm01/dm01-035.webp"
+    "imageAssetPath": "cards/dm01/dm01-035.webp",
+    "imageUrl": "https://img.duelmasters.us/0045.webp"
   },
   {
     "id": "DM01-036",
@@ -955,7 +990,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Ittoku",
-    "imageAssetPath": "cards/dm01/dm01-036.webp"
+    "imageAssetPath": "cards/dm01/dm01-036.webp",
+    "imageUrl": "https://img.duelmasters.us/0046.webp"
   },
   {
     "id": "DM01-037",
@@ -982,7 +1018,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-037.webp"
+    "imageAssetPath": "cards/dm01/dm01-037.webp",
+    "imageUrl": "https://img.duelmasters.us/0047.webp"
   },
   {
     "id": "DM01-038",
@@ -1006,10 +1043,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, return each creature in the battle zone that has power 2000 or less to its owner's hand.",
-    "flavorText": "\"Isn't it cool? The heads can be combined.\" â€”Tropico",
+    "flavorText": "\"Isn't it cool? The heads can be combined.\" \u00e2\u20ac\u201dTropico",
     "rarity": "Rare",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-038.webp"
+    "imageAssetPath": "cards/dm01/dm01-038.webp",
+    "imageUrl": "https://img.duelmasters.us/0048.webp"
   },
   {
     "id": "DM01-039",
@@ -1036,7 +1074,8 @@
     "flavorText": "If the last thing in your life you want to see is something beautiful, attack an underwater city.",
     "rarity": "Very Rare",
     "illustrator": "Tomofumi Ogasawara",
-    "imageAssetPath": "cards/dm01/dm01-039.webp"
+    "imageAssetPath": "cards/dm01/dm01-039.webp",
+    "imageUrl": "https://img.duelmasters.us/0049.webp"
   },
   {
     "id": "DM01-040",
@@ -1061,7 +1100,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Tomofumi Ogasawara",
-    "imageAssetPath": "cards/dm01/dm01-040.webp"
+    "imageAssetPath": "cards/dm01/dm01-040.webp",
+    "imageUrl": "https://img.duelmasters.us/0050.webp"
   },
   {
     "id": "DM01-041",
@@ -1083,10 +1123,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Choose up to 2 creatures in the battle zone and return them to their owners' hands.",
-    "flavorText": "\"Start all over from your previous life!\" â€”Crystal Lancer",
+    "flavorText": "\"Start all over from your previous life!\" \u00e2\u20ac\u201dCrystal Lancer",
     "rarity": "Rare",
     "illustrator": "Akifumi Yamamoto",
-    "imageAssetPath": "cards/dm01/dm01-041.webp"
+    "imageAssetPath": "cards/dm01/dm01-041.webp",
+    "imageUrl": "https://img.duelmasters.us/0051.webp"
   },
   {
     "id": "DM01-042",
@@ -1113,7 +1154,8 @@
     "flavorText": "\"I will lead you into battle.\"",
     "rarity": "Rare",
     "illustrator": "Jason",
-    "imageAssetPath": "cards/dm01/dm01-042.webp"
+    "imageAssetPath": "cards/dm01/dm01-042.webp",
+    "imageUrl": "https://img.duelmasters.us/0052.webp"
   },
   {
     "id": "DM01-043",
@@ -1140,7 +1182,8 @@
     "flavorText": "It attacks anything that enters its territory, even Leviathans.",
     "rarity": "Rare",
     "illustrator": "Hisanobu Kometani",
-    "imageAssetPath": "cards/dm01/dm01-043.webp"
+    "imageAssetPath": "cards/dm01/dm01-043.webp",
+    "imageUrl": "https://img.duelmasters.us/0053.webp"
   },
   {
     "id": "DM01-044",
@@ -1165,7 +1208,8 @@
     "flavorText": "It will stay until it dies.",
     "rarity": "Common",
     "illustrator": "Akifumi Yamamoto",
-    "imageAssetPath": "cards/dm01/dm01-044.webp"
+    "imageAssetPath": "cards/dm01/dm01-044.webp",
+    "imageUrl": "https://img.duelmasters.us/0054.webp"
   },
   {
     "id": "DM01-045",
@@ -1192,7 +1236,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
-    "imageAssetPath": "cards/dm01/dm01-045.webp"
+    "imageAssetPath": "cards/dm01/dm01-045.webp",
+    "imageUrl": "https://img.duelmasters.us/0055.webp"
   },
   {
     "id": "DM01-046",
@@ -1219,7 +1264,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Atsushi Kawasaki",
-    "imageAssetPath": "cards/dm01/dm01-046.webp"
+    "imageAssetPath": "cards/dm01/dm01-046.webp",
+    "imageUrl": "https://img.duelmasters.us/0056.webp"
   },
   {
     "id": "DM01-047",
@@ -1246,7 +1292,8 @@
     "flavorText": "Commanders send them to the front line. It's too dangerous to have them close.",
     "rarity": "Common",
     "illustrator": "Nottsuo",
-    "imageAssetPath": "cards/dm01/dm01-047.webp"
+    "imageAssetPath": "cards/dm01/dm01-047.webp",
+    "imageUrl": "https://img.duelmasters.us/0057.webp"
   },
   {
     "id": "DM01-048",
@@ -1273,7 +1320,8 @@
     "flavorText": "They can wait forever, for they know they will not die alone.",
     "rarity": "Uncommon",
     "illustrator": "Dai",
-    "imageAssetPath": "cards/dm01/dm01-048.webp"
+    "imageAssetPath": "cards/dm01/dm01-048.webp",
+    "imageUrl": "https://img.duelmasters.us/0058.webp"
   },
   {
     "id": "DM01-049",
@@ -1298,7 +1346,8 @@
     "flavorText": "Witness the power of the Dark!",
     "rarity": "Rare",
     "illustrator": "Ryoya Yuki",
-    "imageAssetPath": "cards/dm01/dm01-049.webp"
+    "imageAssetPath": "cards/dm01/dm01-049.webp",
+    "imageUrl": "https://img.duelmasters.us/0059.webp"
   },
   {
     "id": "DM01-050",
@@ -1325,7 +1374,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Jason",
-    "imageAssetPath": "cards/dm01/dm01-050.webp"
+    "imageAssetPath": "cards/dm01/dm01-050.webp",
+    "imageUrl": "https://img.duelmasters.us/0060.webp"
   },
   {
     "id": "DM01-051",
@@ -1352,7 +1402,8 @@
     "flavorText": "If you've ever thought there was something hiding in the dark, you were right.",
     "rarity": "Uncommon",
     "illustrator": "Norikatsu Miyoshi",
-    "imageAssetPath": "cards/dm01/dm01-051.webp"
+    "imageAssetPath": "cards/dm01/dm01-051.webp",
+    "imageUrl": "https://img.duelmasters.us/0061.webp"
   },
   {
     "id": "DM01-052",
@@ -1377,7 +1428,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Nottsuo",
-    "imageAssetPath": "cards/dm01/dm01-052.webp"
+    "imageAssetPath": "cards/dm01/dm01-052.webp",
+    "imageUrl": "https://img.duelmasters.us/0062.webp"
   },
   {
     "id": "DM01-053",
@@ -1402,7 +1454,8 @@
     "flavorText": "Savor the taste of fear!",
     "rarity": "Common",
     "illustrator": "Dustmoss",
-    "imageAssetPath": "cards/dm01/dm01-053.webp"
+    "imageAssetPath": "cards/dm01/dm01-053.webp",
+    "imageUrl": "https://img.duelmasters.us/0063.webp"
   },
   {
     "id": "DM01-054",
@@ -1427,7 +1480,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Soushi Hirose",
-    "imageAssetPath": "cards/dm01/dm01-054.webp"
+    "imageAssetPath": "cards/dm01/dm01-054.webp",
+    "imageUrl": "https://img.duelmasters.us/0064.webp"
   },
   {
     "id": "DM01-055",
@@ -1454,7 +1508,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Katsuya",
-    "imageAssetPath": "cards/dm01/dm01-055.webp"
+    "imageAssetPath": "cards/dm01/dm01-055.webp",
+    "imageUrl": "https://img.duelmasters.us/0065.webp"
   },
   {
     "id": "DM01-056",
@@ -1481,7 +1536,8 @@
     "flavorText": "By assembling parts of different magical beasts, the Dark Lords created a nightmare.",
     "rarity": "Rare",
     "illustrator": "Hisashi Momose",
-    "imageAssetPath": "cards/dm01/dm01-056.webp"
+    "imageAssetPath": "cards/dm01/dm01-056.webp",
+    "imageUrl": "https://img.duelmasters.us/0066.webp"
   },
   {
     "id": "DM01-057",
@@ -1508,7 +1564,8 @@
     "flavorText": "There is no rest in the Dark Realm, even after death.",
     "rarity": "Very Rare",
     "illustrator": "Tsutomu Kawade",
-    "imageAssetPath": "cards/dm01/dm01-057.webp"
+    "imageAssetPath": "cards/dm01/dm01-057.webp",
+    "imageUrl": "https://img.duelmasters.us/0067.webp"
   },
   {
     "id": "DM01-058",
@@ -1535,7 +1592,8 @@
     "flavorText": "Seeking to live forever, they left their bodies behind.",
     "rarity": "Uncommon",
     "illustrator": "Gyokan",
-    "imageAssetPath": "cards/dm01/dm01-058.webp"
+    "imageAssetPath": "cards/dm01/dm01-058.webp",
+    "imageUrl": "https://img.duelmasters.us/0068.webp"
   },
   {
     "id": "DM01-059",
@@ -1562,7 +1620,8 @@
     "flavorText": "Don't turn around. You wouldn't want to see what's behind you.",
     "rarity": "Rare",
     "illustrator": "Hideaki Takamura",
-    "imageAssetPath": "cards/dm01/dm01-059.webp"
+    "imageAssetPath": "cards/dm01/dm01-059.webp",
+    "imageUrl": "https://img.duelmasters.us/0069.webp"
   },
   {
     "id": "DM01-060",
@@ -1589,7 +1648,8 @@
     "flavorText": "\"Rip. Tear. Gnash. They all make the same delightful noises.\"",
     "rarity": "Common",
     "illustrator": "Katsuya",
-    "imageAssetPath": "cards/dm01/dm01-060.webp"
+    "imageAssetPath": "cards/dm01/dm01-060.webp",
+    "imageUrl": "https://img.duelmasters.us/0070.webp"
   },
   {
     "id": "DM01-061",
@@ -1616,7 +1676,8 @@
     "flavorText": "When worms kill a creature, they can still make it move.",
     "rarity": "Uncommon",
     "illustrator": "Norikatsu Miyoshi",
-    "imageAssetPath": "cards/dm01/dm01-061.webp"
+    "imageAssetPath": "cards/dm01/dm01-061.webp",
+    "imageUrl": "https://img.duelmasters.us/0071.webp"
   },
   {
     "id": "DM01-062",
@@ -1643,7 +1704,8 @@
     "flavorText": "Flesh is its food. Bones are its toothpicks.",
     "rarity": "Uncommon",
     "illustrator": "Youichi Kai",
-    "imageAssetPath": "cards/dm01/dm01-062.webp"
+    "imageAssetPath": "cards/dm01/dm01-062.webp",
+    "imageUrl": "https://img.duelmasters.us/0072.webp"
   },
   {
     "id": "DM01-063",
@@ -1668,7 +1730,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Yusaku Nakaaki",
-    "imageAssetPath": "cards/dm01/dm01-063.webp"
+    "imageAssetPath": "cards/dm01/dm01-063.webp",
+    "imageUrl": "https://img.duelmasters.us/0073.webp"
   },
   {
     "id": "DM01-064",
@@ -1695,7 +1758,8 @@
     "flavorText": "Dark Lords have no mercy for the weak.",
     "rarity": "Very Rare",
     "illustrator": "Masaki Hirooka",
-    "imageAssetPath": "cards/dm01/dm01-064.webp"
+    "imageAssetPath": "cards/dm01/dm01-064.webp",
+    "imageUrl": "https://img.duelmasters.us/0074.webp"
   },
   {
     "id": "DM01-065",
@@ -1722,7 +1786,8 @@
     "flavorText": "Devouring nice, fresh brains is all they know . . . and all they care about.",
     "rarity": "Common",
     "illustrator": "Youichi Kai",
-    "imageAssetPath": "cards/dm01/dm01-065.webp"
+    "imageAssetPath": "cards/dm01/dm01-065.webp",
+    "imageUrl": "https://img.duelmasters.us/0075.webp"
   },
   {
     "id": "DM01-066",
@@ -1749,7 +1814,8 @@
     "flavorText": "Seeking power, they gave up their intelligence. What they found was pain.",
     "rarity": "Common",
     "illustrator": "Eiji Kaneda",
-    "imageAssetPath": "cards/dm01/dm01-066.webp"
+    "imageAssetPath": "cards/dm01/dm01-066.webp",
+    "imageUrl": "https://img.duelmasters.us/0076.webp"
   },
   {
     "id": "DM01-067",
@@ -1776,7 +1842,8 @@
     "flavorText": "\"The world at peace? I'd rather see the world in pieces.\"",
     "rarity": "Uncommon",
     "illustrator": "Tsutomu Kawade",
-    "imageAssetPath": "cards/dm01/dm01-067.webp"
+    "imageAssetPath": "cards/dm01/dm01-067.webp",
+    "imageUrl": "https://img.duelmasters.us/0077.webp"
   },
   {
     "id": "DM01-068",
@@ -1800,10 +1867,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "When you put this creature into the battle zone, put 1 card from your mana zone into your graveyard.",
-    "flavorText": "\"Fix it? That's easy. Just hit it.\" â€”Legendary Artisan Picora",
+    "flavorText": "\"Fix it? That's easy. Just hit it.\" \u00e2\u20ac\u201dLegendary Artisan Picora",
     "rarity": "Common",
     "illustrator": "Akifumi Yamamoto",
-    "imageAssetPath": "cards/dm01/dm01-068.webp"
+    "imageAssetPath": "cards/dm01/dm01-068.webp",
+    "imageUrl": "https://img.duelmasters.us/0078.webp"
   },
   {
     "id": "DM01-069",
@@ -1830,7 +1898,8 @@
     "flavorText": "The last city that offended it is now a ruin.",
     "rarity": "Very Rare",
     "illustrator": "Ryoya Yuki",
-    "imageAssetPath": "cards/dm01/dm01-069.webp"
+    "imageAssetPath": "cards/dm01/dm01-069.webp",
+    "imageUrl": "https://img.duelmasters.us/0079.webp"
   },
   {
     "id": "DM01-070",
@@ -1857,7 +1926,8 @@
     "flavorText": "\"I wouldn't, if I were you. You don't want to get hurt.\"",
     "rarity": "Common",
     "illustrator": "Tsutomu Kawade",
-    "imageAssetPath": "cards/dm01/dm01-070.webp"
+    "imageAssetPath": "cards/dm01/dm01-070.webp",
+    "imageUrl": "https://img.duelmasters.us/0080.webp"
   },
   {
     "id": "DM01-071",
@@ -1882,7 +1952,8 @@
     "flavorText": "Witness the power of whirling fire!",
     "rarity": "Common",
     "illustrator": "Miho Midorikawa",
-    "imageAssetPath": "cards/dm01/dm01-071.webp"
+    "imageAssetPath": "cards/dm01/dm01-071.webp",
+    "imageUrl": "https://img.duelmasters.us/0081.webp"
   },
   {
     "id": "DM01-072",
@@ -1907,7 +1978,8 @@
     "flavorText": "\"You won't escape me!\"",
     "rarity": "Rare",
     "illustrator": "Soushi Hirose",
-    "imageAssetPath": "cards/dm01/dm01-072.webp"
+    "imageAssetPath": "cards/dm01/dm01-072.webp",
+    "imageUrl": "https://img.duelmasters.us/0082.webp"
   },
   {
     "id": "DM01-073",
@@ -1932,7 +2004,8 @@
     "flavorText": "There's nothing a Machine Eater enjoys more than a good game of Whack-a-Hulcus.",
     "rarity": "Common",
     "illustrator": "Daisuke Izuka",
-    "imageAssetPath": "cards/dm01/dm01-073.webp"
+    "imageAssetPath": "cards/dm01/dm01-073.webp",
+    "imageUrl": "https://img.duelmasters.us/0083.webp"
   },
   {
     "id": "DM01-074",
@@ -1959,7 +2032,8 @@
     "flavorText": "A Dragonoid's true home is the battlefield.",
     "rarity": "Common",
     "illustrator": "Yusaku Nakaaki",
-    "imageAssetPath": "cards/dm01/dm01-074.webp"
+    "imageAssetPath": "cards/dm01/dm01-074.webp",
+    "imageUrl": "https://img.duelmasters.us/0084.webp"
   },
   {
     "id": "DM01-075",
@@ -1986,7 +2060,8 @@
     "flavorText": "Draglides grow with their mounts. Their bond is their weapon.",
     "rarity": "Rare",
     "illustrator": "Ittoku",
-    "imageAssetPath": "cards/dm01/dm01-075.webp"
+    "imageAssetPath": "cards/dm01/dm01-075.webp",
+    "imageUrl": "https://img.duelmasters.us/0085.webp"
   },
   {
     "id": "DM01-076",
@@ -2013,7 +2088,8 @@
     "flavorText": "Dragonoid fighters never retreat. They believe that a heroic fighter will become a Dragon in his next life.",
     "rarity": "Rare",
     "illustrator": "Hisanobu Kometani",
-    "imageAssetPath": "cards/dm01/dm01-076.webp"
+    "imageAssetPath": "cards/dm01/dm01-076.webp",
+    "imageUrl": "https://img.duelmasters.us/0086.webp"
   },
   {
     "id": "DM01-077",
@@ -2040,7 +2116,8 @@
     "flavorText": "\"Any final words?\"",
     "rarity": "Common",
     "illustrator": "Dai",
-    "imageAssetPath": "cards/dm01/dm01-077.webp"
+    "imageAssetPath": "cards/dm01/dm01-077.webp",
+    "imageUrl": "https://img.duelmasters.us/0087.webp"
   },
   {
     "id": "DM01-078",
@@ -2067,7 +2144,8 @@
     "flavorText": "Those who leave battle last are the ones who savor victory the longest.",
     "rarity": "Common",
     "illustrator": "Sansyu",
-    "imageAssetPath": "cards/dm01/dm01-078.webp"
+    "imageAssetPath": "cards/dm01/dm01-078.webp",
+    "imageUrl": "https://img.duelmasters.us/0088.webp"
   },
   {
     "id": "DM01-079",
@@ -2094,7 +2172,8 @@
     "flavorText": "Part chopper, part chomper.",
     "rarity": "Very Rare",
     "illustrator": "Hisashi Momose",
-    "imageAssetPath": "cards/dm01/dm01-079.webp"
+    "imageAssetPath": "cards/dm01/dm01-079.webp",
+    "imageUrl": "https://img.duelmasters.us/0089.webp"
   },
   {
     "id": "DM01-080",
@@ -2121,7 +2200,8 @@
     "flavorText": "\"You see? The one who wins is the one who has the bigger weapon.\"",
     "rarity": "Common",
     "illustrator": "Dustmoss",
-    "imageAssetPath": "cards/dm01/dm01-080.webp"
+    "imageAssetPath": "cards/dm01/dm01-080.webp",
+    "imageUrl": "https://img.duelmasters.us/0090.webp"
   },
   {
     "id": "DM01-081",
@@ -2146,7 +2226,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Masaki Hirooka",
-    "imageAssetPath": "cards/dm01/dm01-081.webp"
+    "imageAssetPath": "cards/dm01/dm01-081.webp",
+    "imageUrl": "https://img.duelmasters.us/0091.webp"
   },
   {
     "id": "DM01-082",
@@ -2173,7 +2254,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Masateru Ikeda",
-    "imageAssetPath": "cards/dm01/dm01-082.webp"
+    "imageAssetPath": "cards/dm01/dm01-082.webp",
+    "imageUrl": "https://img.duelmasters.us/0092.webp"
   },
   {
     "id": "DM01-083",
@@ -2197,10 +2279,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can attack untapped creatures.",
-    "flavorText": "\"Time to move on. So many unexplored worlds; so much trash to find!\" â€”Nomad Hero Gigio",
+    "flavorText": "\"Time to move on. So many unexplored worlds; so much trash to find!\" \u00e2\u20ac\u201dNomad Hero Gigio",
     "rarity": "Rare",
     "illustrator": "Eiji Kaneda",
-    "imageAssetPath": "cards/dm01/dm01-083.webp"
+    "imageAssetPath": "cards/dm01/dm01-083.webp",
+    "imageUrl": "https://img.duelmasters.us/0093.webp"
   },
   {
     "id": "DM01-084",
@@ -2227,7 +2310,8 @@
     "flavorText": "The first to the front lines are the first to taste victory.",
     "rarity": "Uncommon",
     "illustrator": "Katsuya",
-    "imageAssetPath": "cards/dm01/dm01-084.webp"
+    "imageAssetPath": "cards/dm01/dm01-084.webp",
+    "imageUrl": "https://img.duelmasters.us/0094.webp"
   },
   {
     "id": "DM01-085",
@@ -2254,7 +2338,8 @@
     "flavorText": "\"Though battered and scarred, I march on through wars, storms, and strife. I march on.\"",
     "rarity": "Rare",
     "illustrator": "Seki",
-    "imageAssetPath": "cards/dm01/dm01-085.webp"
+    "imageAssetPath": "cards/dm01/dm01-085.webp",
+    "imageUrl": "https://img.duelmasters.us/0095.webp"
   },
   {
     "id": "DM01-086",
@@ -2281,7 +2366,8 @@
     "flavorText": "There is no sanctuary in the Fire Territory. Especially on the featureless, rocky plains.",
     "rarity": "Uncommon",
     "illustrator": "Miho Midorikawa",
-    "imageAssetPath": "cards/dm01/dm01-086.webp"
+    "imageAssetPath": "cards/dm01/dm01-086.webp",
+    "imageUrl": "https://img.duelmasters.us/0096.webp"
   },
   {
     "id": "DM01-087",
@@ -2308,7 +2394,8 @@
     "flavorText": "After it attacks, the lucky are left with rubble.",
     "rarity": "Uncommon",
     "illustrator": "Naoki Saito",
-    "imageAssetPath": "cards/dm01/dm01-087.webp"
+    "imageAssetPath": "cards/dm01/dm01-087.webp",
+    "imageUrl": "https://img.duelmasters.us/0097.webp"
   },
   {
     "id": "DM01-088",
@@ -2333,7 +2420,8 @@
     "flavorText": null,
     "rarity": "Uncommon",
     "illustrator": "Soushi Hirose",
-    "imageAssetPath": "cards/dm01/dm01-088.webp"
+    "imageAssetPath": "cards/dm01/dm01-088.webp",
+    "imageUrl": "https://img.duelmasters.us/0098.webp"
   },
   {
     "id": "DM01-089",
@@ -2358,7 +2446,8 @@
     "flavorText": "Hear the roar of the mighty Earth!",
     "rarity": "Rare",
     "illustrator": "Nottsuo",
-    "imageAssetPath": "cards/dm01/dm01-089.webp"
+    "imageAssetPath": "cards/dm01/dm01-089.webp",
+    "imageUrl": "https://img.duelmasters.us/0099.webp"
   },
   {
     "id": "DM01-090",
@@ -2385,7 +2474,8 @@
     "flavorText": "They're bringing some friends to the party.",
     "rarity": "Common",
     "illustrator": "Yusaku Nakaaki",
-    "imageAssetPath": "cards/dm01/dm01-090.webp"
+    "imageAssetPath": "cards/dm01/dm01-090.webp",
+    "imageUrl": "https://img.duelmasters.us/0100.webp"
   },
   {
     "id": "DM01-091",
@@ -2412,7 +2502,8 @@
     "flavorText": "It pulled a young tree up by the roots, swinging it over its head as though it were a twig.",
     "rarity": "Common",
     "illustrator": "Sansyu",
-    "imageAssetPath": "cards/dm01/dm01-091.webp"
+    "imageAssetPath": "cards/dm01/dm01-091.webp",
+    "imageUrl": "https://img.duelmasters.us/0101.webp"
   },
   {
     "id": "DM01-092",
@@ -2439,7 +2530,8 @@
     "flavorText": "They eat vegetarians.",
     "rarity": "Uncommon",
     "illustrator": "D-Suzuki",
-    "imageAssetPath": "cards/dm01/dm01-092.webp"
+    "imageAssetPath": "cards/dm01/dm01-092.webp",
+    "imageUrl": "https://img.duelmasters.us/0102.webp"
   },
   {
     "id": "DM01-093",
@@ -2464,7 +2556,8 @@
     "flavorText": null,
     "rarity": "Common",
     "illustrator": "Jason",
-    "imageAssetPath": "cards/dm01/dm01-093.webp"
+    "imageAssetPath": "cards/dm01/dm01-093.webp",
+    "imageUrl": "https://img.duelmasters.us/0103.webp"
   },
   {
     "id": "DM01-094",
@@ -2491,7 +2584,8 @@
     "flavorText": "Colony Beetles feed on the World Tree to build gigantic nests on their backs.",
     "rarity": "Uncommon",
     "illustrator": "Hisashi Momose",
-    "imageAssetPath": "cards/dm01/dm01-094.webp"
+    "imageAssetPath": "cards/dm01/dm01-094.webp",
+    "imageUrl": "https://img.duelmasters.us/0104.webp"
   },
   {
     "id": "DM01-095",
@@ -2518,7 +2612,8 @@
     "flavorText": "The Beast Folk are gifted with huge muscles to withstand the tremendous gravity of the World Tree.",
     "rarity": "Common",
     "illustrator": "Norikatsu Miyoshi",
-    "imageAssetPath": "cards/dm01/dm01-095.webp"
+    "imageAssetPath": "cards/dm01/dm01-095.webp",
+    "imageUrl": "https://img.duelmasters.us/0105.webp"
   },
   {
     "id": "DM01-096",
@@ -2545,7 +2640,8 @@
     "flavorText": "With its deadly sting and crushing jaws, it makes the Horned Beasts cower.",
     "rarity": "Uncommon",
     "illustrator": "Youichi Kai",
-    "imageAssetPath": "cards/dm01/dm01-096.webp"
+    "imageAssetPath": "cards/dm01/dm01-096.webp",
+    "imageUrl": "https://img.duelmasters.us/0106.webp"
   },
   {
     "id": "DM01-097",
@@ -2572,7 +2668,8 @@
     "flavorText": "Hawk warriors hunt faster than the wind.",
     "rarity": "Common",
     "illustrator": "Miho Midorikawa",
-    "imageAssetPath": "cards/dm01/dm01-097.webp"
+    "imageAssetPath": "cards/dm01/dm01-097.webp",
+    "imageUrl": "https://img.duelmasters.us/0107.webp"
   },
   {
     "id": "DM01-098",
@@ -2599,7 +2696,8 @@
     "flavorText": "\"I am not pink!\"",
     "rarity": "Common",
     "illustrator": "Dustmoss",
-    "imageAssetPath": "cards/dm01/dm01-098.webp"
+    "imageAssetPath": "cards/dm01/dm01-098.webp",
+    "imageUrl": "https://img.duelmasters.us/0108.webp"
   },
   {
     "id": "DM01-099",
@@ -2624,7 +2722,8 @@
     "flavorText": null,
     "rarity": "Rare",
     "illustrator": "Sansyu",
-    "imageAssetPath": "cards/dm01/dm01-099.webp"
+    "imageAssetPath": "cards/dm01/dm01-099.webp",
+    "imageUrl": "https://img.duelmasters.us/0109.webp"
   },
   {
     "id": "DM01-100",
@@ -2646,10 +2745,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Put 1 of your creatures from the battle zone into your mana zone.",
-    "flavorText": "\"Here's something better for you to do.\" â€”Fighter Dual Fang",
+    "flavorText": "\"Here's something better for you to do.\" \u00e2\u20ac\u201dFighter Dual Fang",
     "rarity": "Uncommon",
     "illustrator": "Seki",
-    "imageAssetPath": "cards/dm01/dm01-100.webp"
+    "imageAssetPath": "cards/dm01/dm01-100.webp",
+    "imageUrl": "https://img.duelmasters.us/0110.webp"
   },
   {
     "id": "DM01-101",
@@ -2673,10 +2773,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can't attack players.",
-    "flavorText": "\"I will never give you up.\" â€”Symbolic meaning of the poisonous dahlia in flower language",
+    "flavorText": "\"I will never give you up.\" \u00e2\u20ac\u201dSymbolic meaning of the poisonous dahlia in flower language",
     "rarity": "Uncommon",
     "illustrator": "Hideaki Takamura",
-    "imageAssetPath": "cards/dm01/dm01-101.webp"
+    "imageAssetPath": "cards/dm01/dm01-101.webp",
+    "imageUrl": "https://img.duelmasters.us/0111.webp"
   },
   {
     "id": "DM01-102",
@@ -2703,7 +2804,8 @@
     "flavorText": "You won't find these mushrooms on salads.",
     "rarity": "Uncommon",
     "illustrator": "Daisuke Izuka",
-    "imageAssetPath": "cards/dm01/dm01-102.webp"
+    "imageAssetPath": "cards/dm01/dm01-102.webp",
+    "imageUrl": "https://img.duelmasters.us/0112.webp"
   },
   {
     "id": "DM01-103",
@@ -2730,7 +2832,8 @@
     "flavorText": "Never start a fire in the depths of a forest. Enraged red-eye scorpions will come after you.",
     "rarity": "Rare",
     "illustrator": "Kou1",
-    "imageAssetPath": "cards/dm01/dm01-103.webp"
+    "imageAssetPath": "cards/dm01/dm01-103.webp",
+    "imageUrl": "https://img.duelmasters.us/0113.webp"
   },
   {
     "id": "DM01-104",
@@ -2757,7 +2860,8 @@
     "flavorText": "A stampeding longhorn leaves nothing but dust in its wake.",
     "rarity": "Rare",
     "illustrator": "Norikatsu Miyoshi",
-    "imageAssetPath": "cards/dm01/dm01-104.webp"
+    "imageAssetPath": "cards/dm01/dm01-104.webp",
+    "imageUrl": "https://img.duelmasters.us/0114.webp"
   },
   {
     "id": "DM01-105",
@@ -2781,10 +2885,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "This creature can't attack players.",
-    "flavorText": "\"Me big. Me tough. Me smash.\" â€”Iron Hammer, Boar Warrior",
+    "flavorText": "\"Me big. Me tough. Me smash.\" \u00e2\u20ac\u201dIron Hammer, Boar Warrior",
     "rarity": "Common",
     "illustrator": "Katsuya",
-    "imageAssetPath": "cards/dm01/dm01-105.webp"
+    "imageAssetPath": "cards/dm01/dm01-105.webp",
+    "imageUrl": "https://img.duelmasters.us/0115.webp"
   },
   {
     "id": "DM01-106",
@@ -2811,7 +2916,8 @@
     "flavorText": "A Colony Beetle's spawning is a virtual nightmare. It covers the earth with a hail of its bullet-like eggs.",
     "rarity": "Rare",
     "illustrator": "Sansyu",
-    "imageAssetPath": "cards/dm01/dm01-106.webp"
+    "imageAssetPath": "cards/dm01/dm01-106.webp",
+    "imageUrl": "https://img.duelmasters.us/0116.webp"
   },
   {
     "id": "DM01-107",
@@ -2838,7 +2944,8 @@
     "flavorText": "A beautiful flower, an alluring scent...and deadly thorns.",
     "rarity": "Very Rare",
     "illustrator": "Atsushi Kawasaki",
-    "imageAssetPath": "cards/dm01/dm01-107.webp"
+    "imageAssetPath": "cards/dm01/dm01-107.webp",
+    "imageUrl": "https://img.duelmasters.us/0117.webp"
   },
   {
     "id": "DM01-108",
@@ -2865,7 +2972,8 @@
     "flavorText": "Not many things want to get in its way.",
     "rarity": "Very Rare",
     "illustrator": "Atsushi Kawasaki",
-    "imageAssetPath": "cards/dm01/dm01-108.webp"
+    "imageAssetPath": "cards/dm01/dm01-108.webp",
+    "imageUrl": "https://img.duelmasters.us/0118.webp"
   },
   {
     "id": "DM01-109",
@@ -2892,7 +3000,8 @@
     "flavorText": "Sometimes weeks pass before it realizes it has a gored enemy stuck to its horns.",
     "rarity": "Rare",
     "illustrator": "Daisuke Izuka",
-    "imageAssetPath": "cards/dm01/dm01-109.webp"
+    "imageAssetPath": "cards/dm01/dm01-109.webp",
+    "imageUrl": "https://img.duelmasters.us/0119.webp"
   },
   {
     "id": "DM01-110",
@@ -2914,10 +3023,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 1,
     "rulesText": "Put the top 2 cards of your deck into your mana zone.",
-    "flavorText": "\"Great Earth, give me your might!\" â€”Fighter Dual Fang",
+    "flavorText": "\"Great Earth, give me your might!\" \u00e2\u20ac\u201dFighter Dual Fang",
     "rarity": "Common",
     "illustrator": "Sansyu",
-    "imageAssetPath": "cards/dm01/dm01-110.webp"
+    "imageAssetPath": "cards/dm01/dm01-110.webp",
+    "imageUrl": "https://img.duelmasters.us/0120.webp"
   },
   {
     "id": "DM01-S01",
@@ -2944,7 +3054,8 @@
     "flavorText": "The sky was scorched by Dragons' fire, and the earth gouged by elementals' rays. The battle raged for seven nights and seven days.",
     "rarity": "Super Rare",
     "illustrator": "Masaki Hirooka",
-    "imageAssetPath": "cards/dm01/dm01-s01.webp"
+    "imageAssetPath": "cards/dm01/dm01-s01.webp",
+    "imageUrl": "https://img.duelmasters.us/0001.webp"
   },
   {
     "id": "DM01-S02",
@@ -2971,7 +3082,8 @@
     "flavorText": "It is said the destruction of the Ancient Empire was caused by the descent of the elementals.",
     "rarity": "Super Rare",
     "illustrator": "Akifumi Yamamoto",
-    "imageAssetPath": "cards/dm01/dm01-s02.webp"
+    "imageAssetPath": "cards/dm01/dm01-s02.webp",
+    "imageUrl": "https://img.duelmasters.us/0002.webp"
   },
   {
     "id": "DM01-S03",
@@ -2998,7 +3110,8 @@
     "flavorText": "Water surrounds, enfolds, buoys...and attacks.",
     "rarity": "Super Rare",
     "illustrator": "Seki",
-    "imageAssetPath": "cards/dm01/dm01-s03.webp"
+    "imageAssetPath": "cards/dm01/dm01-s03.webp",
+    "imageUrl": "https://img.duelmasters.us/0003.webp"
   },
   {
     "id": "DM01-S04",
@@ -3025,7 +3138,8 @@
     "flavorText": "Leviathans are just like storms. All you can do is wait until they pass.",
     "rarity": "Super Rare",
     "illustrator": "Ryoya Yuki",
-    "imageAssetPath": "cards/dm01/dm01-s04.webp"
+    "imageAssetPath": "cards/dm01/dm01-s04.webp",
+    "imageUrl": "https://img.duelmasters.us/0004.webp"
   },
   {
     "id": "DM01-S05",
@@ -3052,7 +3166,8 @@
     "flavorText": "The world is deafened by the roar of the deathliger.",
     "rarity": "Super Rare",
     "illustrator": "Atsushi Kawasaki",
-    "imageAssetPath": "cards/dm01/dm01-s05.webp"
+    "imageAssetPath": "cards/dm01/dm01-s05.webp",
+    "imageUrl": "https://img.duelmasters.us/0005.webp"
   },
   {
     "id": "DM01-S06",
@@ -3076,10 +3191,11 @@
     "powerAttackerBonus": 0,
     "breakerCount": 2,
     "rulesText": "Double breaker (This creature breaks 2 shields.)",
-    "flavorText": "\"If I were to send him to the field, he would overwhelm the enemy in an instant. Where is the fun in that?\" â€”Ballom, Master of Death",
+    "flavorText": "\"If I were to send him to the field, he would overwhelm the enemy in an instant. Where is the fun in that?\" \u00e2\u20ac\u201dBallom, Master of Death",
     "rarity": "Super Rare",
     "illustrator": "Tsutomu Kawade",
-    "imageAssetPath": "cards/dm01/dm01-s06.webp"
+    "imageAssetPath": "cards/dm01/dm01-s06.webp",
+    "imageUrl": "https://img.duelmasters.us/0006.webp"
   },
   {
     "id": "DM01-S07",
@@ -3106,7 +3222,8 @@
     "flavorText": "Even the smallest weapon attached to it has enough firepower to lay waste to an entire nation.",
     "rarity": "Super Rare",
     "illustrator": "Yusaku Nakaaki",
-    "imageAssetPath": "cards/dm01/dm01-s07.webp"
+    "imageAssetPath": "cards/dm01/dm01-s07.webp",
+    "imageUrl": "https://img.duelmasters.us/0007.webp"
   },
   {
     "id": "DM01-S08",
@@ -3133,7 +3250,8 @@
     "flavorText": "The forces of Fire will never relent.",
     "rarity": "Super Rare",
     "illustrator": "Tomofumi Ogasawara",
-    "imageAssetPath": "cards/dm01/dm01-s08.webp"
+    "imageAssetPath": "cards/dm01/dm01-s08.webp",
+    "imageUrl": "https://img.duelmasters.us/0008.webp"
   },
   {
     "id": "DM01-S09",
@@ -3160,7 +3278,8 @@
     "flavorText": "It devours all.",
     "rarity": "Super Rare",
     "illustrator": "Dustmoss",
-    "imageAssetPath": "cards/dm01/dm01-s09.webp"
+    "imageAssetPath": "cards/dm01/dm01-s09.webp",
+    "imageUrl": "https://img.duelmasters.us/0009.webp"
   },
   {
     "id": "DM01-S10",
@@ -3187,6 +3306,7 @@
     "flavorText": "With a mighty, earthshaking roar, the King of Beasts arose.",
     "rarity": "Super Rare",
     "illustrator": "Ittoku",
-    "imageAssetPath": "cards/dm01/dm01-s10.webp"
+    "imageAssetPath": "cards/dm01/dm01-s10.webp",
+    "imageUrl": "https://img.duelmasters.us/0010.webp"
   }
 ]

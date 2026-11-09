@@ -26,6 +26,7 @@ export interface CardDefinition {
   rarity: Rarity;
   illustrator: string | null;
   imageAssetPath: string;
+  imageUrl: string;
 }
 
 export interface DeckItem {

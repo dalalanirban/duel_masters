@@ -18,6 +18,7 @@ export const CardModal: React.FC<Props> = ({
   onAdd,
   onRemove
 }) => {
+  const [viewScan, setViewScan] = React.useState(true);
   if (!card) return null;
 
   return (
@@ -37,9 +38,24 @@ export const CardModal: React.FC<Props> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Card Frame Preview */}
-        <div className="flex justify-center items-center">
-          <DuelCard card={card} deckCount={deckCount} compact={false} />
+        {/* Card Frame / Physical Scan Preview */}
+        <div className="flex flex-col items-center gap-2">
+          {viewScan ? (
+            <img
+              src={card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl}
+              alt={card.name}
+              className="w-60 h-[340px] object-contain rounded-xl shadow-2xl border-2 border-slate-700 bg-slate-950"
+            />
+          ) : (
+            <DuelCard card={card} deckCount={deckCount} compact={false} />
+          )}
+
+          <button
+            onClick={() => setViewScan(!viewScan)}
+            className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors"
+          >
+            {viewScan ? "Switch to Game Frame" : "Switch to Card Scan"}
+          </button>
         </div>
 
         {/* Extended Details & Lore Panel */}
