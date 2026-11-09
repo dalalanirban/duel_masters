@@ -32,8 +32,9 @@ export const CardModal: React.FC<Props> = ({
       >
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors z-10"
+          className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors z-10 cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -134,17 +135,19 @@ export const CardModal: React.FC<Props> = ({
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => onRemove(card)}
                 disabled={deckCount <= 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
               >
                 <Minus className="w-3.5 h-3.5" /> Remove
               </button>
 
               <button
+                type="button"
                 onClick={() => onAdd(card)}
                 disabled={deckCount >= 4}
-                className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-950 transition-colors shadow-md shadow-amber-500/20"
+                className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-950 transition-colors shadow-md shadow-amber-500/20 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Add to Deck
               </button>

@@ -58,8 +58,9 @@ export const DuelCard: React.FC<Props> = ({
           {deckCount === 0 ? (
             /* 1. Not in deck yet: Show '+ Add to Deck' */
             <button
+              type="button"
               onClick={() => onAdd?.(card)}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-bold text-xs bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-700 transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-bold text-xs bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-700 transition-all shadow-sm cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Add to Deck
             </button>
@@ -67,38 +68,57 @@ export const DuelCard: React.FC<Props> = ({
             /* 2. Reached MAX permitted copies (4): Show '-' button only */
             <div className="flex items-center justify-between w-full bg-slate-900/90 border border-amber-500/40 rounded-lg p-0.5 shadow-sm">
               <button
-                onClick={() => onRemove?.(card)}
-                className="p-1.5 rounded-md bg-slate-800 hover:bg-red-950/80 hover:text-red-300 text-slate-300 transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove?.(card);
+                }}
+                className="p-1.5 rounded-md bg-slate-800 hover:bg-red-950/80 hover:text-red-300 text-slate-300 transition-colors cursor-pointer"
                 title="Remove 1 copy"
               >
                 <Minus className="w-3.5 h-3.5" />
               </button>
-              <span className="font-mono font-bold text-xs text-amber-400 px-3 flex-1 text-center">
+              <span className="font-mono font-bold text-xs text-amber-400 px-3 flex-1 text-center select-none">
                 MAX (4)
               </span>
             </div>
           ) : (
-            /* 3. Already added (1 to 3 copies): Show both '-' and '+' buttons */
-            <div className="flex items-center justify-between w-full bg-slate-900/90 border border-emerald-500/50 rounded-lg p-0.5 shadow-sm">
+            /* 3. Already added (1 to 3 copies): Entire container is clickable to add, only '-' removes */
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onAdd?.(card)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onAdd?.(card);
+                }
+              }}
+              className="group/btn flex items-center justify-between w-full bg-slate-900/90 hover:bg-emerald-950/40 border border-emerald-500/50 hover:border-emerald-400 rounded-lg p-0.5 shadow-sm cursor-pointer transition-all"
+              title="Click anywhere to add another copy"
+            >
               <button
-                onClick={() => onRemove?.(card)}
-                className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove?.(card);
+                }}
+                className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
                 title="Remove 1 copy"
               >
                 <Minus className="w-3.5 h-3.5" />
               </button>
 
-              <span className="font-mono font-bold text-xs text-emerald-400 px-2 flex-1 text-center">
+              <span className="font-mono font-bold text-xs text-emerald-400 group-hover/btn:text-emerald-300 px-2 flex-1 text-center select-none transition-colors">
                 {deckCount} in deck
               </span>
 
-              <button
-                onClick={() => onAdd?.(card)}
-                className="p-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm"
+              <div
+                className="p-1.5 rounded-md bg-emerald-600 group-hover/btn:bg-emerald-500 text-white transition-colors shadow-sm flex items-center justify-center"
                 title="Add another copy"
               >
                 <Plus className="w-3.5 h-3.5" />
-              </button>
+              </div>
             </div>
           )}
         </div>
