@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
-import { CardDefinition, DeckItem } from '../../types/card';
+import { CardDefinition, Deck, DeckItem } from '../../types/card';
 import { DeckCardItem } from './DeckCardItem';
 import { ManaCurve } from './ManaCurve';
 import { CivBreakdown } from './CivBreakdown';
 import { TestDrawModal } from './TestDrawModal';
 import { PRESET_DECKS } from '../../data/presets';
-import { Play, RotateCcw, Download, Sparkles, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { Play, RotateCcw, Download, Sparkles, CheckCircle2, AlertTriangle, Layers, Save, Trash2 } from 'lucide-react';
 
 interface Props {
   items: DeckItem[];
+  deckId: string;
   deckName: string;
   totalCards: number;
   deckStatus: 'building' | 'legal' | 'over';
+  savedDecks: Deck[];
   onIncrement: (card: CardDefinition) => void;
   onDecrement: (card: CardDefinition) => void;
   onRemoveAll: (card: CardDefinition) => void;
   onClear: () => void;
-  onLoadPreset: (presetId: string) => void;
+  onCreateBlank: () => void;
+  onLoadDeck: (deckId: string) => void;
+  onDeleteDeck: (deckId: string) => void;
+  onSaveClick: () => void;
   onRename: (name: string) => void;
   onInspect: (card: CardDefinition) => void;
   onExportText: () => void;
@@ -24,20 +29,28 @@ interface Props {
 
 export const DeckPanel: React.FC<Props> = ({
   items,
+  deckId,
   deckName,
   totalCards,
   deckStatus,
+  savedDecks,
   onIncrement,
   onDecrement,
   onRemoveAll,
   onClear,
-  onLoadPreset,
+  onCreateBlank,
+  onLoadDeck,
+  onDeleteDeck,
+  onSaveClick,
   onRename,
   onInspect,
   onExportText
 }) => {
   const [isTestDrawOpen, setIsTestDrawOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'cards' | 'stats'>('cards');
+
+  const isSaved = savedDecks.some(d => d.id === deckId);
+  const isPreset = PRESET_DECKS.some(p => p.id === deckId);
 
   return (
     <div className="flex flex-col h-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-md">
@@ -48,25 +61,61 @@ export const DeckPanel: React.FC<Props> = ({
             type="text"
             value={deckName}
             onChange={e => onRename(e.target.value)}
-            className="flex-1 bg-transparent font-cinzel font-bold text-lg text-white border-b border-transparent hover:border-slate-700 focus:border-amber-400 focus:outline-none transition-colors px-1"
+            className="flex-1 min-w-0 bg-transparent font-cinzel font-bold text-lg text-white border-b border-transparent hover:border-slate-700 focus:border-amber-400 focus:outline-none transition-colors px-1"
             placeholder="Deck Name..."
           />
 
-          {/* Preset Selector */}
-          <select
-            onChange={e => {
-              if (e.target.value) onLoadPreset(e.target.value);
-            }}
-            defaultValue=""
-            className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-slate-300 hover:text-white cursor-pointer focus:outline-none"
-          >
-            <option value="" disabled>Load Preset Deck...</option>
-            {PRESET_DECKS.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {/* Grouped Deck Selector & Delete Action */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <select
+              value={deckId}
+              onChange={e => {
+                const val = e.target.value;
+                if (val === '__NEW__') {
+                  onCreateBlank();
+                } else if (val) {
+                  onLoadDeck(val);
+                }
+              }}
+              className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-slate-300 hover:text-white cursor-pointer focus:outline-none max-w-[170px] truncate"
+            >
+              <option value="__NEW__">+ New Blank Deck</option>
+              {!isSaved && !isPreset && (
+                <option value={deckId}>
+                  {deckName || 'Untitled Deck'} (Unsaved)
+                </option>
+              )}
+              <optgroup label={`My Saved Decks (${savedDecks.length})`}>
+                {savedDecks.map(d => {
+                  const count = d.items.reduce((sum, item) => sum + item.count, 0);
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({count} cards)
+                    </option>
+                  );
+                })}
+              </optgroup>
+              <optgroup label="Starter Presets">
+                {PRESET_DECKS.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+
+            {isSaved && (
+              <button
+                type="button"
+                onClick={() => onDeleteDeck(deckId)}
+                title="Delete this saved deck"
+                className="p-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/50 transition-colors cursor-pointer"
+                aria-label="Delete saved deck"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Deck Count & Legal Status Pill */}
@@ -95,23 +144,45 @@ export const DeckPanel: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Test Draw & Export */}
-        <div className="grid grid-cols-2 gap-2 mt-3">
+        {/* Action Buttons: Save Deck & Secondary Actions */}
+        <div className="space-y-2 mt-3">
           <button
-            onClick={() => setIsTestDrawOpen(true)}
-            disabled={totalCards === 0}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs text-slate-950 shadow-md shadow-amber-500/20 transition-all"
+            type="button"
+            onClick={onSaveClick}
+            disabled={totalCards !== 40}
+            title={
+              totalCards === 40
+                ? 'Save custom deck'
+                : `Requires exactly 40 cards to save (current: ${totalCards}/40)`
+            }
+            className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all ${
+              totalCards === 40
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 shadow-md shadow-amber-500/25 ring-1 ring-amber-400 cursor-pointer'
+                : 'bg-slate-800 text-slate-400 opacity-40 cursor-not-allowed'
+            }`}
           >
-            <Play className="w-3.5 h-3.5 fill-current" /> Test Opening Hand
+            <Save className="w-3.5 h-3.5" /> Save Deck
           </button>
 
-          <button
-            onClick={onExportText}
-            disabled={totalCards === 0}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-semibold text-slate-200 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" /> Export Deck
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTestDrawOpen(true)}
+              disabled={totalCards === 0}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" /> Test Opening Hand
+            </button>
+
+            <button
+              type="button"
+              onClick={onExportText}
+              disabled={totalCards === 0}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Deck
+            </button>
+          </div>
         </div>
       </div>
 

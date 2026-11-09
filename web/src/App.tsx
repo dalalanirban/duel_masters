@@ -6,6 +6,7 @@ import { FilterBar } from './components/explorer/FilterBar';
 import { CardGrid } from './components/explorer/CardGrid';
 import { DeckPanel } from './components/deck/DeckPanel';
 import { CardModal } from './components/card/CardModal';
+import { SaveDeckModal } from './components/deck/SaveDeckModal';
 import { Swords, Check, ExternalLink } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -13,17 +14,23 @@ export const App: React.FC = () => {
     sortBy: 'id-asc'
   });
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
-  const [exportNotification, setExportNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   const {
     activeDeck,
+    savedDecks,
     totalCards,
     deckStatus,
+    isSaveModalOpen,
+    setIsSaveModalOpen,
     addCard,
     removeCard,
     removeAllOfCard,
     clearDeck,
-    loadPreset,
+    createBlankDeck,
+    loadDeck,
+    saveDeck,
+    deleteDeck,
     setDeckName,
     getCardCountInDeck,
     exportAsText
@@ -38,11 +45,15 @@ export const App: React.FC = () => {
     setFilters({ sortBy: 'id-asc' });
   };
 
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleExportText = () => {
     const text = exportAsText();
     navigator.clipboard.writeText(text);
-    setExportNotification('Decklist copied to clipboard!');
-    setTimeout(() => setExportNotification(null), 3000);
+    showNotification('Decklist copied to clipboard!');
   };
 
   return (
@@ -121,14 +132,19 @@ export const App: React.FC = () => {
           <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
             <DeckPanel
               items={activeDeck.items}
+              deckId={activeDeck.id}
               deckName={activeDeck.name}
               totalCards={totalCards}
               deckStatus={deckStatus}
+              savedDecks={savedDecks}
               onIncrement={addCard}
               onDecrement={removeCard}
               onRemoveAll={removeAllOfCard}
               onClear={clearDeck}
-              onLoadPreset={loadPreset}
+              onCreateBlank={createBlankDeck}
+              onLoadDeck={loadDeck}
+              onDeleteDeck={deleteDeck}
+              onSaveClick={() => setIsSaveModalOpen(true)}
               onRename={setDeckName}
               onInspect={setInspectedCard}
               onExportText={handleExportText}
@@ -146,11 +162,25 @@ export const App: React.FC = () => {
         onRemove={removeCard}
       />
 
-      {/* Export Notification Toast */}
-      {exportNotification && (
+      {/* Save Deck Modal */}
+      <SaveDeckModal
+        isOpen={isSaveModalOpen}
+        deckName={activeDeck.name}
+        totalCards={totalCards}
+        onClose={() => setIsSaveModalOpen(false)}
+        onSave={(name) => {
+          const ok = saveDeck(name);
+          if (ok) {
+            showNotification(`Deck '${name}' saved successfully!`);
+          }
+        }}
+      />
+
+      {/* Notification Toast */}
+      {notification && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-xs shadow-2xl animate-fade-in">
           <Check className="w-4 h-4" />
-          <span>{exportNotification}</span>
+          <span>{notification}</span>
         </div>
       )}
     </div>
