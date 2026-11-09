@@ -57,6 +57,23 @@ cp backend/.env.example backend/.env
 
 The server starts on `http://localhost:8080` by default.
 
+## Web Application (Card Explorer & Deck Builder)
+
+A modern, fast web application built with **React**, **TypeScript**, **Vite**, and **Tailwind CSS**.
+
+```bash
+cd web
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+- **120 Cards from DM-01 Base Set** with authentic procedural card frames.
+- **Search & Multi-Filter:** Filter by Civilization, Cost, Power, Type, and Keywords (Blocker, Shield Trigger, Slayer, etc.).
+- **Tournament Deck Builder:** Strict 40-card limit, 4-copy rule, live Mana Curve, and Civilization breakdown.
+- **Opening Hand & Shield Simulator:** Deal 5 face-down Shields and 5 Starting Hand cards to test your curve.
+- **Presets:** Pre-loaded with Shobu Beatdown, Kokujo Control, and Hakuoh Stall.
+
 ## Documentation
 
 - [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md)
