@@ -40,3 +40,8 @@ Desktop.ini
 # Secrets
 *.keystore
 *.jks
+
+# Node / Web Frontend
+node_modules/
+dist/
+.vite/

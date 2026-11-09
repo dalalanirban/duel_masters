@@ -1,0 +1,157 @@
+import React, { useState, useMemo } from 'react';
+import { CardDefinition } from './types/card';
+import { filterCards, CardFilterOptions } from './data/cardLoader';
+import { useDeckBuilder } from './hooks/useDeckBuilder';
+import { FilterBar } from './components/explorer/FilterBar';
+import { CardGrid } from './components/explorer/CardGrid';
+import { DeckPanel } from './components/deck/DeckPanel';
+import { CardModal } from './components/card/CardModal';
+import { Swords, Check, ExternalLink } from 'lucide-react';
+
+export const App: React.FC = () => {
+  const [filters, setFilters] = useState<CardFilterOptions>({
+    sortBy: 'id-asc'
+  });
+  const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
+  const [exportNotification, setExportNotification] = useState<string | null>(null);
+
+  const {
+    activeDeck,
+    totalCards,
+    deckStatus,
+    addCard,
+    removeCard,
+    removeAllOfCard,
+    clearDeck,
+    loadPreset,
+    setDeckName,
+    getCardCountInDeck,
+    exportAsText
+  } = useDeckBuilder();
+
+  // Filter cards based on user selection
+  const displayedCards = useMemo(() => {
+    return filterCards(filters);
+  }, [filters]);
+
+  const resetFilters = () => {
+    setFilters({ sortBy: 'id-asc' });
+  };
+
+  const handleExportText = () => {
+    const text = exportAsText();
+    navigator.clipboard.writeText(text);
+    setExportNotification('Decklist copied to clipboard!');
+    setTimeout(() => setExportNotification(null), 3000);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 px-4 md:px-8 py-3">
+        <div className="max-w-[1700px] mx-auto flex items-center justify-between">
+          {/* Logo & Branding */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black text-xl">
+              <Swords className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-cinzel font-extrabold text-xl md:text-2xl tracking-wider text-white">
+                  DUEL MASTERS
+                </h1>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  DM-01 Base Set
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Interactive Card Database & 40-Card Deck Builder (120 Cards)
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stats Pill */}
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+              <span className="text-slate-400">Active Deck:</span>
+              <span className="font-cinzel font-bold text-amber-400 truncate max-w-[160px]">
+                {activeDeck.name}
+              </span>
+              <span className="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-800 text-slate-200">
+                {totalCards}/40
+              </span>
+            </div>
+
+            <a
+              href="https://github.com/dalalanirban/duel_masters"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
+            >
+              <span>GitHub</span>
+              <ExternalLink className="w-3 h-3 text-slate-500" />
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Main App Body */}
+      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Left Column: Explorer FilterBar + Card Grid */}
+          <div className="flex-1 w-full space-y-5">
+            <FilterBar
+              filters={filters}
+              onChange={setFilters}
+              onReset={resetFilters}
+              totalMatches={displayedCards.length}
+            />
+
+            <CardGrid
+              cards={displayedCards}
+              getDeckCount={getCardCountInDeck}
+              onAdd={addCard}
+              onInspect={setInspectedCard}
+              onResetFilters={resetFilters}
+            />
+          </div>
+
+          {/* Right Column: Sticky Deck Builder Sidebar */}
+          <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
+            <DeckPanel
+              items={activeDeck.items}
+              deckName={activeDeck.name}
+              totalCards={totalCards}
+              deckStatus={deckStatus}
+              onIncrement={addCard}
+              onDecrement={removeCard}
+              onRemoveAll={removeAllOfCard}
+              onClear={clearDeck}
+              onLoadPreset={loadPreset}
+              onRename={setDeckName}
+              onInspect={setInspectedCard}
+              onExportText={handleExportText}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* Inspected Card Detail Modal */}
+      <CardModal
+        card={inspectedCard}
+        deckCount={inspectedCard ? getCardCountInDeck(inspectedCard.id) : 0}
+        onClose={() => setInspectedCard(null)}
+        onAdd={addCard}
+        onRemove={removeCard}
+      />
+
+      {/* Export Notification Toast */}
+      {exportNotification && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-xs shadow-2xl animate-fade-in">
+          <Check className="w-4 h-4" />
+          <span>{exportNotification}</span>
+        </div>
+      )}
+    </div>
+  );
+};
