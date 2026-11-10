@@ -527,7 +527,7 @@ export function resolveShieldTrigger(
   const playerState = state.players[player];
 
   const remainingTriggers = (state.pendingInteraction.triggers || []).filter(
-    (t) => t.shieldId !== trigger.shieldId && t.card.id !== trigger.card.id
+    (t) => t.shieldId !== trigger.shieldId
   );
 
   const nextPending: ShieldTriggerChoiceInteraction | null =
@@ -536,7 +536,7 @@ export function resolveShieldTrigger(
           type: 'SHIELD_TRIGGER_RESOLUTION',
           player,
           shieldCards: (state.pendingInteraction.shieldCards || []).filter(
-            (c) => c.instanceId !== trigger.shieldId && c.card.id !== trigger.card.id
+            (c) => c.instanceId !== trigger.shieldId
           ),
           triggers: remainingTriggers
         }
@@ -555,9 +555,14 @@ export function resolveShieldTrigger(
   }
 
   // Case B: Player uses shield trigger: play for FREE (0 mana)
-  const handCardIndex = playerState.hand.findIndex(
-    (c) => c.instanceId === trigger.shieldId || c.card.id === trigger.card.id
+  let handCardIndex = playerState.hand.findIndex(
+    (c) => c.instanceId === trigger.shieldId
   );
+  if (handCardIndex === -1) {
+    handCardIndex = playerState.hand.findIndex(
+      (c) => c.card.id === trigger.card.id
+    );
+  }
 
   const nextHand =
     handCardIndex !== -1

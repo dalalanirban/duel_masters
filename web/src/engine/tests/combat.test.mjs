@@ -884,6 +884,62 @@ describe('Duel Masters Engine: Combat & Attack Phase (Task 4)', () => {
       // All triggers resolved
       assert.strictEqual(state.pendingInteraction, null);
     });
+
+    it('handles multiple identical triggers from Double Breaker without dropping duplicates', () => {
+      const attacker = {
+        instanceId: 'att-1',
+        card: valdios, // Double Breaker
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+      const extraCreature = {
+        instanceId: 'extra-1',
+        card: vorg,
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const trigger1 = createShieldInstance(terrorPit, 'opponent', 0);
+      const trigger2 = createShieldInstance(terrorPit, 'opponent', 1);
+      let state = setupCombatState({
+        turn: 2,
+        playerBattleZone: [attacker, extraCreature],
+        opponentShields: [trigger1, trigger2]
+      });
+
+      state = declareAttack(state, 'att-1', { type: 'shield', index: 0 });
+
+      // Both Terror Pits detected
+      assert.strictEqual(state.pendingInteraction.triggers.length, 2);
+      assert.strictEqual(state.pendingInteraction.triggers[0].card.id, terrorPit.id);
+      assert.strictEqual(state.pendingInteraction.triggers[1].card.id, terrorPit.id);
+
+      // Resolve first Terror Pit on Valdios ('att-1')
+      const t1Id = state.pendingInteraction.triggers[0].shieldId;
+      state = resolveShieldTrigger(state, t1Id, true, ['att-1']);
+
+      // Valdios destroyed
+      assert.strictEqual(state.players.player.battleZone.length, 1);
+      assert.strictEqual(state.players.player.battleZone[0].instanceId, 'extra-1');
+
+      // The second identical trigger must still be pending!
+      assert.ok(state.pendingInteraction);
+      assert.strictEqual(state.pendingInteraction.triggers.length, 1);
+      assert.strictEqual(state.pendingInteraction.triggers[0].shieldId, trigger2.id);
+
+      // Resolve second Terror Pit on extraCreature ('extra-1')
+      const t2Id = state.pendingInteraction.triggers[0].shieldId;
+      state = resolveShieldTrigger(state, t2Id, true, ['extra-1']);
+
+      // Both creatures destroyed, both Terror Pits in opponent graveyard
+      assert.strictEqual(state.players.player.battleZone.length, 0);
+      assert.strictEqual(state.players.opponent.graveyard.length, 2);
+      assert.strictEqual(state.pendingInteraction, null);
+    });
   });
 
   describe('Direct Attack & Victory Condition', () => {
