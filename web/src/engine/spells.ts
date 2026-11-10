@@ -845,6 +845,276 @@ export function resolveSpellEffect(
     return destroyCreature(state, targetId);
   }
 
+  // Burst Shot: Destroy all creatures that have power 2000 or less
+  if (
+    cardName === 'burst shot' ||
+    /destroy all creatures that have power 2000 or less/i.test(rules)
+  ) {
+    const toDestroy: CreatureInstance[] = [];
+    for (const pid of ['player', 'opponent'] as const) {
+      for (const c of state.players[pid].battleZone) {
+        if (getCreatureEffectivePower(c, false) <= 2000) {
+          toDestroy.push(c);
+        }
+      }
+    }
+
+    toDestroy.sort((a, b) => {
+      const aAura = /balloonshroom|gigamantis/i.test(a.card.name);
+      const bAura = /balloonshroom|gigamantis/i.test(b.card.name);
+      return (aAura ? 1 : 0) - (bAura ? 1 : 0);
+    });
+
+    let nextState = state;
+    for (const c of toDestroy) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed ${toDestroy.length} creature(s) with power 2000 or less with ${card.name}.`
+      ]
+    };
+  }
+
+  // Blizzard of Spears: Destroy all creatures that have power 4000 or less
+  if (
+    cardName === 'blizzard of spears' ||
+    /destroy all creatures that have power 4000 or less/i.test(rules)
+  ) {
+    const toDestroy: CreatureInstance[] = [];
+    for (const pid of ['player', 'opponent'] as const) {
+      for (const c of state.players[pid].battleZone) {
+        if (getCreatureEffectivePower(c, false) <= 4000) {
+          toDestroy.push(c);
+        }
+      }
+    }
+
+    toDestroy.sort((a, b) => {
+      const aAura = /balloonshroom|gigamantis/i.test(a.card.name);
+      const bAura = /balloonshroom|gigamantis/i.test(b.card.name);
+      return (aAura ? 1 : 0) - (bAura ? 1 : 0);
+    });
+
+    let nextState = state;
+    for (const c of toDestroy) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed ${toDestroy.length} creature(s) with power 4000 or less with ${card.name}.`
+      ]
+    };
+  }
+
+  // Searing Wave: Destroy all opponent creatures that have power 3000 or less, move 1 friendly shield to graveyard
+  if (
+    cardName === 'searing wave' ||
+    /destroy all (?:your )?opponent's creatures that have power 3000 or less/i.test(rules)
+  ) {
+    const toDestroy: CreatureInstance[] = [];
+    for (const c of opponentState.battleZone) {
+      if (getCreatureEffectivePower(c, false) <= 3000) {
+        toDestroy.push(c);
+      }
+    }
+
+    toDestroy.sort((a, b) => {
+      const aAura = /balloonshroom|gigamantis/i.test(a.card.name);
+      const bAura = /balloonshroom|gigamantis/i.test(b.card.name);
+      return (aAura ? 1 : 0) - (bAura ? 1 : 0);
+    });
+
+    let nextState = state;
+    for (const c of toDestroy) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+
+    // Move 1 friendly unbroken shield into graveyard without triggering shield triggers
+    const casterState = nextState.players[player];
+    const unbrokenShields = casterState.shields.filter((s) => !s.isBroken);
+    if (unbrokenShields.length > 0) {
+      let chosenShield = unbrokenShields[0];
+      if (targets && targets.length > 0) {
+        const targetShield = unbrokenShields.find(
+          (s) => targets.includes(s.id) || (s.shieldId && targets.includes(s.shieldId))
+        );
+        if (targetShield) {
+          chosenShield = targetShield;
+        }
+      }
+
+      const nextShields = casterState.shields.filter((s) => s.id !== chosenShield.id);
+      const graveCard: CardInstance = {
+        instanceId: chosenShield.id,
+        card: chosenShield.card,
+        owner: player
+      };
+
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...casterState,
+            shields: nextShields,
+            graveyard: [...casterState.graveyard, graveCard]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${player} put a shield (${chosenShield.card.name}) into the graveyard with ${card.name}.`
+        ]
+      };
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed ${toDestroy.length} opponent creature(s) with power 3000 or less with ${card.name}.`
+      ]
+    };
+  }
+
+  // Invincible Abyss: Destroy all your opponent's creatures
+  if (
+    cardName === 'invincible abyss' ||
+    (/destroy all (?:your )?opponent's creatures\b/i.test(rules) && !/power/i.test(rules))
+  ) {
+    const toDestroy = [...opponentState.battleZone];
+    toDestroy.sort((a, b) => {
+      const aAura = /balloonshroom|gigamantis/i.test(a.card.name);
+      const bAura = /balloonshroom|gigamantis/i.test(b.card.name);
+      return (aAura ? 1 : 0) - (bAura ? 1 : 0);
+    });
+
+    let nextState = state;
+    for (const c of toDestroy) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed all ${toDestroy.length} opponent creature(s) with ${card.name}.`
+      ]
+    };
+  }
+
+  // Apocalypse Day: If there are 6 or more creatures in the battle zone, destroy all creatures
+  if (
+    cardName === 'apocalypse day' ||
+    (/destroy all creatures/i.test(rules) && /6 or more/i.test(rules))
+  ) {
+    const totalCreatures =
+      state.players.player.battleZone.length + state.players.opponent.battleZone.length;
+
+    if (totalCreatures < 6) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but there are only ${totalCreatures} creature(s) in the battle zone (requires 6 or more).`
+        ]
+      };
+    }
+
+    const toDestroy: CreatureInstance[] = [
+      ...state.players.player.battleZone,
+      ...state.players.opponent.battleZone
+    ];
+
+    toDestroy.sort((a, b) => {
+      const aAura = /balloonshroom|gigamantis/i.test(a.card.name);
+      const bAura = /balloonshroom|gigamantis/i.test(b.card.name);
+      return (aAura ? 1 : 0) - (bAura ? 1 : 0);
+    });
+
+    let nextState = state;
+    for (const c of toDestroy) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed all ${toDestroy.length} creatures in the battle zone with ${card.name}.`
+      ]
+    };
+  }
+
+  // Apocalypse Vise: Destroy any number of your opponent's creatures that have total power 8000 or less
+  if (
+    cardName === 'apocalypse vise' ||
+    /destroy any number of (?:your )?opponent's creatures that have total power 8000 or less/i.test(
+      rules
+    )
+  ) {
+    const opponentBZ = opponentState.battleZone;
+    if (opponentBZ.length === 0) {
+      return state;
+    }
+
+    let targetsToDestroy: string[] = [];
+
+    if (targets && targets.length > 0) {
+      const targetCreatures: CreatureInstance[] = [];
+      for (const tid of targets) {
+        const found = opponentBZ.find((c) => c.instanceId === tid);
+        if (!found) {
+          throw new Error(`Target creature ${tid} not found in opponent's battle zone.`);
+        }
+        targetCreatures.push(found);
+      }
+
+      const totalPower = targetCreatures.reduce(
+        (sum, c) => sum + getCreatureEffectivePower(c, false),
+        0
+      );
+      if (totalPower > 8000) {
+        throw new Error(
+          `Target creatures have total power ${totalPower}, exceeding the 8000 limit for ${card.name}.`
+        );
+      }
+      targetsToDestroy = targetCreatures.map((c) => c.instanceId);
+    } else {
+      // Greedily select opponent creatures up to 8000 total power
+      const sorted = [...opponentBZ].sort(
+        (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+      );
+      let remainingPower = 8000;
+      for (const c of sorted) {
+        const p = getCreatureEffectivePower(c, false);
+        if (p <= remainingPower) {
+          targetsToDestroy.push(c.instanceId);
+          remainingPower -= p;
+        }
+      }
+    }
+
+    let nextState = state;
+    for (const tid of targetsToDestroy) {
+      nextState = destroyCreature(nextState, tid);
+    }
+
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${player} destroyed ${targetsToDestroy.length} opponent creature(s) with ${card.name}.`
+      ]
+    };
+  }
+
   // 6. Terror Pit / Generic destroy 1 opponent creature
   if (
     cardName === 'terror pit' ||
@@ -889,6 +1159,7 @@ export function resolveSpellEffect(
   // 8. Teleportation: Return up to 2 creatures to owners' hands
   if (
     cardName === 'teleportation' ||
+    cardName === 'abduction charger' ||
     /choose up to 2 creatures in the battle zone and return them to their owners?'? hands/i.test(
       rules
     )
@@ -962,7 +1233,9 @@ export function resolveSpellEffect(
   // 11. Faerie Life: Put top card of deck into mana zone
   if (
     cardName === 'faerie life' ||
-    /put the top card of (?:your )?deck into (?:your )?mana zone/i.test(rules)
+    (/put the top card of (?:your )?deck into (?:your )?mana zone/i.test(rules) &&
+      !/opponent/i.test(rules) &&
+      !/graveyard/i.test(rules))
   ) {
     return rampTopDeckToManaZone(state, player);
   }
@@ -1070,6 +1343,397 @@ export function resolveSpellEffect(
       actionLog: [
         ...state.actionLog,
         `${player} added a card from hand to shields with ${card.name}.`
+      ]
+    };
+  }
+
+  // Dark Reversal / Corpse Charger: Return a creature from your graveyard to your hand
+  if (
+    cardName === 'dark reversal' ||
+    cardName === 'corpse charger' ||
+    /return a creature from your graveyard to your hand/i.test(rules) ||
+    /put a creature from your graveyard into your hand/i.test(rules)
+  ) {
+    const pState = state.players[player];
+    const creatureIndices = pState.graveyard
+      .map((c, idx) => ({ c, idx }))
+      .filter(
+        (x) => x.c.card.type === 'Creature' || x.c.card.type === 'Evolution Creature'
+      );
+
+    if (creatureIndices.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but there are no creatures in the graveyard.`
+        ]
+      };
+    }
+
+    let chosenIndex = -1;
+    if (targets && targets.length > 0) {
+      const match = creatureIndices.find(
+        (x) => x.c.instanceId === targets[0] || x.c.card.id === targets[0]
+      );
+      if (match) {
+        chosenIndex = match.idx;
+      }
+    }
+
+    if (chosenIndex === -1) {
+      const sorted = [...creatureIndices].sort(
+        (a, b) => (b.c.card.power ?? 0) - (a.c.card.power ?? 0)
+      );
+      chosenIndex = sorted[0].idx;
+    }
+
+    const chosenCard = pState.graveyard[chosenIndex];
+    const nextGraveyard = pState.graveyard.filter((_, idx) => idx !== chosenIndex);
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...pState,
+          graveyard: nextGraveyard,
+          hand: [...pState.hand, chosenCard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} returned ${chosenCard.card.name} from graveyard to hand with ${card.name}.`
+      ]
+    };
+  }
+
+  // Morbid Medicine: Return up to 2 creatures from your graveyard to your hand
+  if (
+    cardName === 'morbid medicine' ||
+    /return up to 2 creatures from your graveyard to your hand/i.test(rules)
+  ) {
+    const pState = state.players[player];
+    const creatureIndices = pState.graveyard
+      .map((c, idx) => ({ c, idx }))
+      .filter(
+        (x) => x.c.card.type === 'Creature' || x.c.card.type === 'Evolution Creature'
+      );
+
+    if (creatureIndices.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but there are no creatures in the graveyard.`
+        ]
+      };
+    }
+
+    const chosenIndices: number[] = [];
+
+    if (targets && targets.length > 0) {
+      for (const tid of targets.slice(0, 2)) {
+        const match = creatureIndices.find(
+          (x) =>
+            !chosenIndices.includes(x.idx) &&
+            (x.c.instanceId === tid || x.c.card.id === tid)
+        );
+        if (match) {
+          chosenIndices.push(match.idx);
+        }
+      }
+    }
+
+    if (chosenIndices.length === 0) {
+      const sorted = [...creatureIndices].sort(
+        (a, b) => (b.c.card.power ?? 0) - (a.c.card.power ?? 0)
+      );
+      for (const item of sorted.slice(0, 2)) {
+        chosenIndices.push(item.idx);
+      }
+    }
+
+    const chosenCards = chosenIndices.map((idx) => pState.graveyard[idx]);
+    const chosenSet = new Set(chosenIndices);
+    const nextGraveyard = pState.graveyard.filter((_, idx) => !chosenSet.has(idx));
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...pState,
+          graveyard: nextGraveyard,
+          hand: [...pState.hand, ...chosenCards]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} returned ${chosenCards.map((c) => c.card.name).join(', ')} from graveyard to hand with ${card.name}.`
+      ]
+    };
+  }
+
+  // Zombie Carnival: Choose a race. Return up to 3 creatures of that race from your graveyard to your hand
+  if (
+    cardName === 'zombie carnival' ||
+    (/choose a race/i.test(rules) && /from your graveyard to your hand/i.test(rules))
+  ) {
+    const pState = state.players[player];
+    const creatureIndices = pState.graveyard
+      .map((c, idx) => ({ c, idx }))
+      .filter(
+        (x) => x.c.card.type === 'Creature' || x.c.card.type === 'Evolution Creature'
+      );
+
+    if (creatureIndices.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but there are no creatures in the graveyard.`
+        ]
+      };
+    }
+
+    const getRaces = (cardDef: CardDefinition): string[] => {
+      const list: string[] = [];
+      if (cardDef.races && Array.isArray(cardDef.races)) {
+        list.push(...cardDef.races);
+      }
+      const anyCard = cardDef as unknown as { race?: string };
+      if (anyCard.race && typeof anyCard.race === 'string') {
+        list.push(anyCard.race);
+      }
+      return list;
+    };
+
+    let chosenCards: CardInstance[] = [];
+    let chosenRace = '';
+
+    if (targets && targets.length > 0) {
+      const targetCreatures: { c: CardInstance; idx: number }[] = [];
+      for (const tid of targets.slice(0, 3)) {
+        const match = creatureIndices.find(
+          (x) =>
+            !targetCreatures.some((tc) => tc.idx === x.idx) &&
+            (x.c.instanceId === tid || x.c.card.id === tid)
+        );
+        if (match) {
+          targetCreatures.push(match);
+        }
+      }
+
+      if (targetCreatures.length > 0) {
+        let commonRaces = getRaces(targetCreatures[0].c.card);
+        for (let i = 1; i < targetCreatures.length; i++) {
+          const rList = getRaces(targetCreatures[i].c.card);
+          commonRaces = commonRaces.filter((r) => rList.includes(r));
+        }
+
+        if (commonRaces.length === 0) {
+          throw new Error(
+            `Target creatures do not share a common race for ${card.name}.`
+          );
+        }
+        chosenRace = commonRaces[0];
+        chosenCards = targetCreatures.map((x) => x.c);
+      }
+    }
+
+    if (chosenCards.length === 0) {
+      const raceCounts = new Map<string, number>();
+      for (const item of creatureIndices) {
+        const races = getRaces(item.c.card);
+        for (const r of races) {
+          raceCounts.set(r, (raceCounts.get(r) || 0) + 1);
+        }
+      }
+
+      if (raceCounts.size === 0) {
+        return {
+          ...state,
+          actionLog: [
+            ...state.actionLog,
+            `${player} cast ${card.name}, but no creatures with races were found in graveyard.`
+          ]
+        };
+      }
+
+      let maxCount = 0;
+      for (const [r, count] of raceCounts.entries()) {
+        if (count > maxCount) {
+          maxCount = count;
+          chosenRace = r;
+        }
+      }
+
+      const matching = creatureIndices.filter((x) =>
+        getRaces(x.c.card).includes(chosenRace)
+      );
+      matching.sort((a, b) => (b.c.card.power ?? 0) - (a.c.card.power ?? 0));
+      chosenCards = matching.slice(0, 3).map((x) => x.c);
+    }
+
+    const chosenIds = new Set(chosenCards.map((c) => c.instanceId));
+    const nextGraveyard = pState.graveyard.filter((c) => !chosenIds.has(c.instanceId));
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...pState,
+          graveyard: nextGraveyard,
+          hand: [...pState.hand, ...chosenCards]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} returned ${chosenCards.length} ${chosenRace} creature(s) (${chosenCards.map((c) => c.card.name).join(', ')}) from graveyard to hand with ${card.name}.`
+      ]
+    };
+  }
+
+  // Lost Soul: Opponent discards all cards from hand
+  if (
+    cardName === 'lost soul' ||
+    /opponent discards all cards/i.test(rules)
+  ) {
+    const opponentHand = opponentState.hand;
+    if (opponentHand.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but ${opponent}'s hand is empty.`
+        ]
+      };
+    }
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          hand: [],
+          graveyard: [...opponentState.graveyard, ...opponentHand]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${opponent} discarded all ${opponentHand.length} card(s) from hand with ${card.name}.`
+      ]
+    };
+  }
+
+  // Reap and Sow: Put 1 card from opponent's mana zone into graveyard, ramp top card of deck to mana zone
+  if (
+    cardName === 'reap and sow' ||
+    (/opponent's mana zone and put it into (?:his|their) graveyard/i.test(rules) &&
+      /top card of (?:your )?deck into (?:your )?mana zone/i.test(rules))
+  ) {
+    let stateAfterManaDestroy = state;
+    const oppMana = state.players[opponent].manaZone;
+
+    if (oppMana.length > 0) {
+      let targetIndex = 0;
+      if (targets && targets.length > 0) {
+        const idx = oppMana.findIndex(
+          (m) => m.instanceId === targets[0] || m.card.id === targets[0]
+        );
+        if (idx !== -1) {
+          targetIndex = idx;
+        }
+      }
+
+      const destroyedMana = oppMana[targetIndex];
+      const nextOppMana = oppMana.filter((_, idx) => idx !== targetIndex);
+      const graveCard: CardInstance = {
+        instanceId: destroyedMana.instanceId,
+        card: destroyedMana.card,
+        owner: opponent
+      };
+
+      stateAfterManaDestroy = {
+        ...state,
+        players: {
+          ...state.players,
+          [opponent]: {
+            ...state.players[opponent],
+            manaZone: nextOppMana,
+            graveyard: [...state.players[opponent].graveyard, graveCard]
+          }
+        },
+        actionLog: [
+          ...state.actionLog,
+          `${player} put ${destroyedMana.card.name} from ${opponent}'s mana zone into the graveyard with ${card.name}.`
+        ]
+      };
+    } else {
+      stateAfterManaDestroy = {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but ${opponent} has no cards in the mana zone.`
+        ]
+      };
+    }
+
+    return rampTopDeckToManaZone(stateAfterManaDestroy, player);
+  }
+
+  // Mana Crisis: Put 1 card from opponent's mana zone into graveyard
+  if (
+    cardName === 'mana crisis' ||
+    /choose a card in your opponent's mana zone and put it into (?:his|their) graveyard/i.test(
+      rules
+    )
+  ) {
+    const oppMana = opponentState.manaZone;
+    if (oppMana.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} cast ${card.name}, but ${opponent} has no cards in the mana zone.`
+        ]
+      };
+    }
+
+    let targetIndex = 0;
+    if (targets && targets.length > 0) {
+      const idx = oppMana.findIndex(
+        (m) => m.instanceId === targets[0] || m.card.id === targets[0]
+      );
+      if (idx !== -1) {
+        targetIndex = idx;
+      }
+    }
+
+    const destroyedMana = oppMana[targetIndex];
+    const nextOppMana = oppMana.filter((_, idx) => idx !== targetIndex);
+    const graveCard: CardInstance = {
+      instanceId: destroyedMana.instanceId,
+      card: destroyedMana.card,
+      owner: opponent
+    };
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          manaZone: nextOppMana,
+          graveyard: [...opponentState.graveyard, graveCard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} put ${destroyedMana.card.name} from ${opponent}'s mana zone into the graveyard with ${card.name}.`
       ]
     };
   }

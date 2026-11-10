@@ -110,11 +110,11 @@ The engine standardizes triggers (`ON_ENTER`, `ON_ATTACK`, `ON_DESTROY`, `ON_END
 - Graveyard Salvage: *Dark Reversal* (return creature from graveyard to hand), *Zombie Carnival* (return up to 3 creatures of same race from graveyard to hand).
 - Mass Mana Destruction / Hand Wipes: *Lost Soul* (opponent discards entire hand).
 
-- [ ] **Step 1: Implement advanced spell handlers in `spells.ts`**
-- [ ] **Step 2: Write unit tests in `web/src/engine/tests/advancedSpells.test.mjs`**
-- [ ] **Step 3: Run tests & verify**
+- [x] **Step 1: Implement advanced spell handlers in `spells.ts`**
+- [x] **Step 2: Write unit tests in `web/src/engine/tests/advancedSpells.test.mjs`**
+- [x] **Step 3: Run tests & verify**
   Run: `node --test web/src/engine/tests/advancedSpells.test.mjs`
-- [ ] **Step 4: Commit Task 5**
+- [x] **Step 4: Commit Task 5**
   Commit: `feat(engine): implement mass board wipe spells and graveyard salvage`
 
 ---
