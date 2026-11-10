@@ -8,6 +8,9 @@ import type {
   ShieldInstance,
   AttackTarget
 } from './types.ts';
+import { destroyCreature } from './spells.ts';
+
+export { destroyCreature };
 
 /**
  * Helper to locate a creature across all players' battle zones.
@@ -66,43 +69,277 @@ export function bounceCreature(state: GameState, creatureInstanceId: string): Ga
 }
 
 /**
- * Destroys a creature in the battle zone:
- * - Removes creature and all cards under it (evolvedOn stack) into owner's graveyard.
- * - Pure and immutable.
+ * Evaluates and triggers on-destruction / leaves-play abilities when a creature is destroyed:
+ * - Opponent Discard (e.g. Bone Assassin, Propeller Mutant, Gigamantis)
+ * - Card Draw (e.g. Phantasmal Horror Gigazal, Aqua Deformer, Cetibols)
+ * - Opponent Creature Destruction (e.g. Stallob, Damudo, or single creature destruction)
+ * - Tapping Opponent Creatures (e.g. Jil Warka)
+ * - Mana Zone Discard / Destruction (e.g. Bombersaur, Engineer Kipo)
+ * - Graveyard Salvage (e.g. Bat Doctor, Pharzi)
+ * - Shield to Hand (e.g. Jewel Spider)
+ *
+ * @param state State after creature has been removed from battle zone and placed in graveyard.
+ * @param owner The PlayerId of the creature's controller/owner.
+ * @param creature The CreatureInstance that was destroyed.
  */
-export function destroyCreature(state: GameState, creatureInstanceId: string): GameState {
-  const found = findCreature(state, creatureInstanceId);
-  if (!found) {
+export function triggerDestroyed(
+  state: GameState,
+  owner: PlayerId,
+  creature: CreatureInstance
+): GameState {
+  if (state.winner !== null) {
     return state;
   }
 
-  const { creature, owner } = found;
-  const ownerState = state.players[owner];
+  const opponent: PlayerId = owner === 'player' ? 'opponent' : 'player';
+  const card = creature.card;
+  const rules = card.rulesText || '';
+  const cardName = card.name.toLowerCase().trim();
+  let nextState = state;
 
-  const cardsToGrave: CardInstance[] = [
-    {
-      instanceId: creature.instanceId,
-      card: creature.card,
-      owner
-    },
-    ...(creature.evolvedOn || [])
-  ];
-
-  return {
-    ...state,
-    players: {
-      ...state.players,
-      [owner]: {
-        ...ownerState,
-        battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
-        graveyard: [...ownerState.graveyard, ...cardsToGrave]
+  // 1. Hand Discard on Destruction
+  // e.g. "When this creature is destroyed, your opponent discards a card at random"
+  // e.g. Bone Assassin, Propeller Mutant, Gigamantis (if discard variant)
+  const discardMatch = rules.match(
+    /when(?:ever)? this creature is destroyed.*(?:opponent discards|discards a card at random)/i
+  );
+  if (
+    discardMatch ||
+    cardName.includes('propeller mutant') ||
+    (cardName.includes('bone assassin') && (/discard/i.test(rules) || /opponent discards/i.test(rules))) ||
+    (cardName.includes('gigamantis') && /discard/i.test(rules))
+  ) {
+    const numMatch = rules.match(/discards? (?:a|(\d+)) cards?/i);
+    const count = numMatch && numMatch[1] ? parseInt(numMatch[1], 10) : 1;
+    nextState = discardRandomHandCards(nextState, opponent, count);
+  } else if (/when(?:ever)? this creature is destroyed, each player discards (?:his|their) hand/i.test(rules)) {
+    // Schuka, Duke of Amnesia
+    for (const pid of ['player', 'opponent'] as const) {
+      const p = nextState.players[pid];
+      if (p.hand.length > 0) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [pid]: {
+              ...p,
+              hand: [],
+              graveyard: [...p.graveyard, ...p.hand]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${pid} discarded their entire hand to the graveyard.`
+          ]
+        };
       }
-    },
-    actionLog: [
-      ...state.actionLog,
-      `${creature.card.name} was destroyed and sent to the graveyard.`
-    ]
-  };
+    }
+  }
+
+  // 2. Card Draw on Destruction
+  // e.g. "When this creature is destroyed, you may draw a card"
+  // e.g. Cetibols, Phantasmal Horror Gigazal, Aqua Deformer
+  const drawMatch = rules.match(
+    /when(?:ever)? this creature is destroyed.*(?:you may )?draw (?:a|(\d+)) cards?/i
+  );
+  if (
+    drawMatch ||
+    cardName.includes('cetibols') ||
+    cardName.includes('gigazal') ||
+    cardName.includes('aqua deformer')
+  ) {
+    const count = drawMatch && drawMatch[1] ? parseInt(drawMatch[1], 10) : 1;
+    nextState = drawCards(nextState, owner, count);
+  }
+
+  // 3. Opponent Creature Destruction on Death
+  // e.g. "When this creature is destroyed, destroy one of your opponent's creatures"
+  // e.g. Stallob ("destroy all creatures"), Damudo ("destroy all creatures power 3000 or less")
+  if (/when(?:ever)? this creature is destroyed.*destroy all creatures/i.test(rules) || cardName.includes('stallob')) {
+    const allCreatures = [
+      ...nextState.players.player.battleZone,
+      ...nextState.players.opponent.battleZone
+    ];
+    for (const c of allCreatures) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+  } else if (/when(?:ever)? this creature is destroyed.*destroy all creatures that have power (\d+) or less/i.test(rules) || cardName.includes('damudo')) {
+    const powerMatch = rules.match(/power (\d+) or less/i);
+    const maxPower = powerMatch ? parseInt(powerMatch[1], 10) : 3000;
+    const targets = [
+      ...nextState.players.player.battleZone,
+      ...nextState.players.opponent.battleZone
+    ].filter((c) => (c.card.power ?? 0) + c.powerModifier <= maxPower);
+    for (const c of targets) {
+      nextState = destroyCreature(nextState, c.instanceId);
+    }
+  } else if (
+    /when(?:ever)? this creature is destroyed.*destroy (?:one|1|a) of your opponent's creatures/i.test(rules)
+  ) {
+    const oppBZ = nextState.players[opponent].battleZone;
+    if (oppBZ.length > 0) {
+      const sorted = [...oppBZ].sort(
+        (a, b) => (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
+      );
+      nextState = destroyCreature(nextState, sorted[0].instanceId);
+    }
+  }
+
+  // 4. Tapping Opponent Creatures on Death
+  // e.g. Jil Warka, Time Guardian: choose up to 2 opponent creatures and tap them
+  const tapMatch = rules.match(
+    /when(?:ever)? this creature is destroyed.*(?:choose up to (\d+) of your opponent's creatures .* and tap them|tap (?:up to (\d+) )?of your opponent's creatures)/i
+  );
+  if (tapMatch || cardName.includes('jil warka')) {
+    const count = tapMatch && (tapMatch[1] || tapMatch[2]) ? parseInt(tapMatch[1] || tapMatch[2], 10) : 2;
+    const oppBZ = nextState.players[opponent].battleZone;
+    const untapped = oppBZ.filter((c) => !c.isTapped);
+    if (untapped.length > 0) {
+      const toTap = untapped.slice(0, count);
+      const tapIds = new Set(toTap.map((c) => c.instanceId));
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [opponent]: {
+            ...nextState.players[opponent],
+            battleZone: oppBZ.map((c) => tapIds.has(c.instanceId) ? { ...c, isTapped: true } : c)
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${creature.card.name}'s destruction effect tapped ${toTap.map((c) => c.card.name).join(', ')}.`
+        ]
+      };
+    }
+  }
+
+  // 5. Mana Destruction on Death
+  // e.g. Bombersaur (2 mana each), Engineer Kipo (1 mana each)
+  if (
+    /when(?:ever)? this creature is destroyed, each player (?:chooses|destroys) (\d+)?.*mana zone.*into (?:his|their) graveyard/i.test(rules) ||
+    cardName.includes('bombersaur') ||
+    cardName.includes('engineer kipo')
+  ) {
+    const manaCount = cardName.includes('bombersaur') ? 2 : 1;
+    for (const pid of ['player', 'opponent'] as const) {
+      const pState = nextState.players[pid];
+      if (pState.manaZone.length > 0) {
+        const removed = pState.manaZone.slice(0, manaCount);
+        const remaining = pState.manaZone.slice(manaCount);
+        const toGrave: CardInstance[] = removed.map((m) => ({
+          instanceId: m.instanceId,
+          card: m.card,
+          owner: pid
+        }));
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [pid]: {
+              ...pState,
+              manaZone: remaining,
+              graveyard: [...pState.graveyard, ...toGrave]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${creature.card.name}'s destruction put ${removed.length} mana card(s) of ${pid} into the graveyard.`
+          ]
+        };
+      }
+    }
+  }
+
+  // 6. Graveyard Salvage on Death
+  // Bat Doctor, Shadow of Undeath / Pharzi, the Oracle
+  if (
+    /when(?:ever)? this creature is destroyed.*return (?:another )?creature from your graveyard to your hand/i.test(rules) ||
+    cardName.includes('bat doctor')
+  ) {
+    const ownerGrave = nextState.players[owner].graveyard;
+    const validCreatures = ownerGrave.filter(
+      (c) =>
+        (c.card.type === 'Creature' || c.card.type === 'Evolution Creature') &&
+        c.instanceId !== creature.instanceId
+    );
+    if (validCreatures.length > 0) {
+      const target = validCreatures[validCreatures.length - 1]; // most recent
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [owner]: {
+            ...nextState.players[owner],
+            graveyard: ownerGrave.filter((c) => c.instanceId !== target.instanceId),
+            hand: [...nextState.players[owner].hand, target]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${creature.card.name}'s destruction effect returned ${target.card.name} from graveyard to hand.`
+        ]
+      };
+    }
+  } else if (
+    /when(?:ever)? this creature is destroyed.*return a spell from your graveyard to your hand/i.test(rules) ||
+    cardName.includes('pharzi')
+  ) {
+    const ownerGrave = nextState.players[owner].graveyard;
+    const validSpells = ownerGrave.filter((c) => c.card.type === 'Spell');
+    if (validSpells.length > 0) {
+      const target = validSpells[validSpells.length - 1];
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [owner]: {
+            ...nextState.players[owner],
+            graveyard: ownerGrave.filter((c) => c.instanceId !== target.instanceId),
+            hand: [...nextState.players[owner].hand, target]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${creature.card.name}'s destruction effect returned ${target.card.name} from graveyard to hand.`
+        ]
+      };
+    }
+  }
+
+  // 7. Shield to Hand on Death (e.g. Jewel Spider)
+  if (
+    /when(?:ever)? this creature is destroyed.*choose one of your shields and put it into your hand/i.test(rules) ||
+    cardName.includes('jewel spider')
+  ) {
+    const unbrokenShields = nextState.players[owner].shields.filter((s) => !s.isBroken);
+    if (unbrokenShields.length > 0) {
+      const shieldToTake = unbrokenShields[0];
+      const remainingShields = nextState.players[owner].shields.filter((s) => s.id !== shieldToTake.id);
+      const cardToHand: CardInstance = {
+        instanceId: shieldToTake.id,
+        card: shieldToTake.card,
+        owner
+      };
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [owner]: {
+            ...nextState.players[owner],
+            shields: remainingShields,
+            hand: [...nextState.players[owner].hand, cardToHand]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${creature.card.name}'s destruction effect added a shield to hand.`
+        ]
+      };
+    }
+  }
+
+  return nextState;
 }
 
 /**

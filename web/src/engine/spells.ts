@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { getCreatureEffectivePower } from './combat.ts';
+import { triggerDestroyed } from './effects.ts';
 
 /**
  * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard.
@@ -101,7 +102,136 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
 
   const { creature, owner } = found;
   const ownerState = state.players[owner];
+  const rules = creature.card.rulesText || '';
+  const nameLower = creature.card.name.toLowerCase();
 
+  // 1. Return to hand replacement effect
+  const bounceMatch =
+    /when(?:ever)? this creature (?:would be|is) destroyed.*(?:return (?:it|this creature) to (?:your|its owner's) hand|put (?:it|this creature) into (?:your|its owner's) hand) instead/i.test(rules);
+  const isBounceReplacement =
+    bounceMatch ||
+    nameLower.includes('aqua soldier') ||
+    nameLower.includes('chilias') ||
+    nameLower.includes('aqua knight') ||
+    nameLower.includes('reconnaissance vehicle') ||
+    nameLower.includes('aqua agent') ||
+    nameLower.includes('aqua ranger') ||
+    nameLower.includes('crystal jouster') ||
+    nameLower.includes('aqua skydiver') ||
+    nameLower.includes('revival soldier');
+
+  if (isBounceReplacement) {
+    const cardsToHand: CardInstance[] = [
+      {
+        instanceId: creature.instanceId,
+        card: creature.card,
+        owner
+      },
+      ...(creature.evolvedOn || [])
+    ];
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+          hand: [...ownerState.hand, ...cardsToHand]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name} returned to hand instead of being destroyed.`
+      ]
+    };
+  }
+
+  // 2. Put into mana zone replacement effect
+  const manaMatch =
+    /when(?:ever)? this creature (?:would be|is) destroyed.*put (?:it|this creature) into (?:your|its owner's) mana zone instead/i.test(rules);
+  const isFriendlyNature = creature.card.civilizations?.includes('Nature');
+  const hasGigamantisAura =
+    isFriendlyNature &&
+    ownerState.battleZone.some(
+      (c) => c.instanceId !== creatureInstanceId && c.card.name.toLowerCase().includes('gigamantis')
+    );
+  const isManaReplacement =
+    manaMatch ||
+    hasGigamantisAura ||
+    nameLower.includes('pochan') ||
+    nameLower.includes('stinger worm') ||
+    nameLower.includes('aura blast') ||
+    nameLower.includes('coiling vines') ||
+    nameLower.includes('mighty shouter') ||
+    nameLower.includes('red-eye scorpion') ||
+    nameLower.includes('balloonshroom') ||
+    nameLower.includes('solid horn') ||
+    nameLower.includes('shaman broccoli');
+
+  if (isManaReplacement) {
+    const isMultiCiv = (c: CardDefinition) =>
+      Boolean(c.isMultiCiv || (c.civilizations && c.civilizations.length > 1));
+
+    const cardsToMana: ManaCardInstance[] = [
+      {
+        instanceId: creature.instanceId,
+        card: creature.card,
+        isTapped: isMultiCiv(creature.card)
+      },
+      ...(creature.evolvedOn || []).map((underCard) => ({
+        instanceId: underCard.instanceId,
+        card: underCard.card,
+        isTapped: isMultiCiv(underCard.card)
+      }))
+    ];
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+          manaZone: [...ownerState.manaZone, ...cardsToMana]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name} was put into the mana zone instead of being destroyed.`
+      ]
+    };
+  }
+
+  // 3. Add to shields replacement effect (e.g. Ouks)
+  const shieldMatch =
+    /when(?:ever)? this creature (?:would be|is) destroyed.*add (?:it|this creature) to (?:your|its owner's) shields.*instead/i.test(rules);
+  if (shieldMatch || nameLower.includes('ouks')) {
+    const shieldId = `shield-${owner}-${ownerState.shields.length}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+    const newShield: ShieldInstance = {
+      id: shieldId,
+      shieldId,
+      card: creature.card,
+      isBroken: false
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+          shields: [...ownerState.shields, newShield]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name} was added to shields instead of being destroyed.`
+      ]
+    };
+  }
+
+  // 4. Standard destruction
   const cardsToGrave: CardInstance[] = [
     ...(creature.evolvedOn || []),
     {
@@ -111,7 +241,7 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
     }
   ];
 
-  return {
+  const stateAfterDestruction: GameState = {
     ...state,
     players: {
       ...state.players,
@@ -121,8 +251,10 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
         graveyard: [...ownerState.graveyard, ...cardsToGrave]
       }
     },
-    actionLog: [...state.actionLog, `${creature.card.name} was destroyed.`]
+    actionLog: [...state.actionLog, `${creature.card.name} was destroyed and sent to the graveyard.`]
   };
+
+  return triggerDestroyed(stateAfterDestruction, owner, creature);
 }
 
 /**
