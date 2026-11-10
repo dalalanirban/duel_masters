@@ -68,14 +68,14 @@ export interface CombatState {
 }
 
 export interface BlockerChoiceInteraction {
-  type: 'BLOCKER_CHOICE';
+  type: 'BLOCK_DECLARATION' | 'BLOCKER_CHOICE';
   defendingPlayer: PlayerId;
   attackerId: string;
   validBlockerIds: string[];
 }
 
 export interface ShieldTriggerChoiceInteraction {
-  type: 'SHIELD_TRIGGER_CHOICE';
+  type: 'SHIELD_TRIGGER_RESOLUTION' | 'SHIELD_TRIGGER_CHOICE';
   player: PlayerId;
   shieldCards: CardInstance[];
   triggers?: Array<{ shieldId: string; card: CardDefinition }>;
