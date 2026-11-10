@@ -9,6 +9,48 @@ import type {
   ShieldInstance
 } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
+import { getCreatureEffectivePower } from './combat.ts';
+
+/**
+ * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard.
+ */
+export function discardRandomHandCards(
+  state: GameState,
+  targetPlayer: PlayerId,
+  count: number = 1
+): GameState {
+  const pState = state.players[targetPlayer];
+  if (pState.hand.length === 0) {
+    return state;
+  }
+
+  const handCopy = [...pState.hand];
+  const discarded: CardInstance[] = [];
+  const actualCount = Math.min(count, handCopy.length);
+
+  for (let i = 0; i < actualCount; i++) {
+    const randomIndex = Math.floor(Math.random() * handCopy.length);
+    const [card] = handCopy.splice(randomIndex, 1);
+    discarded.push(card);
+  }
+
+  const discardedNames = discarded.map((c) => c.card.name).join(', ');
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [targetPlayer]: {
+        ...pState,
+        hand: handCopy,
+        graveyard: [...pState.graveyard, ...discarded]
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${targetPlayer} discarded ${discardedNames} at random from hand.`
+    ]
+  };
+}
 
 /**
  * Checks whether a card definition represents a Charger spell:
@@ -674,6 +716,15 @@ export function resolveCreatureCIPEffect(
     return drawCards(state, player, count);
   }
 
+  // 6. Masked Horror: opponent discards a card at random
+  if (
+    cardName.includes('masked horror') ||
+    (/when you put this creature into the battle zone/i.test(rules) &&
+      /opponent discards a card at random/i.test(rules))
+  ) {
+    return discardRandomHandCards(state, opponent, 1);
+  }
+
   // No CIP effect: return state as is
   return state;
 }
@@ -798,23 +849,54 @@ export function resolveSpellEffect(
     return destroyCreature(state, targetId);
   }
 
-  // 5. Volcano Charger: Destroy opponent creature power 2000 or less
+  // Ghost Touch: opponent discards a card at random
+  if (
+    cardName === 'ghost touch' ||
+    /opponent discards a card at random/i.test(rules)
+  ) {
+    return discardRandomHandCards(state, opponent, 1);
+  }
+
+  // Tornado Flame: destroy 1 opponent creature with power 4000 or less
+  if (
+    cardName === 'tornado flame' ||
+    /destroy (?:1|one) of your opponent's creatures that has power 4000 or less/i.test(rules)
+  ) {
+    if (opponentState.battleZone.length === 0) return state;
+    const targetId =
+      targets?.[0] ||
+      opponentState.battleZone.find((c) => getCreatureEffectivePower(c, false) <= 4000)
+        ?.instanceId;
+    if (!targetId) return state;
+    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
+    if (!targetCreature) return state;
+    if (getCreatureEffectivePower(targetCreature, false) > 4000) {
+      throw new Error(`Target creature has power > 4000.`);
+    }
+    return destroyCreature(state, targetId);
+  }
+
+  // 5. Volcano Charger / Crimson Hammer: Destroy opponent creature power 2000 or less
   if (
     cardName === 'volcano charger' ||
+    cardName === 'crimson hammer' ||
     /destroy (?:1|one) of your opponent's creatures that has power 2000 or less/i.test(rules)
   ) {
     if (opponentState.battleZone.length === 0) {
       return state;
     }
-    const targetId = targets?.[0];
+    const targetId =
+      targets?.[0] ||
+      opponentState.battleZone.find((c) => getCreatureEffectivePower(c, false) <= 2000)
+        ?.instanceId;
     if (!targetId) {
-      throw new Error(`Spell Volcano Charger requires a target creature.`);
+      return state;
     }
     const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
     if (!targetCreature) {
       throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
     }
-    const power = (targetCreature.card.power ?? 0) + targetCreature.powerModifier;
+    const power = getCreatureEffectivePower(targetCreature, false);
     if (power > 2000) {
       throw new Error(`Target creature has power ${power}, which is greater than 2000.`);
     }
@@ -869,11 +951,26 @@ export function resolveSpellEffect(
       rules
     )
   ) {
-    if (!targets || targets.length === 0) {
+    let targetsToBounce: string[] = [];
+    if (targets && targets.length > 0) {
+      targetsToBounce = targets.slice(0, 2);
+    } else {
+      const opponentBZ = opponentState.battleZone;
+      if (opponentBZ.length > 0) {
+        const sorted = [...opponentBZ].sort(
+          (a, b) =>
+            getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+        );
+        targetsToBounce = sorted.slice(0, 2).map((c) => c.instanceId);
+      }
+    }
+
+    if (targetsToBounce.length === 0) {
       return state;
     }
+
     let nextState = state;
-    for (const tid of targets.slice(0, 2)) {
+    for (const tid of targetsToBounce) {
       nextState = bounceCreature(nextState, tid);
     }
     return nextState;
@@ -1081,6 +1178,122 @@ export function resolveSpellEffect(
         }
       },
       actionLog: [...state.actionLog, `${player} gave +2000 power to ${targetCreature.card.name}.`]
+    };
+  }
+
+  // 14. Burning Power: One of your creatures gets "power attacker +2000" until the end of the turn
+  if (
+    cardName === 'burning power' ||
+    /gets (?:“|")?power attacker \+2000(?:”|")?/i.test(rules) ||
+    /gets (?:“|")?power attacker \+(\d+)(?:”|")?/i.test(rules)
+  ) {
+    const friendlyBZ = state.players[player].battleZone;
+    if (friendlyBZ.length === 0) {
+      return state;
+    }
+    const targetId = targets?.[0] || friendlyBZ[0].instanceId;
+    const targetCreature = friendlyBZ.find((c) => c.instanceId === targetId);
+    if (!targetCreature) {
+      return state;
+    }
+    const updatedBZ = friendlyBZ.map((c) =>
+      c.instanceId === targetId
+        ? {
+            ...c,
+            tempPowerAttackerBonus: (c.tempPowerAttackerBonus || 0) + 2000
+          }
+        : c
+    );
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...state.players[player],
+          battleZone: updatedBZ
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} gave power attacker +2000 to ${targetCreature.card.name} with ${card.name}.`
+      ]
+    };
+  }
+
+  // 15. Dimension Gate: Search deck for creature and put into hand
+  if (
+    cardName === 'dimension gate' ||
+    /search your deck.*take a creature from your deck.*put it into your hand/i.test(rules)
+  ) {
+    const pState = state.players[player];
+    if (pState.deck.length === 0) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} searched deck with Dimension Gate, but deck was empty.`
+        ]
+      };
+    }
+
+    let targetCardIndex = -1;
+    if (targets && targets.length > 0) {
+      targetCardIndex = pState.deck.findIndex(
+        (c) =>
+          c.instanceId === targets[0] &&
+          (c.card.type === 'Creature' || c.card.type === 'Evolution Creature')
+      );
+    }
+
+    if (targetCardIndex === -1) {
+      const creatureIndices = pState.deck
+        .map((c, idx) => ({ c, idx }))
+        .filter(
+          (x) =>
+            x.c.card.type === 'Creature' || x.c.card.type === 'Evolution Creature'
+        );
+
+      if (creatureIndices.length > 0) {
+        creatureIndices.sort(
+          (a, b) => (b.c.card.power ?? 0) - (a.c.card.power ?? 0)
+        );
+        targetCardIndex = creatureIndices[0].idx;
+      }
+    }
+
+    if (targetCardIndex === -1) {
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `${player} searched deck with Dimension Gate, but found no creatures.`
+        ]
+      };
+    }
+
+    const chosenCard = pState.deck[targetCardIndex];
+    const remainingDeck = pState.deck.filter((_, idx) => idx !== targetCardIndex);
+
+    const shuffledDeck = [...remainingDeck];
+    for (let i = shuffledDeck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+    }
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...pState,
+          deck: shuffledDeck,
+          hand: [...pState.hand, chosenCard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} searched deck and added ${chosenCard.card.name} to hand with ${card.name}.`
+      ]
     };
   }
 

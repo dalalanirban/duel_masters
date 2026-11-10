@@ -215,7 +215,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     if (
       nameLower.includes('spiral gate') ||
       nameLower.includes('riptide charger') ||
-      rulesLower.includes('choose a creature in the battle zone and return it to its owner')
+      nameLower.includes('teleportation') ||
+      rulesLower.includes('choose a creature in the battle zone and return it to its owner') ||
+      rulesLower.includes('choose up to 2 creatures in the battle zone')
     ) {
       needsTarget = true;
       validCandidates = allCreatures;
