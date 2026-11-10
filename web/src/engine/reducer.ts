@@ -27,16 +27,7 @@ function hasEligibleAttackers(state: GameState): boolean {
     if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) {
       return false;
     }
-    // Evolution creatures ignore summoning sickness
-    if (creature.card.type === 'Evolution Creature' || creature.card.isEvolution) {
-      return true;
-    }
-    // Speed attackers ignore summoning sickness
-    if (creature.card.isSpeedAttacker) {
-      return true;
-    }
-    // Regular creatures can attack if summoned on an earlier turn
-    return creature.summonedTurn < state.turn;
+    return !isSummoningSick(creature, state.turn, activePlayer.battleZone);
   });
 }
 
@@ -50,7 +41,7 @@ function executeMandatoryAttack(state: GameState, player: PlayerId): GameState {
 
   // Find the first mandatory attacker
   const mandatoryCreature = activeBZ.find((c) => {
-    if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+    if (c.isTapped || isSummoningSick(c, state.turn, activeBZ)) return false;
     const rules = c.card.rulesText || '';
     return c.card.id === 'DM01-074' || /attacks each turn if able/i.test(rules);
   });

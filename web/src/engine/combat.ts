@@ -17,18 +17,41 @@ import {
   isChargerSpell,
   resolveCreatureCIPEffect
 } from './spells.ts';
+import {
+  triggerAttack,
+  canCreatureAttackUntapped,
+  hasCreatureBlocker,
+  hasCreatureSlayer,
+  isCreatureUnblockable,
+  getCreatureBreakerCount,
+  calculateContinuousAuraPower
+} from './effects.ts';
+
+export {
+  checkStealth,
+  isSurvivor,
+  getSurvivorSharedAbilities,
+  hasCreatureBlocker,
+  hasCreatureSlayer,
+  isCreatureUnblockable,
+  getCreatureBreakerCount,
+  calculateContinuousAuraPower
+} from './effects.ts';
 
 /**
  * Calculates the total effective combat power of a creature:
  * - Base power from card definition.
  * - Current creature powerModifier (e.g. buffs, debuffs).
  * - powerAttackerBonus if isAttacking is true.
+ * - Continuous auras from calculateContinuousAuraPower.
  * - Power cannot be negative (floored at 0).
  */
 export function getCreatureEffectivePower(
   creature: CreatureInstance,
   isAttacking: boolean,
-  playerState?: PlayerState
+  playerState?: PlayerState,
+  opponentState?: PlayerState,
+  isOpponentsTurn?: boolean
 ): number {
   const basePower = creature.card.power ?? 0;
   const powerModifier = creature.powerModifier || 0;
@@ -47,7 +70,21 @@ export function getCreatureEffectivePower(
     }
   }
 
-  return Math.max(0, basePower + powerModifier + powerAttackerBonus);
+  const friendlyBZ = playerState?.battleZone || [];
+  const opponentBZ = opponentState?.battleZone || [];
+
+  const aura = calculateContinuousAuraPower(
+    creature,
+    isAttacking,
+    friendlyBZ,
+    opponentBZ,
+    playerState,
+    opponentState,
+    isOpponentsTurn
+  );
+
+  const totalPowerAttacker = isAttacking ? (powerAttackerBonus + aura.powerAttackerBonus) : 0;
+  return Math.max(0, basePower + powerModifier + aura.powerBonus + totalPowerAttacker);
 }
 
 /**
@@ -97,7 +134,7 @@ export function canDeclareAttack(
     return { valid: false, reason: 'Creature is already tapped.' };
   }
 
-  if (isSummoningSick(attacker, state.turn)) {
+  if (isSummoningSick(attacker, state.turn, activePlayer.battleZone)) {
     return { valid: false, reason: 'Creature has summoning sickness.' };
   }
 
@@ -121,7 +158,7 @@ export function canDeclareAttack(
         reason: `Target creature ${target.instanceId} not found in opponent's battle zone.`
       };
     }
-    if (!targetCreature.isTapped) {
+    if (!targetCreature.isTapped && !canCreatureAttackUntapped(attacker, targetCreature)) {
       return { valid: false, reason: 'Cannot attack an untapped creature.' };
     }
   } else if (target.type === 'shield') {
@@ -173,7 +210,6 @@ export function declareAttack(
   const activeId = state.activePlayer;
   const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
   const activePlayer = state.players[activeId];
-  const defendingPlayer = state.players[defendingId];
   const attacker = activePlayer.battleZone.find((c) => c.instanceId === attackerId)!;
 
   // Tap the attacker creature
@@ -197,11 +233,39 @@ export function declareAttack(
     ]
   };
 
+  // Trigger on-attack effects before blockers are declared
+  const stateAfterAttackTrigger = triggerAttack(
+    stateWithTappedAttacker,
+    activeId,
+    attacker,
+    target
+  );
+
+  const curActivePlayer = stateAfterAttackTrigger.players[activeId];
+  const curDefendingPlayer = stateAfterAttackTrigger.players[defendingId];
+  const curAttacker = curActivePlayer.battleZone.find((c) => c.instanceId === attackerId);
+
+  // If attacker was destroyed during attack trigger, combat ends
+  if (!curAttacker) {
+    return {
+      ...stateAfterAttackTrigger,
+      combatState: null
+    };
+  }
+
   // Blocker check: any untapped creatures with isBlocker === true
-  const isUnblockable = /can't be blocked/i.test(attacker.card.rulesText || '');
+  // Attacker is unblockable if rulesText matches "can't be blocked" OR stealth is active
+  const isUnblockable = isCreatureUnblockable(
+    curAttacker,
+    target,
+    curDefendingPlayer.manaZone,
+    curActivePlayer.battleZone
+  );
   const validBlockers = isUnblockable
     ? []
-    : defendingPlayer.battleZone.filter((c) => !c.isTapped && c.card.isBlocker);
+    : curDefendingPlayer.battleZone.filter(
+        (c) => !c.isTapped && hasCreatureBlocker(c, curDefendingPlayer.battleZone)
+      );
 
   if (validBlockers.length > 0) {
     const combatState: CombatState = {
@@ -219,11 +283,11 @@ export function declareAttack(
     };
 
     return {
-      ...stateWithTappedAttacker,
+      ...stateAfterAttackTrigger,
       combatState,
       pendingInteraction,
       actionLog: [
-        ...stateWithTappedAttacker.actionLog,
+        ...stateAfterAttackTrigger.actionLog,
         `${defendingId} has ${validBlockers.length} blocker(s) available.`
       ]
     };
@@ -243,7 +307,7 @@ export function declareAttack(
   };
 
   return resolveCombat({
-    ...stateWithTappedAttacker,
+    ...stateAfterAttackTrigger,
     combatState
   });
 }
@@ -292,7 +356,7 @@ export function declareBlock(
 
   // Blocker selected: validate
   const blocker = defendingPlayer.battleZone.find((c) => c.instanceId === blockerId);
-  if (!blocker || blocker.isTapped || !blocker.card.isBlocker) {
+  if (!blocker || blocker.isTapped || !hasCreatureBlocker(blocker, defendingPlayer.battleZone)) {
     throw new Error(`Invalid blocker ${blockerId}.`);
   }
 
@@ -390,20 +454,32 @@ export function resolveCombat(state: GameState): GameState {
       return { ...state, combatState: null };
     }
 
-    const attPower = getCreatureEffectivePower(attacker, true, state.players[activeId]);
-    const defPower = getCreatureEffectivePower(defender, false);
+    const attPower = getCreatureEffectivePower(
+      attacker,
+      true,
+      state.players[activeId],
+      state.players[defendingId],
+      false
+    );
+    const defPower = getCreatureEffectivePower(
+      defender,
+      false,
+      state.players[defendingId],
+      state.players[activeId],
+      true
+    );
 
     let destroyAttacker = false;
     let destroyDefender = false;
 
     if (attPower > defPower) {
       destroyDefender = true;
-      if (defender.card.isSlayer) {
+      if (hasCreatureSlayer(defender, defendingPlayer.battleZone)) {
         destroyAttacker = true;
       }
     } else if (defPower > attPower) {
       destroyAttacker = true;
-      if (attacker.card.isSlayer) {
+      if (hasCreatureSlayer(attacker, state.players[activeId].battleZone)) {
         destroyDefender = true;
       }
     } else {
@@ -440,7 +516,7 @@ export function resolveCombat(state: GameState): GameState {
       return { ...state, combatState: null };
     }
 
-    const breakerCount = Math.max(1, attacker.card.breakerCount || 1);
+    const breakerCount = getCreatureBreakerCount(attacker, state.players[activeId].battleZone);
     const primaryIndex = target.index;
     const primaryShield = defendingPlayer.shields[primaryIndex];
 
@@ -701,7 +777,7 @@ export function hasMandatoryAttackers(state: GameState, playerId: PlayerId): boo
 
   return player.battleZone.some((creature) => {
     if (creature.isTapped) return false;
-    if (isSummoningSick(creature, state.turn)) return false;
+    if (isSummoningSick(creature, state.turn, player.battleZone)) return false;
 
     const rules = creature.card.rulesText || '';
     const isMandatory =
@@ -712,7 +788,7 @@ export function hasMandatoryAttackers(state: GameState, playerId: PlayerId): boo
 
     const canAttackShields = opponent.shields.some((s) => !s.isBroken);
     const canAttackPlayer = !canAttackShields;
-    const canAttackCreature = opponent.battleZone.some((c) => c.isTapped);
+    const canAttackCreature = opponent.battleZone.some((c) => c.isTapped || canCreatureAttackUntapped(creature, c));
 
     if (/this creature can't attack players/i.test(rules)) {
       return canAttackCreature;
