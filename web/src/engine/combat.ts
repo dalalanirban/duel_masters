@@ -129,12 +129,29 @@ export function canDeclareAttack(
     if (unbrokenShields.length === 0) {
       return { valid: false, reason: 'Opponent has no shields to attack.' };
     }
-    if (
-      target.index < 0 ||
-      target.index >= defendingPlayer.shields.length ||
-      defendingPlayer.shields[target.index].isBroken
-    ) {
-      return { valid: false, reason: `Invalid shield target at index ${target.index}.` };
+    const indices: number[] =
+      target.indices && target.indices.length > 0
+        ? target.indices
+        : target.index !== undefined
+        ? [target.index]
+        : [];
+
+    if (indices.length === 0) {
+      return { valid: false, reason: 'No shield target index provided.' };
+    }
+
+    if (new Set(indices).size !== indices.length) {
+      return { valid: false, reason: 'Duplicate shield indices in attack target.' };
+    }
+
+    for (const idx of indices) {
+      if (
+        idx < 0 ||
+        idx >= defendingPlayer.shields.length ||
+        defendingPlayer.shields[idx].isBroken
+      ) {
+        return { valid: false, reason: `Invalid shield target at index ${idx}.` };
+      }
     }
   } else if (target.type === 'player') {
     const unbrokenCount = defendingPlayer.shields.filter((s) => !s.isBroken).length;
@@ -441,12 +458,19 @@ export function resolveCombat(state: GameState): GameState {
     }
 
     const breakerCount = Math.max(1, attacker.card.breakerCount || 1);
-    const primaryIndex = target.index;
-    const primaryShield = defendingPlayer.shields[primaryIndex];
+    const targetIndices: number[] =
+      target.indices && target.indices.length > 0
+        ? target.indices
+        : target.index !== undefined
+        ? [target.index]
+        : [];
 
     const shieldsToBreak: ShieldInstance[] = [];
-    if (primaryShield && !primaryShield.isBroken) {
-      shieldsToBreak.push(primaryShield);
+    for (const idx of targetIndices) {
+      const shield = defendingPlayer.shields[idx];
+      if (shield && !shield.isBroken && !shieldsToBreak.some((x) => x.id === shield.id)) {
+        shieldsToBreak.push(shield);
+      }
     }
 
     for (const s of unbrokenShields) {

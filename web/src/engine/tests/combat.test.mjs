@@ -721,6 +721,105 @@ describe('Duel Masters Engine: Combat & Attack Phase (Task 4)', () => {
       assert.strictEqual(nextState.players.opponent.shields.length, 0);
       assert.strictEqual(nextState.winner, null); // NOT won yet! Needs subsequent direct attack.
     });
+
+    it('Double Breaker with explicit indices breaks chosen shields specifically', () => {
+      const attacker = {
+        instanceId: 'att-1',
+        card: valdios, // Double Breaker
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const s0 = createShieldInstance(vorg, 'opponent', 0);
+      const s1 = createShieldInstance(aquaHulcus, 'opponent', 1);
+      const s2 = createShieldInstance(senatine, 'opponent', 2);
+      const s3 = createShieldInstance(terrorPit, 'opponent', 3);
+      const s4 = createShieldInstance(bolgash, 'opponent', 4);
+
+      const state = setupCombatState({
+        turn: 2,
+        playerBattleZone: [attacker],
+        opponentShields: [s0, s1, s2, s3, s4]
+      });
+
+      // Target shields 0 and 2 specifically
+      const nextState = declareAttack(state, 'att-1', { type: 'shield', indices: [0, 2] });
+
+      // Shields remaining should be s1, s3, s4 (length 3)
+      assert.strictEqual(nextState.players.opponent.shields.length, 3);
+      const remainingIds = nextState.players.opponent.shields.map((s) => s.id);
+      assert.ok(!remainingIds.includes(s0.id));
+      assert.ok(!remainingIds.includes(s2.id));
+      assert.ok(remainingIds.includes(s1.id));
+      assert.ok(remainingIds.includes(s3.id));
+      assert.ok(remainingIds.includes(s4.id));
+    });
+
+    it('rejects shield attack declaration with duplicate indices', () => {
+      const attacker = {
+        instanceId: 'att-1',
+        card: valdios,
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const state = setupCombatState({
+        turn: 2,
+        playerBattleZone: [attacker]
+      });
+
+      const check = canDeclareAttack(state, 'att-1', { type: 'shield', indices: [0, 0] });
+      assert.strictEqual(check.valid, false);
+      assert.match(check.reason, /duplicate/i);
+    });
+
+    it('rejects shield attack declaration targeting an already-broken shield in indices', () => {
+      const attacker = {
+        instanceId: 'att-1',
+        card: valdios,
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const s0 = createShieldInstance(vorg, 'opponent', 0);
+      const s1 = { ...createShieldInstance(aquaHulcus, 'opponent', 1), isBroken: true };
+
+      const state = setupCombatState({
+        turn: 2,
+        playerBattleZone: [attacker],
+        opponentShields: [s0, s1]
+      });
+
+      const check = canDeclareAttack(state, 'att-1', { type: 'shield', indices: [0, 1] });
+      assert.strictEqual(check.valid, false);
+      assert.match(check.reason, /invalid|broken/i);
+    });
+
+    it('Double Breaker with legacy index: 1 breaks shield 1 and backfills unbroken shield', () => {
+      const attacker = {
+        instanceId: 'att-1',
+        card: valdios, // Double Breaker
+        owner: 'player',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const state = setupCombatState({
+        turn: 2,
+        playerBattleZone: [attacker]
+      });
+
+      const nextState = declareAttack(state, 'att-1', { type: 'shield', index: 1 });
+      assert.strictEqual(nextState.players.opponent.shields.length, 3);
+      assert.strictEqual(nextState.players.opponent.hand.length, 7);
+    });
   });
 
   describe('Shield Trigger Resolution', () => {
