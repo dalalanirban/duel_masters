@@ -67,4 +67,63 @@ test('AI Player Step Engine', async (t) => {
 
     assert.ok(moves > 5, 'AI should make multiple progressive moves');
   });
+
+  await t.test('AI chooses Slayer blocker to trade with high-threat attacker (>= 4000 power)', () => {
+    const gigagriff = findCard('Gigagriff');
+    const armoredBlaster = findCard('Armored Blaster Valdios');
+    const vorg = findCard('Immortal Baron, Vorg');
+    const deck1 = createTestDeck('deck1', 'Fire Beatdown', vorg);
+    const deck2 = createTestDeck('deck2', 'Fire Beatdown 2', vorg);
+
+    let state = initializeGame(deck1, deck2, 'player', { shuffle: false });
+    state.players.player.battleZone = [
+      {
+        instanceId: 'att-1',
+        card: armoredBlaster,
+        owner: 'player',
+        isTapped: true,
+        summonedTurn: 1,
+        powerModifier: 0
+      }
+    ];
+    state.players.opponent.battleZone = [
+      {
+        instanceId: 'blk-1',
+        card: gigagriff,
+        owner: 'opponent',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      }
+    ];
+
+    state.phase = 'ATTACK';
+    state.combatState = {
+      attackerId: 'att-1',
+      target: { type: 'shield', index: 0 },
+      blockerId: null,
+      stage: 'BLOCK'
+    };
+    state.pendingInteraction = {
+      type: 'BLOCK_DECLARATION',
+      defendingPlayer: 'opponent',
+      attackerId: 'att-1',
+      validBlockerIds: ['blk-1']
+    };
+
+    const action = getAiAction(state, 'opponent');
+    assert.ok(action, 'AI should return an action');
+    assert.equal(action.type, 'DECLARE_BLOCK');
+    assert.equal(action.blockerId, 'blk-1', 'AI should declare block using Slayer blocker to trade with 6000 threat');
+  });
+
+  await t.test('barrel export web/src/engine/index.ts exports effect utilities', async () => {
+    const engine = await import('../index.ts');
+    assert.equal(typeof engine.triggerAttack, 'function');
+    assert.equal(typeof engine.triggerCIP, 'function');
+    assert.equal(typeof engine.triggerDestroyed, 'function');
+    assert.equal(typeof engine.hasCreatureSlayer, 'function');
+    assert.equal(typeof engine.hasCreatureBlocker, 'function');
+    assert.equal(typeof engine.getSurvivorSharedAbilities, 'function');
+  });
 });

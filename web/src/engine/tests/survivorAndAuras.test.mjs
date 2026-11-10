@@ -22,6 +22,7 @@ import {
 } from '../combat.ts';
 import { isSummoningSick } from '../evolution.ts';
 import { initializeGame } from '../state.ts';
+import { step } from '../reducer.ts';
 import { CARD_LIST } from '../../data/cardLoader.ts';
 
 function findCard(name) {
@@ -229,6 +230,11 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       const checkVorg = canDeclareAttack(s3, cVorg.instanceId, { type: 'shield', index: 0 });
       assert.strictEqual(checkVorg.valid, false);
       assert.match(checkVorg.reason, /summoning sickness/i);
+
+      // Reducer integration: passing phase from MAIN transitions to ATTACK because shared Speed Attacker makes cSmash eligible
+      const stateInMain = { ...s3, phase: 'MAIN' };
+      const statePassed = step(stateInMain, { type: 'PASS_PHASE' });
+      assert.strictEqual(statePassed.phase, 'ATTACK');
     });
 
     it('Unblockable sharing: Spikestrike Ichthys Q makes friendly Survivors unblockable', () => {

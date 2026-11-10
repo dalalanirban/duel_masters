@@ -126,12 +126,12 @@ The engine standardizes triggers (`ON_ENTER`, `ON_ATTACK`, `ON_DESTROY`, `ON_END
 - Modify: `web/src/engine/reducer.ts`
 - Modify: `web/src/engine/ai.ts`
 
-- [ ] **Step 1: Wire barrel exports and ensure reducer & AI recognize all new triggers**
-- [ ] **Step 2: Run all test suites across the entire codebase**
+- [x] **Step 1: Wire barrel exports and ensure reducer & AI recognize all new triggers**
+- [x] **Step 2: Run all test suites across the entire codebase**
   Run: `node --test web/src/engine/tests/*.test.mjs`
   Run: `node --test web/src/data/cardLoader.test.mjs`
   Run: `node --test web/src/utils/deckStorage.test.mjs`
-- [ ] **Step 3: Verify TypeScript production build**
+- [x] **Step 3: Verify TypeScript production build**
   Run: `npm run build --prefix web`
 - [ ] **Step 4: Commit, Push branch and raise Pull Request #4**
   Run: `git push -u origin feature/declarative-card-rules-engine`
