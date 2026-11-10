@@ -377,7 +377,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       />
 
       {/* Center Column: The Battle Arena (8 Rows, Zero Page Scroll) */}
-      <div className="flex-1 h-full min-w-0 flex flex-col justify-between overflow-hidden p-1.5 sm:p-2 gap-1 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950">
+      <div className="flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-1.5 gap-0.5 sm:gap-1 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950">
         {/* 1. Opponent Hand */}
         <HandView
           hand={state.players.opponent.hand}

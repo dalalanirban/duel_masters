@@ -55,12 +55,24 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   const isOpponent = owner === 'opponent';
   const isPlayerTurn = activePlayer === 'player';
 
+  if (battleZone.length === 0) {
+    return (
+      <div className="h-6 sm:h-7 px-2 rounded-md border border-dashed border-slate-800/80 bg-slate-950/40 flex items-center justify-between text-[10px] text-slate-500 font-mono select-none shrink-0 w-full">
+        <div className="flex items-center gap-1.5 font-cinzel font-bold text-slate-400">
+          <Swords className={`w-3 h-3 ${isOpponent ? 'text-red-400/70' : 'text-emerald-400/70'}`} />
+          <span>{isOpponent ? "Opponent's" : "Your"} Battle Zone (0)</span>
+        </div>
+        <span className="italic text-slate-600 text-[9px]">No creatures in battle zone</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-1 select-none w-full shrink-0">
+    <div className="flex flex-col gap-0.5 select-none w-full shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-1.5 text-xs font-cinzel font-bold text-slate-300">
-          <Swords className={`w-3.5 h-3.5 ${isOpponent ? 'text-red-400' : 'text-emerald-400'}`} />
+        <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-slate-300">
+          <Swords className={`w-3 h-3 ${isOpponent ? 'text-red-400' : 'text-emerald-400'}`} />
           <span>
             {isOpponent ? "Opponent's" : "Your"} Battle Zone ({battleZone.length} Creatures)
           </span>
@@ -68,111 +80,105 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
 
         {/* Status prompt */}
         {selectedAttackerId && isOpponent && (
-          <span className="text-[10px] font-semibold text-red-400 animate-pulse flex items-center gap-1">
-            <Crosshair className="w-3 h-3" /> Select tapped creature or shield
+          <span className="text-[9px] font-semibold text-red-400 animate-pulse flex items-center gap-1">
+            <Crosshair className="w-2.5 h-2.5" /> Select target
           </span>
         )}
       </div>
 
       {/* Battle Zone Arena Grid */}
-      <div className="min-h-24 sm:min-h-28 rounded-xl border border-slate-800/90 bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/80 p-1.5 sm:p-2 flex items-center gap-2 overflow-x-auto scrollbar-thin">
-        {battleZone.length === 0 ? (
-          <div className="w-full text-center py-4 text-xs text-slate-600 font-mono flex flex-col items-center justify-center gap-1">
-            <Swords className="w-4 h-4 opacity-40" />
-            <span>No creatures in battle zone</span>
-          </div>
-        ) : (
-          battleZone.map((creature) => {
-            const card = creature.card;
-            const isTapped = creature.isTapped;
-            const sick = isSummoningSick(creature, turn);
-            const isAttacker = selectedAttackerId === creature.instanceId;
-            const effectivePower = getCreatureEffectivePower(creature, isAttacker);
-            const isBlocker = Boolean(card.isBlocker);
-            const isSlayer = Boolean(card.isSlayer);
-            const isSpeedAttacker = Boolean(card.isSpeedAttacker);
-            const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
-            const underlyingCount = creature.evolvedOn ? creature.evolvedOn.length : 0;
+      <div className="h-21 sm:h-23 rounded-lg border border-slate-800/90 bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+        {battleZone.map((creature) => {
+          const card = creature.card;
+          const isTapped = creature.isTapped;
+          const sick = isSummoningSick(creature, turn);
+          const isAttacker = selectedAttackerId === creature.instanceId;
+          const effectivePower = getCreatureEffectivePower(creature, isAttacker);
+          const isBlocker = Boolean(card.isBlocker);
+          const isSlayer = Boolean(card.isSlayer);
+          const isSpeedAttacker = Boolean(card.isSpeedAttacker);
+          const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
+          const underlyingCount = creature.evolvedOn ? creature.evolvedOn.length : 0;
 
-            // Attack eligibility
-            const canAttack =
-              !isOpponent &&
-              isPlayerTurn &&
-              (phase === 'MAIN' || phase === 'ATTACK') &&
-              !isTapped &&
-              !sick;
+          // Attack eligibility
+          const canAttack =
+            !isOpponent &&
+            isPlayerTurn &&
+            (phase === 'MAIN' || phase === 'ATTACK') &&
+            !isTapped &&
+            !sick;
 
-            // Can be attacked (opposing creature that is tapped)
-            const canBeAttacked =
-              isOpponent &&
-              isPlayerTurn &&
-              selectedAttackerId !== null &&
-              isTapped;
+          // Can be attacked (opposing creature that is tapped)
+          const canBeAttacked =
+            isOpponent &&
+            isPlayerTurn &&
+            selectedAttackerId !== null &&
+            isTapped;
 
-            // Bait eligibility
-            const isBaitCandidate =
-              evolutionSelectionMode &&
-              !isOpponent &&
-              validBaitIds.includes(creature.instanceId);
+          // Bait eligibility
+          const isBaitCandidate =
+            evolutionSelectionMode &&
+            !isOpponent &&
+            validBaitIds.includes(creature.instanceId);
 
-            // Spell target eligibility
-            const isSpellTargetCandidate =
-              spellTargetMode &&
-              validSpellTargetIds.includes(creature.instanceId);
+          // Spell target eligibility
+          const isSpellTargetCandidate =
+            spellTargetMode &&
+            validSpellTargetIds.includes(creature.instanceId);
 
-            const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
+          const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
 
-            // Card click handler
-            const handleClick = (e: React.MouseEvent) => {
-              e.stopPropagation();
+          // Card click handler
+          const handleClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
 
-              if (isSpellTargetCandidate && onSelectSpellTarget) {
-                onSelectSpellTarget(creature.instanceId);
-                return;
-              }
+            if (isSpellTargetCandidate && onSelectSpellTarget) {
+              onSelectSpellTarget(creature.instanceId);
+              return;
+            }
 
-              if (isBaitCandidate && onSelectBait) {
-                onSelectBait(creature.instanceId);
-                return;
-              }
+            if (isBaitCandidate && onSelectBait) {
+              onSelectBait(creature.instanceId);
+              return;
+            }
 
-              if (canBeAttacked && onSelectTargetCreature) {
-                onSelectTargetCreature(creature.instanceId);
-                return;
-              }
+            if (canBeAttacked && onSelectTargetCreature) {
+              onSelectTargetCreature(creature.instanceId);
+              return;
+            }
 
-              if (canAttack && onSelectAttacker) {
-                onSelectAttacker(creature.instanceId);
-                return;
-              }
+            if (canAttack && onSelectAttacker) {
+              onSelectAttacker(creature.instanceId);
+              return;
+            }
 
-              // Fallback to inspect
-              onInspectCard?.(card);
-            };
+            // Fallback to inspect
+            onInspectCard?.(card);
+          };
 
-            return (
-              <div
-                key={creature.instanceId}
-                onClick={handleClick}
-                onMouseEnter={() => onHoverCard?.(card)}
-                onMouseLeave={() => onHoverCard?.(null)}
-                className={`relative shrink-0 w-18 h-24 sm:w-20 sm:h-26 aspect-[491/682] rounded-lg overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
-                  isAttacker
-                    ? 'ring-4 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
-                    : canBeAttacked
-                    ? 'ring-2 ring-red-500 hover:scale-105 shadow-red-500/40 z-10 animate-bounce-subtle'
-                    : isBaitCandidate
-                    ? 'ring-3 ring-cyan-400 hover:scale-105 shadow-cyan-500/40 z-10'
-                    : isSpellTargetCandidate
-                    ? 'ring-3 ring-purple-400 hover:scale-105 shadow-purple-500/40 z-10 animate-pulse'
-                    : canAttack
-                    ? 'ring-2 ring-emerald-400/80 hover:ring-amber-400 hover:scale-105 shadow-emerald-500/20'
-                    : isTapped
-                    ? 'opacity-65 rotate-90 scale-90 border border-slate-700'
-                    : 'border border-slate-700 hover:border-slate-500'
-                }`}
-                title={`${card.name} - Power: ${effectivePower}`}
-              >
+          return (
+            <div
+              key={creature.instanceId}
+              onClick={handleClick}
+              onMouseEnter={() => onHoverCard?.(card)}
+              onMouseLeave={() => onHoverCard?.(null)}
+              className={`relative shrink-0 w-14 h-19 sm:w-15 sm:h-20 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-md group ${
+                isAttacker
+                  ? 'ring-3 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
+                  : canBeAttacked
+                  ? 'ring-2 ring-red-500 hover:scale-105 shadow-red-500/40 z-10 animate-bounce-subtle'
+                  : isBaitCandidate
+                  ? 'ring-2 ring-cyan-400 hover:scale-105 shadow-cyan-500/40 z-10'
+                  : isSpellTargetCandidate
+                  ? 'ring-2 ring-purple-400 hover:scale-105 shadow-purple-500/40 z-10 animate-pulse'
+                  : canAttack
+                  ? 'ring-1 ring-emerald-400/80 hover:ring-amber-400 hover:scale-105 shadow-emerald-500/20'
+                  : isTapped
+                  ? 'opacity-65 rotate-90 scale-90 border border-slate-700'
+                  : 'border border-slate-700 hover:border-slate-500'
+              }`}
+              title={`${card.name} - Power: ${effectivePower}`}
+            >
                 {/* Physical Card Scan */}
                 <img
                   src={imageSrc}
@@ -287,8 +293,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 </div>
               </div>
             );
-          })
-        )}
+          })}
       </div>
     </div>
   );

@@ -34,27 +34,25 @@ export const HandView: React.FC<HandViewProps> = ({
   const isOpponent = owner === 'opponent';
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // If opponent, display concealed card backs with count
+  // If opponent, display concealed card backs with count in a slim single bar
   if (isOpponent) {
     return (
-      <div className="flex flex-col gap-1 select-none">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5 text-xs font-cinzel font-bold text-slate-400">
-            <HandIcon className="w-3.5 h-3.5 text-slate-500" />
-            <span>Opponent's Hand ({hand.length} Cards)</span>
-          </div>
+      <div className="flex items-center justify-between px-2 py-0.5 rounded-lg bg-slate-950/70 border border-slate-800/80 shrink-0 select-none">
+        <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-slate-400">
+          <HandIcon className="w-3 h-3 text-slate-500" />
+          <span>Opponent's Hand ({hand.length} Cards)</span>
         </div>
 
-        <div className="min-h-16 flex items-center gap-1.5 overflow-x-auto py-1 px-1">
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
           {hand.length === 0 ? (
-            <span className="text-xs text-slate-600 font-mono italic">Hand is empty</span>
+            <span className="text-[10px] text-slate-600 font-mono italic">Hand is empty</span>
           ) : (
             hand.map((item, idx) => (
               <div
                 key={item.instanceId || idx}
-                className="w-10 sm:w-12 h-14 sm:h-16 rounded-md bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/80 shadow-md flex items-center justify-center shrink-0"
+                className="w-5 h-7 rounded-xs bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/80 shadow-xs flex items-center justify-center shrink-0"
               >
-                <div className="w-4 h-6 rounded border border-slate-700/60 bg-slate-950/60" />
+                <div className="w-2.5 h-3.5 rounded-xs border border-slate-700/60 bg-slate-950/60" />
               </div>
             ))
           )}
@@ -65,23 +63,23 @@ export const HandView: React.FC<HandViewProps> = ({
 
   // Player's Hand
   return (
-    <div className="flex flex-col gap-1 select-none w-full shrink-0">
+    <div className="flex flex-col gap-0.5 select-none w-full shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-1.5 text-xs font-cinzel font-bold text-slate-300">
-          <HandIcon className="w-3.5 h-3.5 text-sky-400" />
+        <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-slate-300">
+          <HandIcon className="w-3 h-3 text-sky-400" />
           <span>Your Hand ({hand.length} Cards)</span>
         </div>
 
-        <span className="text-[10px] text-slate-400">
-          Click card to Charge Mana or Play
+        <span className="text-[9px] text-slate-400 font-mono">
+          Click card to Charge or Play
         </span>
       </div>
 
       {/* Hand Row */}
-      <div className="min-h-24 sm:min-h-28 rounded-xl border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1.5 sm:p-2 flex items-center gap-2 overflow-x-auto scrollbar-thin">
+      <div className="h-22 sm:h-24 rounded-lg border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
         {hand.length === 0 ? (
-          <div className="w-full text-center py-4 text-xs text-slate-600 font-mono italic">
+          <div className="w-full text-center py-2 text-xs text-slate-600 font-mono italic">
             Your hand is empty
           </div>
         ) : (
@@ -114,11 +112,11 @@ export const HandView: React.FC<HandViewProps> = ({
               >
                 {/* Physical Card Scan */}
                 <div
-                  className={`relative w-18 h-26 sm:w-20 sm:h-28 aspect-[491/682] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 shadow-lg ${
+                  className={`relative w-14 h-20 sm:w-15 sm:h-22 aspect-[491/682] rounded-md overflow-hidden cursor-pointer transition-all duration-200 shadow-md ${
                     canPlay
-                      ? 'ring-2 ring-cyan-400/90 shadow-cyan-500/25 group-hover:-translate-y-1 group-hover:scale-105 group-hover:shadow-cyan-400/50'
+                      ? 'ring-2 ring-cyan-400/90 shadow-cyan-500/25 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:shadow-cyan-400/50'
                       : canCharge
-                      ? 'ring-1 ring-amber-500/60 group-hover:-translate-y-1'
+                      ? 'ring-1 ring-amber-500/60 group-hover:-translate-y-0.5'
                       : 'border border-slate-700/80 opacity-90 group-hover:-translate-y-0.5'
                   }`}
                 >

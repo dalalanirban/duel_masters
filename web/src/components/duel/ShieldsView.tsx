@@ -55,17 +55,17 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
           const isTargeted =
             selectedTarget?.type === 'shield' && selectedTarget.index === index;
           const isClickable = canTargetShields && isOpponent && !isBroken;
-          const heightClasses = compact ? 'h-14 sm:h-16' : 'h-20 sm:h-24 md:h-28';
+          const heightClasses = compact ? 'h-10 sm:h-11' : 'h-14 sm:h-16';
 
           if (isBroken) {
             return (
               <div
                 key={shield.id || `empty-${index}`}
-                className={`${heightClasses} rounded-xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center p-1 text-slate-700 transition-all opacity-60`}
+                className={`${heightClasses} rounded-lg border border-dashed border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center p-0.5 text-slate-700 transition-all opacity-60`}
                 title={`Shield #${index + 1} (Broken)`}
               >
-                <AlertCircle className="w-3.5 h-3.5 mb-0.5 text-slate-700" />
-                <span className="text-[9px] font-mono uppercase tracking-wider text-slate-600">
+                <AlertCircle className="w-3 h-3 text-slate-700" />
+                <span className="text-[7px] font-mono uppercase tracking-wider text-slate-600 leading-none">
                   Broken
                 </span>
               </div>
@@ -91,40 +91,40 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
                   ? `Click to Attack Shield #${index + 1}`
                   : `Shield #${index + 1} (Intact)`
               }
-              className={`relative ${heightClasses} rounded-xl p-1.5 transition-all duration-200 flex flex-col items-center justify-between border ${
+              className={`relative ${heightClasses} rounded-lg p-1 transition-all duration-200 flex flex-col items-center justify-between border ${
                 isClickable
-                  ? 'cursor-pointer hover:scale-105 border-red-500/90 bg-gradient-to-b from-red-950/60 via-slate-900 to-red-950/70 shadow-lg shadow-red-500/25 ring-1 ring-red-400 animate-pulse'
+                  ? 'cursor-pointer hover:scale-105 border-red-500/90 bg-gradient-to-b from-red-950/60 via-slate-900 to-red-950/70 shadow-md shadow-red-500/25 ring-1 ring-red-400 animate-pulse'
                   : isTargeted
-                  ? 'ring-2 ring-red-400 border-red-500 scale-105 bg-slate-900 shadow-md shadow-red-500/30'
+                  ? 'ring-2 ring-red-400 border-red-500 scale-105 bg-slate-900 shadow-sm shadow-red-500/30'
                   : isOpponent
-                  ? 'border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-md'
-                  : 'border-amber-500/40 bg-gradient-to-b from-amber-950/30 via-slate-900 to-slate-950 shadow-md'
+                  ? 'border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-xs'
+                  : 'border-amber-500/40 bg-gradient-to-b from-amber-950/30 via-slate-900 to-slate-950 shadow-xs'
               }`}
             >
               {/* Shield Number Badge */}
-              <div className="w-full flex justify-between items-center text-[9px] font-mono text-slate-400 leading-none">
+              <div className="w-full flex justify-between items-center text-[8px] font-mono text-slate-400 leading-none">
                 <span>#{index + 1}</span>
                 {isClickable && (
-                  <Crosshair className="w-3 h-3 text-red-400 animate-spin-slow" />
+                  <Crosshair className="w-2.5 h-2.5 text-red-400 animate-spin-slow" />
                 )}
               </div>
 
               {/* Shield Emblem Icon */}
               <div
-                className={`${compact ? 'w-6 h-6' : 'w-8 h-8'} rounded-full border flex items-center justify-center transition-all ${
+                className={`${compact ? 'w-4.5 h-4.5' : 'w-7 h-7'} rounded-full border flex items-center justify-center transition-all ${
                   isClickable
-                    ? 'border-red-400 bg-red-500/30 text-red-300 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                    ? 'border-red-400 bg-red-500/30 text-red-300 shadow-[0_0_6px_rgba(239,68,68,0.6)]'
                     : isOpponent
                     ? 'border-slate-700 bg-slate-800/80 text-slate-400'
-                    : 'border-amber-400/50 bg-amber-500/15 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.2)]'
+                    : 'border-amber-400/50 bg-amber-500/15 text-amber-300 shadow-[0_0_4px_rgba(245,158,11,0.2)]'
                 }`}
               >
-                <Shield className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} fill-current/20`} />
+                <Shield className={`${compact ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} fill-current/20`} />
               </div>
 
               {/* Status footer */}
               <span
-                className={`text-[8px] sm:text-[9px] font-cinzel font-bold tracking-wider leading-none ${
+                className={`text-[7px] sm:text-[8px] font-cinzel font-bold tracking-wider leading-none ${
                   isClickable ? 'text-red-300' : 'text-slate-400'
                 }`}
               >
