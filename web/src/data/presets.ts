@@ -1,5 +1,5 @@
-import { Deck } from '../types/card';
-import { CARD_MAP } from './cardLoader';
+import type { Deck } from '../types/card.ts';
+import { CARD_MAP } from './cardLoader.ts';
 
 function createDeck(id: string, name: string, cardCounts: { [cardId: string]: number }): Deck {
   const items = Object.entries(cardCounts)

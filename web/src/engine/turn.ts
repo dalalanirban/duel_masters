@@ -1,4 +1,4 @@
-import type { GameState, PlayerId } from './types';
+import type { GameState, PlayerId, CreatureInstance } from './types';
 
 /**
  * Handles the start-of-turn procedure for the active player:
@@ -116,8 +116,44 @@ export function endTurn(state: GameState): GameState {
     return state;
   }
 
-  const nextPlayer: PlayerId = state.activePlayer === 'player' ? 'opponent' : 'player';
-  const nextTurn = state.activePlayer === 'opponent' ? state.turn + 1 : state.turn;
+  const activeId = state.activePlayer;
+  const nextPlayer: PlayerId = activeId === 'player' ? 'opponent' : 'player';
+  const nextTurn = activeId === 'opponent' ? state.turn + 1 : state.turn;
+
+  // 1. End-of-turn untap triggers for active player's creatures (e.g. Urth, Purifying Elemental)
+  const untapLogs: string[] = [];
+  const updatedActiveBZ = state.players[activeId].battleZone.map((creature) => {
+    const rules = creature.card.rulesText || '';
+    if (
+      creature.isTapped &&
+      (/at the end of each of your turns.*untap this creature/i.test(rules) ||
+        creature.card.name.toLowerCase().includes('urth'))
+    ) {
+      untapLogs.push(`${creature.card.name} untapped at the end of the turn.`);
+      return { ...creature, isTapped: false };
+    }
+    return creature;
+  });
+
+  // 2. Reset temporary power attacker bonuses and power modifiers for all creatures in both battle zones
+  const resetBZ = (bz: CreatureInstance[]) =>
+    bz.map((c) => ({
+      ...c,
+      tempPowerAttackerBonus: 0,
+      powerModifier: 0
+    }));
+
+  const intermediatePlayers = {
+    ...state.players,
+    [activeId]: {
+      ...state.players[activeId],
+      battleZone: resetBZ(updatedActiveBZ)
+    },
+    [nextPlayer]: {
+      ...state.players[nextPlayer],
+      battleZone: resetBZ(state.players[nextPlayer].battleZone)
+    }
+  };
 
   const intermediateState: GameState = {
     ...state,
@@ -126,7 +162,12 @@ export function endTurn(state: GameState): GameState {
     phase: 'END_OF_TURN',
     combatState: null,
     pendingInteraction: null,
-    actionLog: [...state.actionLog, `${state.activePlayer} ended their turn.`]
+    players: intermediatePlayers,
+    actionLog: [
+      ...state.actionLog,
+      ...untapLogs,
+      `${activeId} ended their turn.`
+    ]
   };
 
   return startTurn(intermediateState);

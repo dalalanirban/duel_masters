@@ -29,6 +29,7 @@ export interface CreatureInstance {
   summonedTurn: number;
   powerModifier: number;
   evolvedOn?: CardInstance[];
+  tempPowerAttackerBonus?: number;
 }
 
 export interface ShieldInstance {

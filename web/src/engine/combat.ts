@@ -27,11 +27,26 @@ import {
  */
 export function getCreatureEffectivePower(
   creature: CreatureInstance,
-  isAttacking: boolean
+  isAttacking: boolean,
+  playerState?: PlayerState
 ): number {
   const basePower = creature.card.power ?? 0;
   const powerModifier = creature.powerModifier || 0;
-  const powerAttackerBonus = isAttacking ? creature.card.powerAttackerBonus || 0 : 0;
+  let powerAttackerBonus = isAttacking ? (creature.card.powerAttackerBonus || 0) : 0;
+  powerAttackerBonus += isAttacking ? (creature.tempPowerAttackerBonus || 0) : 0;
+
+  if (isAttacking && playerState) {
+    if (
+      creature.card.name.toLowerCase().includes('bolshack dragon') ||
+      /for each fire card in your graveyard/i.test(creature.card.rulesText || '')
+    ) {
+      const fireCount = playerState.graveyard.filter((c) =>
+        c.card.civilizations?.includes('Fire')
+      ).length;
+      powerAttackerBonus += fireCount * 1000;
+    }
+  }
+
   return Math.max(0, basePower + powerModifier + powerAttackerBonus);
 }
 
@@ -84,6 +99,16 @@ export function canDeclareAttack(
 
   if (isSummoningSick(attacker, state.turn)) {
     return { valid: false, reason: 'Creature has summoning sickness.' };
+  }
+
+  const rules = attacker.card.rulesText || '';
+  if (/this creature can't attack(?!\s+players)/i.test(rules)) {
+    return { valid: false, reason: `${attacker.card.name} cannot attack.` };
+  }
+  if (/this creature can't attack players/i.test(rules)) {
+    if (target.type === 'shield' || target.type === 'player') {
+      return { valid: false, reason: `${attacker.card.name} cannot attack players.` };
+    }
   }
 
   if (target.type === 'creature') {
@@ -173,9 +198,10 @@ export function declareAttack(
   };
 
   // Blocker check: any untapped creatures with isBlocker === true
-  const validBlockers = defendingPlayer.battleZone.filter(
-    (c) => !c.isTapped && c.card.isBlocker
-  );
+  const isUnblockable = /can't be blocked/i.test(attacker.card.rulesText || '');
+  const validBlockers = isUnblockable
+    ? []
+    : defendingPlayer.battleZone.filter((c) => !c.isTapped && c.card.isBlocker);
 
   if (validBlockers.length > 0) {
     const combatState: CombatState = {
@@ -364,7 +390,7 @@ export function resolveCombat(state: GameState): GameState {
       return { ...state, combatState: null };
     }
 
-    const attPower = getCreatureEffectivePower(attacker, true);
+    const attPower = getCreatureEffectivePower(attacker, true, state.players[activeId]);
     const defPower = getCreatureEffectivePower(defender, false);
 
     let destroyAttacker = false;
@@ -662,4 +688,39 @@ export function resolveShieldTrigger(
   };
 
   return resolveCreatureCIPEffect(stateWithCreature, player, newCreature, targets);
+}
+
+/**
+ * Checks whether any creature controlled by playerId is required to attack this turn if able
+ * (e.g. Deadly Fighter Braid Claw / "attacks each turn if able").
+ */
+export function hasMandatoryAttackers(state: GameState, playerId: PlayerId): boolean {
+  const player = state.players[playerId];
+  const opponentId: PlayerId = playerId === 'player' ? 'opponent' : 'player';
+  const opponent = state.players[opponentId];
+
+  return player.battleZone.some((creature) => {
+    if (creature.isTapped) return false;
+    if (isSummoningSick(creature, state.turn)) return false;
+
+    const rules = creature.card.rulesText || '';
+    const isMandatory =
+      creature.card.id === 'DM01-074' ||
+      /attacks each turn if able/i.test(rules);
+
+    if (!isMandatory) return false;
+
+    const canAttackShields = opponent.shields.some((s) => !s.isBroken);
+    const canAttackPlayer = !canAttackShields;
+    const canAttackCreature = opponent.battleZone.some((c) => c.isTapped);
+
+    if (/this creature can't attack players/i.test(rules)) {
+      return canAttackCreature;
+    }
+    if (/this creature can't attack(?!\s+players)/i.test(rules)) {
+      return false;
+    }
+
+    return canAttackShields || canAttackPlayer || canAttackCreature;
+  });
 }

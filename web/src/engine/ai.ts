@@ -1,4 +1,4 @@
-import type { GameState, GameAction, PlayerId, CardInstance } from './types.ts';
+import type { GameState, GameAction, PlayerId, CardInstance, CreatureInstance } from './types.ts';
 import { canPayManaCost } from './mana.ts';
 import { isSummoningSick, isValidEvolutionBait, isEvolutionCreature } from './evolution.ts';
 import { getCreatureEffectivePower } from './combat.ts';
@@ -33,7 +33,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         }
 
         const attacker = oppState.battleZone.find((c) => c.instanceId === interaction.attackerId);
-        const attPower = attacker ? getCreatureEffectivePower(attacker, true) : 0;
+        const attPower = attacker ? getCreatureEffectivePower(attacker, true, oppState) : 0;
 
         // 1. Try to find a blocker that can win the battle (defPower > attPower)
         const winningBlocker = validBlockers.find(
@@ -160,13 +160,67 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       for (const item of aiState.hand) {
         if (item.card.type.includes('Spell')) {
           if (canPayManaCost(aiState.manaZone, item.card)) {
+            const nameLower = item.card.name.toLowerCase();
+            const rules = item.card.rulesText || '';
             let targets: string[] | undefined;
-            if (oppState.battleZone.length > 0) {
+
+            if (nameLower.includes('burning power') || /gets (?:“|")power attacker/i.test(rules)) {
+              if (aiState.battleZone.length > 0) {
+                targets = [aiState.battleZone[0].instanceId];
+              }
+            } else if (
+              nameLower.includes('tornado flame') ||
+              /power 4000 or less/i.test(rules)
+            ) {
+              const validOpp = oppState.battleZone.filter(
+                (c) => getCreatureEffectivePower(c, false) <= 4000
+              );
+              if (validOpp.length === 0) continue;
+              validOpp.sort(
+                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+              );
+              targets = [validOpp[0].instanceId];
+            } else if (
+              nameLower.includes('crimson hammer') ||
+              nameLower.includes('volcano charger') ||
+              /power 2000 or less/i.test(rules)
+            ) {
+              const validOpp = oppState.battleZone.filter(
+                (c) => getCreatureEffectivePower(c, false) <= 2000
+              );
+              if (validOpp.length === 0) continue;
+              validOpp.sort(
+                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+              );
+              targets = [validOpp[0].instanceId];
+            } else if (nameLower.includes('death smoke') || /untapped creatures/i.test(rules)) {
+              const validOpp = oppState.battleZone.filter((c) => !c.isTapped);
+              if (validOpp.length === 0) continue;
+              validOpp.sort(
+                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+              );
+              targets = [validOpp[0].instanceId];
+            } else if (nameLower.includes('critical blade') || /"blocker"/i.test(rules)) {
+              const validOpp = oppState.battleZone.filter((c) => c.card.isBlocker);
+              if (validOpp.length === 0) continue;
+              targets = [validOpp[0].instanceId];
+            } else if (
+              nameLower.includes('teleportation') ||
+              /choose up to 2 creatures in the battle zone/i.test(rules)
+            ) {
+              if (oppState.battleZone.length > 0) {
+                const sorted = [...oppState.battleZone].sort(
+                  (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+                );
+                targets = sorted.slice(0, 2).map((c) => c.instanceId);
+              }
+            } else if (oppState.battleZone.length > 0) {
               const sortedOpp = [...oppState.battleZone].sort(
                 (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
               );
               targets = [sortedOpp[0].instanceId];
             }
+
             return {
               type: 'CAST_SPELL',
               player: aiPlayer,
@@ -182,28 +236,49 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
     }
 
     case 'ATTACK': {
-      // Find ready untapped creatures without summoning sickness
-      const eligible = aiState.battleZone.filter(
-        (c) => !c.isTapped && !isSummoningSick(c, state.turn)
-      );
+      const hasTappedOpponentCreatures = oppState.battleZone.some((c) => c.isTapped);
+
+      // Find ready untapped creatures without summoning sickness and respecting attack restrictions
+      const eligible = aiState.battleZone.filter((c) => {
+        if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+        const rules = c.card.rulesText || '';
+        if (/this creature can't attack(?!\s+players)/i.test(rules)) return false;
+        if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) return false;
+        return true;
+      });
 
       if (eligible.length === 0) {
         return { type: 'END_TURN', player: aiPlayer };
       }
 
-      // Sort by highest effective power
-      eligible.sort(
-        (a, b) => getCreatureEffectivePower(b, true) - getCreatureEffectivePower(a, true)
+      // Check for mandatory attackers first (e.g. Deadly Fighter Braid Claw)
+      const mandatory = eligible.filter(
+        (c) => c.card.id === 'DM01-074' || /attacks each turn if able/i.test(c.card.rulesText || '')
       );
-      const attacker = eligible[0];
-      const attPower = getCreatureEffectivePower(attacker, true);
+
+      let attacker: CreatureInstance;
+      if (mandatory.length > 0) {
+        attacker = mandatory[0];
+      } else {
+        // Sort by highest effective power
+        eligible.sort(
+          (a, b) =>
+            getCreatureEffectivePower(b, true, aiState) -
+            getCreatureEffectivePower(a, true, aiState)
+        );
+        attacker = eligible[0];
+      }
+
+      const attPower = getCreatureEffectivePower(attacker, true, aiState);
+      const attackerRules = attacker.card.rulesText || '';
+      const cantAttackPlayers = /this creature can't attack players/i.test(attackerRules);
 
       const unbrokenShields = oppState.shields
         .map((s, index) => ({ s, index }))
         .filter((x) => !x.s.isBroken);
 
-      // Strategy 1: Direct attack if player has 0 shields
-      if (unbrokenShields.length === 0) {
+      // Strategy 1: Direct attack if player has 0 shields (only if attacker can attack players!)
+      if (unbrokenShields.length === 0 && !cantAttackPlayers) {
         return {
           type: 'DECLARE_ATTACK',
           player: aiPlayer,
@@ -213,27 +288,55 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       }
 
       // Strategy 2: Attack tapped opponent creature if we can beat it
-      const tappedOpponents = oppState.battleZone.filter(
-        (c) => c.isTapped && attPower > getCreatureEffectivePower(c, false)
+      const tappedOpponents = oppState.battleZone.filter((c) => c.isTapped);
+      const beatableOpponents = tappedOpponents.filter(
+        (c) => attPower > getCreatureEffectivePower(c, false)
       );
-      if (tappedOpponents.length > 0) {
-        tappedOpponents.sort(
+
+      if (beatableOpponents.length > 0) {
+        beatableOpponents.sort(
           (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
         );
         return {
           type: 'DECLARE_ATTACK',
           player: aiPlayer,
           attackerInstanceId: attacker.instanceId,
-          target: { type: 'creature', instanceId: tappedOpponents[0].instanceId }
+          target: { type: 'creature', instanceId: beatableOpponents[0].instanceId }
         };
       }
 
+      // If creature can't attack players and cannot beat tapped opponent, but there are tapped opponents
+      if (cantAttackPlayers) {
+        if (tappedOpponents.length > 0) {
+          tappedOpponents.sort(
+            (a, b) => getCreatureEffectivePower(a, false) - getCreatureEffectivePower(b, false)
+          );
+          return {
+            type: 'DECLARE_ATTACK',
+            player: aiPlayer,
+            attackerInstanceId: attacker.instanceId,
+            target: { type: 'creature', instanceId: tappedOpponents[0].instanceId }
+          };
+        }
+        return { type: 'END_TURN', player: aiPlayer };
+      }
+
       // Strategy 3: Attack a shield!
+      if (unbrokenShields.length > 0) {
+        return {
+          type: 'DECLARE_ATTACK',
+          player: aiPlayer,
+          attackerInstanceId: attacker.instanceId,
+          target: { type: 'shield', index: unbrokenShields[0].index }
+        };
+      }
+
+      // Strategy 4: Direct attack
       return {
         type: 'DECLARE_ATTACK',
         player: aiPlayer,
         attackerInstanceId: attacker.instanceId,
-        target: { type: 'shield', index: unbrokenShields[0].index }
+        target: { type: 'player' }
       };
     }
 

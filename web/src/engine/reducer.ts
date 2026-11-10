@@ -1,8 +1,8 @@
-import type { GameState, GameAction, PlayerId } from './types.ts';
+import type { GameState, GameAction, PlayerId, AttackTarget } from './types.ts';
 import { chargeMana } from './mana.ts';
-import { summonCreature } from './evolution.ts';
+import { summonCreature, isSummoningSick } from './evolution.ts';
 import { castSpell } from './spells.ts';
-import { declareAttack, declareBlock, resolveShieldTrigger } from './combat.ts';
+import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
 import { passToMainPhase, endTurn, startTurn } from './turn.ts';
 
 /**
@@ -10,9 +10,21 @@ import { passToMainPhase, endTurn, startTurn } from './turn.ts';
  * is currently able to declare an attack.
  */
 function hasEligibleAttackers(state: GameState): boolean {
-  const activePlayer = state.players[state.activePlayer];
+  const activeId = state.activePlayer;
+  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
+  const activePlayer = state.players[activeId];
+  const defendingPlayer = state.players[defendingId];
+  const hasTappedOpponentCreatures = defendingPlayer.battleZone.some((c) => c.isTapped);
+
   return activePlayer.battleZone.some((creature) => {
     if (creature.isTapped) {
+      return false;
+    }
+    const rules = creature.card.rulesText || '';
+    if (/this creature can't attack(?!\s+players)/i.test(rules)) {
+      return false;
+    }
+    if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) {
       return false;
     }
     // Evolution creatures ignore summoning sickness
@@ -26,6 +38,50 @@ function hasEligibleAttackers(state: GameState): boolean {
     // Regular creatures can attack if summoned on an earlier turn
     return creature.summonedTurn < state.turn;
   });
+}
+
+/**
+ * Automatically triggers a required attack for mandatory attackers (e.g. Deadly Fighter Braid Claw).
+ */
+function executeMandatoryAttack(state: GameState, player: PlayerId): GameState {
+  const activeBZ = state.players[player].battleZone;
+  const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
+  const opp = state.players[oppId];
+
+  // Find the first mandatory attacker
+  const mandatoryCreature = activeBZ.find((c) => {
+    if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+    const rules = c.card.rulesText || '';
+    return c.card.id === 'DM01-074' || /attacks each turn if able/i.test(rules);
+  });
+
+  if (!mandatoryCreature) {
+    return endTurn(state);
+  }
+
+  const rules = mandatoryCreature.card.rulesText || '';
+  const cantAttackPlayers = /this creature can't attack players/i.test(rules);
+
+  if (cantAttackPlayers) {
+    const tappedOpp = opp.battleZone.find((c) => c.isTapped);
+    if (tappedOpp) {
+      return declareAttack(state, mandatoryCreature.instanceId, {
+        type: 'creature',
+        instanceId: tappedOpp.instanceId
+      });
+    }
+    return endTurn(state);
+  }
+
+  const unbrokenShieldIdx = opp.shields.findIndex((s) => !s.isBroken);
+  let target: AttackTarget;
+  if (unbrokenShieldIdx !== -1) {
+    target = { type: 'shield', index: unbrokenShieldIdx };
+  } else {
+    target = { type: 'player' };
+  }
+
+  return declareAttack(state, mandatoryCreature.instanceId, target);
 }
 
 /**
@@ -101,11 +157,17 @@ export function step(state: GameState, action: GameAction): GameState {
             action.targetPhase === 'END_OF_TURN' ||
             action.targetPhase === 'END_TURN'
           ) {
+            if (hasMandatoryAttackers(state, state.activePlayer)) {
+              return executeMandatoryAttack(state, state.activePlayer);
+            }
             return endTurn(state);
           }
 
           // If the player has no creatures that can attack, automatically end turn
           if (!hasEligibleAttackers(state)) {
+            if (hasMandatoryAttackers(state, state.activePlayer)) {
+              return executeMandatoryAttack(state, state.activePlayer);
+            }
             return endTurn(state);
           }
 
@@ -118,6 +180,9 @@ export function step(state: GameState, action: GameAction): GameState {
         }
 
         if (state.phase === 'ATTACK') {
+          if (hasMandatoryAttackers(state, state.activePlayer)) {
+            return executeMandatoryAttack(state, state.activePlayer);
+          }
           return endTurn(state);
         }
 
@@ -125,6 +190,10 @@ export function step(state: GameState, action: GameAction): GameState {
       }
 
       case 'END_TURN': {
+        const player = action.player || state.activePlayer;
+        if (hasMandatoryAttackers(state, player)) {
+          return executeMandatoryAttack(state, player);
+        }
         return endTurn(state);
       }
 
