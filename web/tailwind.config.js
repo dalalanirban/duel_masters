@@ -6,6 +6,13 @@ export default {
   ],
   theme: {
     extend: {
+      spacing: {
+        '13': '3.25rem',
+        '15': '3.75rem',
+        '18': '4.5rem',
+        '22': '5.5rem',
+        '26': '6.5rem',
+      },
       colors: {
         civilization: {
           light: '#f59e0b',

@@ -23,6 +23,7 @@ interface BattleZoneViewProps {
   onSelectAttacker?: (creatureId: string) => void;
   onSelectTargetCreature?: (creatureId: string) => void;
   onInspectCard?: (card: CardDefinition) => void;
+  onHoverCard?: (card: CardDefinition | null) => void;
   // Evolution mode
   evolutionSelectionMode?: boolean;
   validBaitIds?: string[];
@@ -43,6 +44,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   onSelectAttacker,
   onSelectTargetCreature,
   onInspectCard,
+  onHoverCard,
   evolutionSelectionMode = false,
   validBaitIds = [],
   onSelectBait,
@@ -54,7 +56,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   const isPlayerTurn = activePlayer === 'player';
 
   return (
-    <div className="flex flex-col gap-1.5 select-none w-full">
+    <div className="flex flex-col gap-1 select-none w-full shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1.5 text-xs font-cinzel font-bold text-slate-300">
@@ -66,17 +68,17 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
 
         {/* Status prompt */}
         {selectedAttackerId && isOpponent && (
-          <span className="text-[11px] font-semibold text-red-400 animate-pulse flex items-center gap-1">
+          <span className="text-[10px] font-semibold text-red-400 animate-pulse flex items-center gap-1">
             <Crosshair className="w-3 h-3" /> Select tapped creature or shield
           </span>
         )}
       </div>
 
       {/* Battle Zone Arena Grid */}
-      <div className="min-h-36 sm:min-h-40 rounded-xl border border-slate-800/90 bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/80 p-3 flex items-center gap-3 overflow-x-auto scrollbar-thin">
+      <div className="min-h-24 sm:min-h-28 rounded-xl border border-slate-800/90 bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/80 p-1.5 sm:p-2 flex items-center gap-2 overflow-x-auto scrollbar-thin">
         {battleZone.length === 0 ? (
-          <div className="w-full text-center py-6 text-xs text-slate-600 font-mono flex flex-col items-center justify-center gap-1">
-            <Swords className="w-5 h-5 opacity-40" />
+          <div className="w-full text-center py-4 text-xs text-slate-600 font-mono flex flex-col items-center justify-center gap-1">
+            <Swords className="w-4 h-4 opacity-40" />
             <span>No creatures in battle zone</span>
           </div>
         ) : (
@@ -152,7 +154,9 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
               <div
                 key={creature.instanceId}
                 onClick={handleClick}
-                className={`relative shrink-0 w-24 sm:w-28 aspect-[491/682] rounded-xl overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
+                onMouseEnter={() => onHoverCard?.(card)}
+                onMouseLeave={() => onHoverCard?.(null)}
+                className={`relative shrink-0 w-18 h-24 sm:w-20 sm:h-26 aspect-[491/682] rounded-lg overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
                   isAttacker
                     ? 'ring-4 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
                     : canBeAttacked
@@ -185,58 +189,58 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 {/* Overlays / Badges */}
 
                 {/* Top-Left: Status Badges (Blocker, Slayer, Speed, Evo) */}
-                <div className="absolute top-1 left-1 flex flex-col gap-1 z-10">
+                <div className="absolute top-0.5 left-0.5 flex flex-col gap-0.5 z-10">
                   {isBlocker && (
                     <div
-                      className="p-1 rounded-md bg-amber-500/90 text-slate-950 font-bold shadow"
+                      className="p-0.5 rounded bg-amber-500/90 text-slate-950 font-bold shadow"
                       title="Blocker: Can intercept attacks"
                     >
-                      <Shield className="w-3 h-3 fill-current" />
+                      <Shield className="w-2.5 h-2.5 fill-current" />
                     </div>
                   )}
                   {isSlayer && (
                     <div
-                      className="p-1 rounded-md bg-purple-700/90 text-white font-bold shadow"
+                      className="p-0.5 rounded bg-purple-700/90 text-white font-bold shadow"
                       title="Slayer: Destroys opposing creature when defeated in battle"
                     >
-                      <Skull className="w-3 h-3" />
+                      <Skull className="w-2.5 h-2.5" />
                     </div>
                   )}
                   {isSpeedAttacker && (
                     <div
-                      className="p-1 rounded-md bg-red-600/90 text-yellow-300 font-bold shadow"
+                      className="p-0.5 rounded bg-red-600/90 text-yellow-300 font-bold shadow"
                       title="Speed Attacker: Ignores summoning sickness"
                     >
-                      <Zap className="w-3 h-3 fill-current" />
+                      <Zap className="w-2.5 h-2.5 fill-current" />
                     </div>
                   )}
                   {isEvolution && (
                     <div
-                      className="px-1 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-cinzel shadow flex items-center gap-0.5"
+                      className="px-1 py-0.2 rounded text-[8px] font-black bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-cinzel shadow flex items-center gap-0.5"
                       title="Evolution Creature"
                     >
-                      <Layers className="w-2.5 h-2.5" />
+                      <Layers className="w-2 h-2" />
                       {underlyingCount > 0 ? `+${underlyingCount}` : 'EVO'}
                     </div>
                   )}
                 </div>
 
                 {/* Top-Right: Summoning Sickness or Attacking indicator */}
-                <div className="absolute top-1 right-1 z-10">
+                <div className="absolute top-0.5 right-0.5 z-10">
                   {sick ? (
                     <div
-                      className="p-1 rounded-md bg-slate-950/85 text-indigo-400 font-bold border border-indigo-500/40 shadow backdrop-blur-xs flex items-center gap-0.5 text-[9px]"
+                      className="p-0.5 rounded bg-slate-950/85 text-indigo-400 font-bold border border-indigo-500/40 shadow backdrop-blur-xs flex items-center gap-0.5 text-[8px]"
                       title="Summoning Sickness: Cannot attack this turn"
                     >
-                      <Moon className="w-3 h-3" />
+                      <Moon className="w-2.5 h-2.5" />
                       <span>Zzz</span>
                     </div>
                   ) : isAttacker ? (
-                    <div className="px-1.5 py-0.5 rounded-md bg-amber-500 text-slate-950 text-[10px] font-black font-cinzel tracking-wider animate-pulse">
-                      ATTACKING
+                    <div className="px-1 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black font-cinzel tracking-wider animate-pulse">
+                      ATK
                     </div>
                   ) : canAttack ? (
-                    <div className="px-1 py-0.5 rounded bg-emerald-500/90 text-slate-950 text-[9px] font-bold font-mono">
+                    <div className="px-1 py-0.2 rounded bg-emerald-500/90 text-slate-950 text-[8px] font-bold font-mono">
                       READY
                     </div>
                   ) : null}
@@ -245,8 +249,8 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 {/* Targetable Action Overlay */}
                 {canBeAttacked && (
                   <div className="absolute inset-0 bg-red-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-1 text-center z-10">
-                    <Crosshair className="w-6 h-6 text-red-400 animate-spin-slow mb-1" />
-                    <span className="text-[10px] font-black text-red-200 uppercase tracking-wider font-cinzel">
+                    <Crosshair className="w-5 h-5 text-red-400 animate-spin-slow mb-0.5" />
+                    <span className="text-[9px] font-black text-red-200 uppercase tracking-wider font-cinzel">
                       Attack Target
                     </span>
                   </div>
@@ -255,8 +259,8 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 {/* Spell Target Candidate Overlay */}
                 {isSpellTargetCandidate && (
                   <div className="absolute inset-0 bg-purple-950/75 backdrop-blur-xs flex flex-col items-center justify-center p-1 text-center z-10">
-                    <Crosshair className="w-6 h-6 text-purple-300 animate-pulse mb-1" />
-                    <span className="text-[10px] font-black text-purple-200 uppercase tracking-wider font-cinzel">
+                    <Crosshair className="w-5 h-5 text-purple-300 animate-pulse mb-0.5" />
+                    <span className="text-[9px] font-black text-purple-200 uppercase tracking-wider font-cinzel">
                       Select Target
                     </span>
                   </div>
@@ -265,19 +269,19 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 {/* Evolution Bait Overlay */}
                 {isBaitCandidate && (
                   <div className="absolute inset-0 bg-cyan-950/75 backdrop-blur-xs flex flex-col items-center justify-center p-1 text-center z-10">
-                    <Layers className="w-6 h-6 text-cyan-300 animate-pulse mb-1" />
-                    <span className="text-[10px] font-black text-cyan-200 uppercase tracking-wider font-cinzel">
+                    <Layers className="w-5 h-5 text-cyan-300 animate-pulse mb-0.5" />
+                    <span className="text-[9px] font-black text-cyan-200 uppercase tracking-wider font-cinzel">
                       Select Bait
                     </span>
                   </div>
                 )}
 
                 {/* Bottom Power Pill */}
-                <div className="absolute bottom-1 right-1 left-1 z-10 flex items-center justify-between px-1.5 py-0.5 rounded bg-slate-950/90 border border-slate-700/80 backdrop-blur-xs">
-                  <span className="text-[9px] text-slate-400 font-mono truncate max-w-[60px]">
+                <div className="absolute bottom-0.5 right-0.5 left-0.5 z-10 flex items-center justify-between px-1 py-0.2 rounded bg-slate-950/90 border border-slate-700/80 backdrop-blur-xs">
+                  <span className="text-[8px] text-slate-400 font-mono truncate max-w-[50px]">
                     {card.name}
                   </span>
-                  <span className="text-xs font-mono font-black text-amber-400">
+                  <span className="text-[10px] font-mono font-black text-amber-400">
                     {effectivePower}
                   </span>
                 </div>

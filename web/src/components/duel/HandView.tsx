@@ -15,6 +15,7 @@ interface HandViewProps {
   onSummonCreature?: (cardInstanceId: string) => void;
   onCastSpell?: (cardInstanceId: string) => void;
   onInspectCard?: (card: CardDefinition) => void;
+  onHoverCard?: (card: CardDefinition | null) => void;
 }
 
 export const HandView: React.FC<HandViewProps> = ({
@@ -27,7 +28,8 @@ export const HandView: React.FC<HandViewProps> = ({
   onChargeMana,
   onSummonCreature,
   onCastSpell,
-  onInspectCard
+  onInspectCard,
+  onHoverCard
 }) => {
   const isOpponent = owner === 'opponent';
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export const HandView: React.FC<HandViewProps> = ({
 
   // Player's Hand
   return (
-    <div className="flex flex-col gap-1.5 select-none w-full">
+    <div className="flex flex-col gap-1 select-none w-full shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1.5 text-xs font-cinzel font-bold text-slate-300">
@@ -71,15 +73,15 @@ export const HandView: React.FC<HandViewProps> = ({
           <span>Your Hand ({hand.length} Cards)</span>
         </div>
 
-        <span className="text-[11px] text-slate-400">
+        <span className="text-[10px] text-slate-400">
           Click card to Charge Mana or Play
         </span>
       </div>
 
       {/* Hand Row */}
-      <div className="min-h-36 sm:min-h-40 rounded-xl border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-2 sm:p-3 flex items-center gap-2.5 overflow-x-auto scrollbar-thin">
+      <div className="min-h-24 sm:min-h-28 rounded-xl border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1.5 sm:p-2 flex items-center gap-2 overflow-x-auto scrollbar-thin">
         {hand.length === 0 ? (
-          <div className="w-full text-center py-6 text-xs text-slate-600 font-mono italic">
+          <div className="w-full text-center py-4 text-xs text-slate-600 font-mono italic">
             Your hand is empty
           </div>
         ) : (
@@ -104,18 +106,20 @@ export const HandView: React.FC<HandViewProps> = ({
               <div
                 key={item.instanceId}
                 className="relative group shrink-0"
+                onMouseEnter={() => onHoverCard?.(card)}
+                onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => {
                   setActiveMenuId(isMenuOpen ? null : item.instanceId);
                 }}
               >
                 {/* Physical Card Scan */}
                 <div
-                  className={`relative w-22 sm:w-26 md:w-28 aspect-[491/682] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 shadow-lg ${
+                  className={`relative w-18 h-26 sm:w-20 sm:h-28 aspect-[491/682] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 shadow-lg ${
                     canPlay
-                      ? 'ring-2 ring-cyan-400/90 shadow-cyan-500/25 group-hover:-translate-y-2 group-hover:scale-105 group-hover:shadow-cyan-400/50'
+                      ? 'ring-2 ring-cyan-400/90 shadow-cyan-500/25 group-hover:-translate-y-1 group-hover:scale-105 group-hover:shadow-cyan-400/50'
                       : canCharge
-                      ? 'ring-1 ring-amber-500/60 group-hover:-translate-y-1.5'
-                      : 'border border-slate-700/80 opacity-90 group-hover:-translate-y-1'
+                      ? 'ring-1 ring-amber-500/60 group-hover:-translate-y-1'
+                      : 'border border-slate-700/80 opacity-90 group-hover:-translate-y-0.5'
                   }`}
                 >
                   <img
@@ -131,20 +135,20 @@ export const HandView: React.FC<HandViewProps> = ({
                   />
 
                   {/* Top-Right: Mana Cost Badge */}
-                  <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-slate-950/90 border border-amber-400/80 text-amber-300 font-mono font-black text-xs shadow-md">
+                  <div className="absolute top-0.5 right-0.5 px-1 py-0.2 rounded-full bg-slate-950/90 border border-amber-400/80 text-amber-300 font-mono font-black text-[10px] shadow-md">
                     {card.manaCost}
                   </div>
 
                   {/* Playable Badge */}
                   {canPlay && (
-                    <div className="absolute top-1 left-1 px-1 py-0.5 rounded bg-cyan-500 text-slate-950 font-cinzel font-black text-[9px] shadow animate-pulse">
+                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-cyan-500 text-slate-950 font-cinzel font-black text-[8px] shadow animate-pulse">
                       PLAYABLE
                     </div>
                   )}
 
                   {/* Quick Action Overlay on Hover / Active */}
                   <div
-                    className={`absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center gap-1.5 p-2 transition-opacity duration-200 ${
+                    className={`absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center gap-1 p-1 transition-opacity duration-200 ${
                       isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     }`}
                     onClick={(e) => e.stopPropagation()}
@@ -158,9 +162,9 @@ export const HandView: React.FC<HandViewProps> = ({
                           setActiveMenuId(null);
                           onSummonCreature?.(item.instanceId);
                         }}
-                        className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg text-[11px] font-bold bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
+                        className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
                       >
-                        <Swords className="w-3 h-3" /> Summon
+                        <Swords className="w-2.5 h-2.5" /> Summon
                       </button>
                     )}
 
@@ -173,9 +177,9 @@ export const HandView: React.FC<HandViewProps> = ({
                           setActiveMenuId(null);
                           onCastSpell?.(item.instanceId);
                         }}
-                        className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
+                        className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
                       >
-                        <Wand2 className="w-3 h-3" /> Cast Spell
+                        <Wand2 className="w-2.5 h-2.5" /> Cast Spell
                       </button>
                     )}
 
@@ -187,9 +191,9 @@ export const HandView: React.FC<HandViewProps> = ({
                         setActiveMenuId(null);
                         onChargeMana?.(item.instanceId);
                       }}
-                      className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg text-[11px] font-bold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
+                      className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
                     >
-                      <Sparkles className="w-3 h-3" /> +1 Mana
+                      <Sparkles className="w-2.5 h-2.5" /> +1 Mana
                     </button>
 
                     {/* 4. Inspect */}
@@ -199,9 +203,9 @@ export const HandView: React.FC<HandViewProps> = ({
                         setActiveMenuId(null);
                         onInspectCard?.(card);
                       }}
-                      className="w-full flex items-center justify-center gap-1 py-0.5 px-2 rounded text-[10px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-1 py-0.5 px-1 rounded text-[9px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
                     >
-                      <Eye className="w-3 h-3" /> Inspect
+                      <Eye className="w-2.5 h-2.5" /> Inspect
                     </button>
                   </div>
                 </div>

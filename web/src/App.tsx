@@ -59,27 +59,41 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className={`${activeTab === 'duel' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-slate-950 text-slate-100 flex flex-col`}>
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 px-4 md:px-8 py-3">
-        <div className="max-w-[1700px] mx-auto flex items-center justify-between">
+      <header
+        className={`sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 ${
+          activeTab === 'duel' ? 'h-12 shrink-0 py-1 px-3 md:px-4' : 'px-4 md:px-8 py-3'
+        }`}
+      >
+        <div className="max-w-[1700px] mx-auto flex items-center justify-between h-full">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black text-xl">
-              <Swords className="w-5 h-5 fill-current" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div
+              className={`flex items-center justify-center ${
+                activeTab === 'duel' ? 'w-7 h-7 rounded-lg text-base' : 'w-10 h-10 rounded-xl text-xl'
+              } bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black shrink-0`}
+            >
+              <Swords className={activeTab === 'duel' ? 'w-4 h-4 fill-current' : 'w-5 h-5 fill-current'} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-cinzel font-extrabold text-xl md:text-2xl tracking-wider text-white">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1
+                  className={`font-cinzel font-extrabold ${
+                    activeTab === 'duel' ? 'text-sm md:text-base' : 'text-xl md:text-2xl'
+                  } tracking-wider text-white`}
+                >
                   DUEL MASTERS
                 </h1>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 hidden xs:inline">
                   DM-01 Base Set
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Interactive Card Database & 40-Card Deck Builder (120 Cards)
-              </p>
+              {activeTab !== 'duel' && (
+                <p className="text-[11px] text-slate-400">
+                  Interactive Card Database & 40-Card Deck Builder (120 Cards)
+                </p>
+              )}
             </div>
           </div>
 
@@ -88,7 +102,7 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('explorer')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all ${
+              className={`flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all ${
                 activeTab === 'explorer'
                   ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -102,7 +116,7 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('duel')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all relative ${
+              className={`flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all relative ${
                 activeTab === 'duel'
                   ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -120,7 +134,7 @@ export const App: React.FC = () => {
 
           {/* Quick Stats Pill */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
               <span className="text-slate-400">Active Deck:</span>
               <span className="font-cinzel font-bold text-amber-400 truncate max-w-[160px]">
                 {activeDeck.name}
@@ -134,7 +148,7 @@ export const App: React.FC = () => {
               href="https://github.com/dalalanirban/duel_masters"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
+              className="flex items-center gap-1 text-xs px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
             >
               <span>GitHub</span>
               <ExternalLink className="w-3 h-3 text-slate-500" />
@@ -144,7 +158,13 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main App Body */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8">
+      <main
+        className={
+          activeTab === 'duel'
+            ? 'flex-1 h-[calc(100vh-3rem)] overflow-hidden p-0 max-w-none w-full'
+            : 'flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8'
+        }
+      >
         {activeTab === 'explorer' ? (
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             {/* Left Column: Explorer FilterBar + Card Grid */}
