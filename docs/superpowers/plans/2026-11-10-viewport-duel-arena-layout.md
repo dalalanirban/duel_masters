@@ -48,30 +48,30 @@ Redesign and implement the Duel Arena UI to match the user's wireframe layout, f
 ## Proposed Tasks
 
 ### Task 1: Card Inspector & Match Status Left Pane
-- Create `web/src/components/duel/CardInspectorPane.tsx`.
-- Displays Turn #, active player, phase, and deck names at top.
-- Displays full card image, civilization badges, mana cost, power, type, race, rules text, and flavor text when a card is hovered or selected.
-- Defaults to a sleek Duel Masters logo/placeholder when no card is hovered.
+- [x] Create `web/src/components/duel/CardInspectorPane.tsx`.
+- [x] Displays Turn #, active player, phase, and deck names at top.
+- [x] Displays full card image, civilization badges, mana cost, power, type, race, rules text, and flavor text when a card is hovered or selected.
+- [x] Defaults to a sleek Duel Masters logo/placeholder when no card is hovered.
 
 ### Task 2: Compact Mana, Shields, Graveyard & Deck Zones
-- Create `web/src/components/duel/GraveyardDeckZone.tsx` showing graveyard pile count + top card thumbnail, and deck back with card count.
-- Create `web/src/components/duel/GraveyardModal.tsx` showing all graveyard cards in a grid with inspection.
-- Modify `ShieldsView.tsx` and `ManaZoneView.tsx` to be compact and responsive to fit in standard screen heights without vertical scrolling.
+- [x] Create `web/src/components/duel/GraveyardDeckZone.tsx` showing graveyard pile count + top card thumbnail, and deck back with card count.
+- [x] Create `web/src/components/duel/GraveyardModal.tsx` showing all graveyard cards in a grid with inspection.
+- [x] Modify `ShieldsView.tsx` and `ManaZoneView.tsx` to be compact and responsive to fit in standard screen heights without vertical scrolling.
 
 ### Task 3: Duel Log & Action Controls Right Pane
-- Create `web/src/components/duel/DuelLogPane.tsx`.
-- Top: AI Auto-Play toggle, Restart button, Exit to Deck Builder button.
-- Middle: Scrollable duel logs where card names (matching card database) are rendered as clickable tags that preview in the Left Pane.
-- Bottom: Large primary action button dynamically reflecting current turn state (Pass to Main Phase, Attack Phase, End Turn, Direct Attack to Win, Play Opponent Move).
+- [x] Create `web/src/components/duel/DuelLogPane.tsx`.
+- [x] Top: AI Auto-Play toggle, Restart button, Exit to Deck Builder button.
+- [x] Middle: Scrollable duel logs where card names (matching card database) are rendered as clickable tags that preview in the Left Pane.
+- [x] Bottom: Large primary action button dynamically reflecting current turn state (Pass to Main Phase, Attack Phase, End Turn, Direct Attack to Win, Play Opponent Move).
 
 ### Task 4: Master Duel Arena 3-Column Integration & Viewport Locking
-- Refactor `DuelArena.tsx` to integrate the 3-column layout.
-- Update `HandView.tsx` and `BattleZoneView.tsx` to pass `onHoverCard` callbacks.
-- Update `App.tsx` to lock viewport to `h-screen overflow-hidden` during duel view.
-- Verify full viewport sizing on standard resolutions (1080p, 900p, 768p).
+- [x] Refactor `DuelArena.tsx` to integrate the 3-column layout.
+- [x] Update `HandView.tsx` and `BattleZoneView.tsx` to pass `onHoverCard` callbacks.
+- [x] Update `App.tsx` to lock viewport to `h-screen overflow-hidden` during duel view.
+- [x] Verify full viewport sizing on standard resolutions (1080p, 900p, 768p).
 
 ### Task 5: Testing, Production Build & Pull Request
-- Create `web/src/engine/tests/duelArenaLayout.test.mjs` to test card log regex parsing and graveyard state utilities.
-- Run all test suites across the project (`node --test web/src/engine/tests/*.test.mjs`, `cardLoader.test.mjs`, `deckStorage.test.mjs`).
-- Run TypeScript production build (`npm run build --prefix web`).
-- Commit, push branch `feature/viewport-duel-arena-layout`, and create Pull Request #5.
+- [x] Create `web/src/engine/tests/duelArenaLayout.test.mjs` to test card log regex parsing and graveyard state utilities.
+- [x] Run all test suites across the project (`node --test web/src/engine/tests/*.test.mjs`, `cardLoader.test.mjs`, `deckStorage.test.mjs`).
+- [x] Run TypeScript production build (`npm run build --prefix web`).
+- [x] Commit, push branch `feature/viewport-duel-arena-layout`, and create Pull Request #5.
