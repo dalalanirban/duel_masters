@@ -853,4 +853,36 @@ describe('Duel Masters Engine: Base Deck Mechanics Audit & Fixes', () => {
       assert.equal(nextState.players.opponent.hand.length, 2);
     });
   });
+
+  // 11. AI Multi-Breaker Shield Targeting
+  describe('11. AI Multi-Breaker Shield Targeting', () => {
+    it('AI assigns multiple shield indices when attacking with Double Breaker', () => {
+      const depthconCreature = {
+        instanceId: 'depthcon-1',
+        card: kingDepthcon, // breakerCount: 2
+        owner: 'opponent',
+        isTapped: false,
+        summonedTurn: 1,
+        powerModifier: 0
+      };
+
+      const state = {
+        ...setupTestState({
+          turn: 2,
+          opponentBattleZone: [depthconCreature]
+        }),
+        activePlayer: 'opponent',
+        phase: 'ATTACK'
+      };
+
+      const action = getAiAction(state, 'opponent');
+      assert.notEqual(action, null);
+      assert.equal(action.type, 'DECLARE_ATTACK');
+      assert.equal(action.attackerInstanceId, 'depthcon-1');
+      assert.equal(action.target.type, 'shield');
+      assert.ok(Array.isArray(action.target.indices), 'target.indices should be an array');
+      assert.equal(action.target.indices.length, 2);
+      assert.equal(new Set(action.target.indices).size, 2);
+    });
+  });
 });

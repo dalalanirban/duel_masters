@@ -323,11 +323,17 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
       // Strategy 3: Attack a shield!
       if (unbrokenShields.length > 0) {
+        const breakerCount = Math.max(1, attacker.card.breakerCount || 1);
+        const targetIndices = unbrokenShields.slice(0, breakerCount).map((x) => x.index);
         return {
           type: 'DECLARE_ATTACK',
           player: aiPlayer,
           attackerInstanceId: attacker.instanceId,
-          target: { type: 'shield', index: unbrokenShields[0].index }
+          target: {
+            type: 'shield',
+            index: targetIndices[0],
+            indices: targetIndices
+          }
         };
       }
 
