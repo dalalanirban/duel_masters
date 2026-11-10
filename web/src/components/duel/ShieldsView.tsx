@@ -7,6 +7,8 @@ interface ShieldsViewProps {
   owner: PlayerId;
   canTargetShields?: boolean;
   selectedTarget?: AttackTarget | null;
+  selectedShieldIndices?: number[];
+  requiredSelectionCount?: number;
   onSelectShield?: (index: number) => void;
 }
 
@@ -15,10 +17,13 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
   owner,
   canTargetShields = false,
   selectedTarget = null,
+  selectedShieldIndices = [],
+  requiredSelectionCount = 1,
   onSelectShield
 }) => {
   const isOpponent = owner === 'opponent';
   const unbrokenShieldsCount = shields.filter((s) => !s.isBroken).length;
+  const isMultiSelecting = canTargetShields && isOpponent && requiredSelectionCount > 1;
 
   return (
     <div className="flex flex-col gap-1.5 select-none">
@@ -32,7 +37,10 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
         </div>
         {canTargetShields && isOpponent && (
           <span className="text-[11px] font-semibold text-red-400 animate-pulse flex items-center gap-1">
-            <Crosshair className="w-3 h-3" /> Click shield to attack
+            <Crosshair className="w-3 h-3" />
+            {isMultiSelecting
+              ? `Select ${requiredSelectionCount} shields (${selectedShieldIndices.length}/${requiredSelectionCount})`
+              : 'Click shield to attack'}
           </span>
         )}
       </div>
@@ -42,7 +50,10 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
         {shields.map((shield, index) => {
           const isBroken = shield.isBroken;
           const isTargeted =
-            selectedTarget?.type === 'shield' && selectedTarget.index === index;
+            selectedTarget?.type === 'shield' &&
+            (selectedTarget.indices?.includes(index) || selectedTarget.index === index);
+          const selectionOrder = selectedShieldIndices.indexOf(index);
+          const isSelectedInMulti = selectionOrder >= 0;
           const isClickable = canTargetShields && isOpponent && !isBroken;
 
           if (isBroken) {
@@ -66,7 +77,9 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
                 }
               }}
               className={`relative h-20 sm:h-24 md:h-28 rounded-lg p-2 transition-all duration-200 flex flex-col items-center justify-between border ${
-                isClickable
+                isSelectedInMulti
+                  ? 'cursor-pointer scale-105 ring-2 ring-red-400 border-red-400 bg-gradient-to-b from-red-950/80 via-slate-900 to-red-950/90 shadow-lg shadow-red-500/50'
+                  : isClickable
                   ? 'cursor-pointer hover:scale-105 border-red-500/80 bg-gradient-to-b from-red-950/40 via-slate-900 to-red-950/60 shadow-lg shadow-red-500/20 animate-pulse'
                   : isTargeted
                   ? 'ring-2 ring-red-400 border-red-500 scale-105 bg-slate-900'
@@ -78,15 +91,21 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
               {/* Shield Number Badge */}
               <div className="w-full flex justify-between items-center text-[10px] font-mono text-slate-400">
                 <span>#{index + 1}</span>
-                {isClickable && (
+                {isSelectedInMulti ? (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white font-bold text-[10px] shadow-sm shadow-red-500">
+                    #{selectionOrder + 1}
+                  </span>
+                ) : isClickable ? (
                   <Crosshair className="w-3.5 h-3.5 text-red-400 animate-spin-slow" />
-                )}
+                ) : null}
               </div>
 
               {/* Shield Emblem Icon */}
               <div
                 className={`w-8 h-8 rounded-full border flex items-center justify-center ${
-                  isClickable
+                  isSelectedInMulti
+                    ? 'border-red-400 bg-red-500/40 text-red-200 shadow-[0_0_12px_rgba(239,68,68,0.7)]'
+                    : isClickable
                     ? 'border-red-400 bg-red-500/20 text-red-300 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
                     : isOpponent
                     ? 'border-slate-700 bg-slate-800/80 text-slate-400'
@@ -98,7 +117,7 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
 
               {/* Status footer */}
               <span className="text-[10px] font-cinzel font-semibold tracking-wider text-slate-400">
-                {isClickable ? 'STRIKE' : 'SHIELD'}
+                {isSelectedInMulti ? `TARGET #${selectionOrder + 1}` : isClickable ? 'STRIKE' : 'SHIELD'}
               </span>
             </div>
           );

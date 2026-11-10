@@ -82,6 +82,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     validTargetIds: string[];
   } | null>(null);
 
+  // Multi-shield selection mode
+  const [selectedShieldIndices, setSelectedShieldIndices] = useState<number[]>([]);
+
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -90,6 +93,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // Restart match handler
   const handleRestart = useCallback(() => {
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
@@ -100,6 +104,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSelectedPlayerDeck(playerDeck);
     setSelectedOpponentDeck(opponentDeck);
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
     dispatch({ type: 'RESET_GAME', playerDeck, opponentDeck });
@@ -115,7 +120,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         ? state.pendingInteraction.player
         : state.activePlayer;
 
-    const action = getAiAction(state, aiTargetPlayer);
+    // Double-lock guard: AI must never take actions on behalf of the human player
+    if (aiTargetPlayer !== 'opponent') {
+      return;
+    }
+
+    const action = getAiAction(state, 'opponent');
     if (action) {
       dispatch(action);
     }
@@ -125,14 +135,20 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   useEffect(() => {
     if (!isAutoPlayOpponent || state.winner !== null) return;
 
-    const isOpponentActive = state.activePlayer === 'opponent';
-    const isOpponentPendingInteraction =
-      (state.pendingInteraction?.type === 'BLOCK_DECLARATION' &&
-        state.pendingInteraction.defendingPlayer === 'opponent') ||
-      (state.pendingInteraction?.type === 'SHIELD_TRIGGER_RESOLUTION' &&
-        state.pendingInteraction.player === 'opponent');
+    const isPlayerPendingInteraction = Boolean(
+      state.pendingInteraction &&
+        (('defendingPlayer' in state.pendingInteraction && state.pendingInteraction.defendingPlayer === 'player') ||
+         ('player' in state.pendingInteraction && state.pendingInteraction.player === 'player'))
+    );
 
-    if (isOpponentActive || isOpponentPendingInteraction) {
+    const isOpponentTurnActive = state.activePlayer === 'opponent' && !isPlayerPendingInteraction;
+    const isOpponentPendingInteraction = Boolean(
+      state.pendingInteraction &&
+        (('defendingPlayer' in state.pendingInteraction && state.pendingInteraction.defendingPlayer === 'opponent') ||
+         ('player' in state.pendingInteraction && state.pendingInteraction.player === 'opponent'))
+    );
+
+    if (isOpponentTurnActive || isOpponentPendingInteraction) {
       const timer = setTimeout(() => {
         triggerAiStep();
       }, 700);
@@ -143,6 +159,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // Clear selected attacker if turn/phase changes
   useEffect(() => {
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
   }, [state.turn, state.phase, state.activePlayer]);
@@ -306,22 +323,61 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const handleSelectAttacker = (creatureId: string) => {
     if (selectedAttackerId === creatureId) {
       setSelectedAttackerId(null);
+      setSelectedShieldIndices([]);
     } else {
       setSelectedAttackerId(creatureId);
-      showToast('Select an opponent shield or tapped creature to attack!');
+      setSelectedShieldIndices([]);
+      const attacker = state.players.player.battleZone.find((c) => c.instanceId === creatureId);
+      const breakerCount = attacker?.card.breakerCount || 1;
+      const unbrokenCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
+      const req = Math.min(breakerCount, unbrokenCount);
+      if (req > 1) {
+        showToast(`Select ${req} opponent shields to break.`);
+      } else {
+        showToast('Select an opponent shield or tapped creature to attack!');
+      }
     }
   };
 
   // Attack declaration: target shield
   const handleSelectShieldTarget = (shieldIndex: number) => {
     if (!selectedAttackerId) return;
-    dispatch({
-      type: 'DECLARE_ATTACK',
-      player: 'player',
-      attackerInstanceId: selectedAttackerId,
-      target: { type: 'shield', index: shieldIndex }
-    });
-    setSelectedAttackerId(null);
+
+    if (requiredBreakerCount <= 1) {
+      dispatch({
+        type: 'DECLARE_ATTACK',
+        player: 'player',
+        attackerInstanceId: selectedAttackerId,
+        target: { type: 'shield', index: shieldIndex, indices: [shieldIndex] }
+      });
+      setSelectedAttackerId(null);
+      setSelectedShieldIndices([]);
+      return;
+    }
+
+    let nextIndices: number[];
+    if (selectedShieldIndices.includes(shieldIndex)) {
+      nextIndices = selectedShieldIndices.filter((idx) => idx !== shieldIndex);
+      setSelectedShieldIndices(nextIndices);
+      showToast(`Unselected shield #${shieldIndex + 1} (${nextIndices.length}/${requiredBreakerCount} selected).`);
+      return;
+    } else {
+      nextIndices = [...selectedShieldIndices, shieldIndex];
+    }
+
+    if (nextIndices.length >= requiredBreakerCount) {
+      dispatch({
+        type: 'DECLARE_ATTACK',
+        player: 'player',
+        attackerInstanceId: selectedAttackerId,
+        target: { type: 'shield', index: nextIndices[0], indices: nextIndices }
+      });
+      setSelectedAttackerId(null);
+      setSelectedShieldIndices([]);
+    } else {
+      setSelectedShieldIndices(nextIndices);
+      showToast(`Selected ${nextIndices.length} of ${requiredBreakerCount} shields.`);
+    }
   };
 
   // Attack declaration: target creature
@@ -334,6 +390,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       target: { type: 'creature', instanceId: targetCreatureId }
     });
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
   };
 
   // Attack declaration: direct attack on player (when 0 shields)
@@ -346,11 +403,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       target: { type: 'player' }
     });
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
   };
 
   // Pass phase
   const handlePassPhase = () => {
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
     dispatch({ type: 'PASS_PHASE', player: 'player' });
@@ -359,6 +418,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // End turn
   const handleEndTurn = () => {
     setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
     dispatch({ type: 'END_TURN', player: 'player' });
@@ -366,6 +426,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   const isPlayerTurn = state.activePlayer === 'player';
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
+  const selectedAttacker = selectedAttackerId
+    ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
+    : null;
+  const attackerBreakerCount = selectedAttacker?.card.breakerCount || 1;
+  const requiredBreakerCount = Math.min(attackerBreakerCount, oppUnbrokenShieldsCount);
   const canDirectAttack = selectedAttackerId !== null && oppUnbrokenShieldsCount === 0;
 
   // Active interaction states for player modals
@@ -511,6 +576,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
                 shields={state.players.opponent.shields}
                 owner="opponent"
                 canTargetShields={selectedAttackerId !== null}
+                selectedShieldIndices={selectedShieldIndices}
+                requiredSelectionCount={requiredBreakerCount}
                 onSelectShield={handleSelectShieldTarget}
               />
             </div>
@@ -714,7 +781,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       <BlockerModal
         isOpen={isPlayerBlockerPending}
         interaction={
-          state.pendingInteraction?.type === 'BLOCK_DECLARATION'
+          state.pendingInteraction?.type === 'BLOCK_DECLARATION' ||
+          state.pendingInteraction?.type === 'BLOCKER_CHOICE'
             ? state.pendingInteraction
             : null
         }
