@@ -133,6 +133,6 @@ The engine standardizes triggers (`ON_ENTER`, `ON_ATTACK`, `ON_DESTROY`, `ON_END
   Run: `node --test web/src/utils/deckStorage.test.mjs`
 - [x] **Step 3: Verify TypeScript production build**
   Run: `npm run build --prefix web`
-- [ ] **Step 4: Commit, Push branch and raise Pull Request #4**
+- [x] **Step 4: Commit, Push branch and raise Pull Request #4**
   Run: `git push -u origin feature/declarative-card-rules-engine`
   Run: `gh pr create --title "feat: Declarative Card Rules and Effect Engine across DM-01 to DM-12" --body "..."`
