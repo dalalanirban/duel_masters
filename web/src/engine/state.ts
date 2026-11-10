@@ -38,6 +38,7 @@ export function createShieldInstance(
   const id = `shield-${owner}-${index}-${(++instanceCounter).toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
   return {
     id,
+    shieldId: id,
     card,
     isBroken: false
   };

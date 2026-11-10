@@ -5,7 +5,8 @@ import type {
   CreatureInstance,
   CardInstance,
   ManaCardInstance,
-  PlayerState
+  PlayerState,
+  ShieldInstance
 } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
 
@@ -265,6 +266,419 @@ export function rampTopDeckToManaZone(state: GameState, player: PlayerId): GameS
 }
 
 /**
+ * Adds the top card(s) of the player's deck to their shields:
+ * - Appends to player.shields with isBroken: false.
+ * - Pure and immutable.
+ */
+export function addShieldFromDeck(
+  state: GameState,
+  player: PlayerId,
+  count: number = 1
+): GameState {
+  const playerState = state.players[player];
+  if (playerState.deck.length === 0) {
+    return {
+      ...state,
+      actionLog: [
+        ...state.actionLog,
+        `${player}'s deck is empty; no shield could be added.`
+      ]
+    };
+  }
+
+  let nextDeck = [...playerState.deck];
+  const newShields = [...playerState.shields];
+  let addedCount = 0;
+
+  for (let i = 0; i < count; i++) {
+    if (nextDeck.length === 0) {
+      break;
+    }
+    const [topCard, ...rest] = nextDeck;
+    nextDeck = rest;
+    const shieldId = `shield-${player}-${newShields.length}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+    const newShield: ShieldInstance = {
+      id: shieldId,
+      shieldId,
+      card: topCard.card,
+      isBroken: false
+    };
+    newShields.push(newShield);
+    addedCount++;
+  }
+
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [player]: {
+        ...playerState,
+        deck: nextDeck,
+        shields: newShields
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${player} added ${addedCount} card(s) from the top of the deck to shields.`
+    ]
+  };
+}
+
+/**
+ * Destroys opponent's shields directly to their graveyard without triggering Shield Triggers:
+ * - If targetShieldIds are provided, destroys those specific shields (up to count).
+ * - Otherwise destroys the first count unbroken shields.
+ * - Cards are placed into opponent's graveyard.
+ * - Pure and immutable.
+ */
+export function destroyOpponentShields(
+  state: GameState,
+  player: PlayerId,
+  count: number = 1,
+  targetShieldIds?: string[]
+): GameState {
+  const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
+  const opponentState = state.players[opponent];
+  const unbrokenShields = opponentState.shields.filter((s) => !s.isBroken);
+
+  if (unbrokenShields.length === 0 || count <= 0) {
+    return state;
+  }
+
+  let shieldsToDestroy: ShieldInstance[] = [];
+  if (targetShieldIds && targetShieldIds.length > 0) {
+    shieldsToDestroy = unbrokenShields
+      .filter(
+        (s) =>
+          targetShieldIds.includes(s.id) ||
+          (s.shieldId && targetShieldIds.includes(s.shieldId))
+      )
+      .slice(0, count);
+  }
+
+  if (shieldsToDestroy.length === 0) {
+    shieldsToDestroy = unbrokenShields.slice(0, count);
+  }
+
+  const destroyIds = new Set(shieldsToDestroy.map((s) => s.id));
+  const nextShields = opponentState.shields.filter((s) => !destroyIds.has(s.id));
+  const graveCards: CardInstance[] = shieldsToDestroy.map((s) => ({
+    instanceId: s.id,
+    card: s.card,
+    owner: opponent
+  }));
+
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [opponent]: {
+        ...opponentState,
+        shields: nextShields,
+        graveyard: [...opponentState.graveyard, ...graveCards]
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${player} put ${shieldsToDestroy.length} of ${opponent}'s shield(s) into the graveyard.`
+    ]
+  };
+}
+
+/**
+ * Breaks opponent's shields, moving them to opponent's hand and triggering Shield Triggers if any:
+ * - If targetShieldIds are provided, breaks those specific shields (up to count).
+ * - Otherwise breaks the first count unbroken shields.
+ * - Queues SHIELD_TRIGGER_RESOLUTION if broken cards have isShieldTrigger.
+ * - Pure and immutable.
+ */
+export function breakOpponentShields(
+  state: GameState,
+  player: PlayerId,
+  count: number,
+  targetShieldIds?: string[]
+): GameState {
+  const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
+  const opponentState = state.players[opponent];
+  const unbrokenShields = opponentState.shields.filter((s) => !s.isBroken);
+
+  if (unbrokenShields.length === 0 || count <= 0) {
+    return state;
+  }
+
+  let shieldsToBreak: ShieldInstance[] = [];
+  if (targetShieldIds && targetShieldIds.length > 0) {
+    shieldsToBreak = unbrokenShields
+      .filter(
+        (s) =>
+          targetShieldIds.includes(s.id) ||
+          (s.shieldId && targetShieldIds.includes(s.shieldId))
+      )
+      .slice(0, count);
+  }
+
+  if (shieldsToBreak.length === 0) {
+    shieldsToBreak = unbrokenShields.slice(0, count);
+  }
+
+  const breakIds = new Set(shieldsToBreak.map((s) => s.id));
+  const nextShields = opponentState.shields.filter((s) => !breakIds.has(s.id));
+
+  const brokenCards: CardInstance[] = shieldsToBreak.map((s) => ({
+    instanceId: s.id,
+    card: s.card,
+    owner: opponent
+  }));
+
+  const stateWithBrokenShields: GameState = {
+    ...state,
+    players: {
+      ...state.players,
+      [opponent]: {
+        ...opponentState,
+        shields: nextShields,
+        hand: [...opponentState.hand, ...brokenCards]
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${player} broke ${shieldsToBreak.length} shield(s) of ${opponent}.`
+    ]
+  };
+
+  const triggerShields = shieldsToBreak.filter((s) => s.card.isShieldTrigger);
+  if (triggerShields.length > 0) {
+    const pendingInteraction = {
+      type: 'SHIELD_TRIGGER_RESOLUTION' as const,
+      player: opponent,
+      shieldCards: brokenCards.filter((c) => c.card.isShieldTrigger),
+      triggers: triggerShields.map((s) => ({
+        shieldId: s.id,
+        card: s.card
+      }))
+    };
+
+    return {
+      ...stateWithBrokenShields,
+      pendingInteraction,
+      actionLog: [
+        ...stateWithBrokenShields.actionLog,
+        `Shield Trigger(s) detected: ${triggerShields.map((s) => s.card.name).join(', ')}!`
+      ]
+    };
+  }
+
+  return stateWithBrokenShields;
+}
+
+/**
+ * Resolves Come-Into-Play (CIP) creature effects when a creature enters the battle zone:
+ * - Card Draw: Aqua Hulcus, Magris, Illusionary Merfolk, or rules text matching draw
+ * - Mana Ramp: Bronze-Arm Tribe, Torcon, or rules text matching mana ramp
+ * - Shield Actions: Sven, Fortress Shell, Aqua Patrol
+ * - Tapping Opponent Creature: Miele, Kolon, or rules text matching tap opponent creature
+ * - Bouncing Creature: Aqua Surfer, Aqua Sniper, Corile, or rules text matching bounce
+ * - Pure and immutable.
+ */
+export function resolveCreatureCIPEffect(
+  state: GameState,
+  player: PlayerId,
+  creature: CreatureInstance,
+  targets?: string[]
+): GameState {
+  const card = creature.card;
+  const cardName = card.name.toLowerCase().trim();
+  const rules = card.rulesText || '';
+  const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
+
+  // 1. Bouncing Creature CIP Effect
+  // Aqua Surfer, Aqua Sniper, Corile, or matching /when you put this creature into the battle zone.*return (?:a|one|up to (\d+)) creatures? .* to (?:its|their) owner's hand/i
+  const bounceMatch = rules.match(
+    /when you put this creature into the battle zone.*return (?:a|one|up to (\d+)) creatures? .* to (?:its|their) owner's hand/i
+  );
+  if (
+    cardName.includes('aqua surfer') ||
+    cardName.includes('aqua sniper') ||
+    cardName.includes('corile') ||
+    Boolean(bounceMatch)
+  ) {
+    let bounceCount = 1;
+    if (cardName.includes('aqua sniper') || (bounceMatch && bounceMatch[1] === '2')) {
+      bounceCount = 2;
+    }
+
+    let targetsToBounce: string[] = [];
+    if (targets && targets.length > 0) {
+      targetsToBounce = targets.slice(0, bounceCount);
+    } else {
+      // Opponent's highest power creature if no target specified
+      const opponentBZ = state.players[opponent].battleZone;
+      if (opponentBZ.length > 0) {
+        const sorted = [...opponentBZ].sort(
+          (a, b) =>
+            (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
+        );
+        targetsToBounce = sorted.slice(0, bounceCount).map((c) => c.instanceId);
+      }
+    }
+
+    let nextState = state;
+    for (const tid of targetsToBounce) {
+      nextState = bounceCreature(nextState, tid);
+    }
+    return nextState;
+  }
+
+  // 2. Tapping Opponent Creature CIP Effect
+  // Miele, Vizier of Lightning, Kolon, the Oracle, or /when you put this creature into the battle zone.*tap (?:1|one) of your opponent's creatures/i
+  const tapMatch = rules.match(
+    /when you put this creature into the battle zone.*tap (?:1|one) of your opponent's creatures/i
+  );
+  if (
+    cardName.includes('miele') ||
+    cardName.includes('kolon') ||
+    Boolean(tapMatch)
+  ) {
+    const opponentBZ = state.players[opponent].battleZone;
+    if (opponentBZ.length === 0) {
+      return state;
+    }
+
+    let targetId: string | undefined;
+    if (targets && targets.length > 0) {
+      const exists = opponentBZ.some((c) => c.instanceId === targets[0]);
+      if (exists) {
+        targetId = targets[0];
+      }
+    }
+
+    if (!targetId) {
+      const untapped = opponentBZ.find((c) => !c.isTapped);
+      targetId = untapped?.instanceId || opponentBZ[0].instanceId;
+    }
+
+    const updatedBZ = opponentBZ.map((c) =>
+      c.instanceId === targetId ? { ...c, isTapped: true } : c
+    );
+    const targetCreature = opponentBZ.find((c) => c.instanceId === targetId);
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...state.players[opponent],
+          battleZone: updatedBZ
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} tapped ${targetCreature?.card.name ?? 'opponent creature'} with ${card.name}.`
+      ]
+    };
+  }
+
+  // 3. Shield Action CIP Effects
+  // 3a. Fortress Shell: burns opponent shields directly to graveyard without triggering Shield Triggers
+  const burnShieldMatch = rules.match(
+    /choose up to (\d+) of your opponent's shields and put them into (?:his|their) graveyard/i
+  );
+  if (cardName.includes('fortress shell') || Boolean(burnShieldMatch)) {
+    const count = burnShieldMatch ? parseInt(burnShieldMatch[1], 10) : 2;
+    return destroyOpponentShields(state, player, count, targets);
+  }
+
+  // 3b. Aqua Patrol: returns an opponent shield to their deck and shuffles
+  if (
+    cardName.includes('aqua patrol') ||
+    /choose (?:1|one) of your opponent's shields and put it into (?:his|their) deck/i.test(rules)
+  ) {
+    const oppShields = state.players[opponent].shields.filter((s) => !s.isBroken);
+    if (oppShields.length === 0) {
+      return state;
+    }
+    const targetShield =
+      targets && targets.length > 0
+        ? oppShields.find((s) => s.id === targets[0] || s.shieldId === targets[0]) || oppShields[0]
+        : oppShields[0];
+
+    const nextShields = state.players[opponent].shields.filter((s) => s.id !== targetShield.id);
+    const deckCard: CardInstance = {
+      instanceId: targetShield.id,
+      card: targetShield.card,
+      owner: opponent
+    };
+
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...state.players[opponent],
+          shields: nextShields,
+          deck: [...state.players[opponent].deck, deckCard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} returned an opponent shield to their deck with ${card.name}.`
+      ]
+    };
+  }
+
+  // 3c. Sven, the Explorer or add top card of deck to shields
+  if (
+    cardName.includes('sven') ||
+    /when you put this creature into the battle zone.*add the top card of your deck to your shields/i.test(
+      rules
+    )
+  ) {
+    return addShieldFromDeck(state, player, 1);
+  }
+
+  // 4. Mana Ramp CIP Effect
+  // Bronze-Arm Tribe, Torcon, or matching /when you put this creature into the battle zone.*put the top card of your deck into your mana zone/i
+  if (
+    cardName.includes('bronze-arm tribe') ||
+    cardName.includes('torcon') ||
+    /when you put this creature into the battle zone.*put the top card of your deck into your mana zone/i.test(
+      rules
+    )
+  ) {
+    return rampTopDeckToManaZone(state, player);
+  }
+
+  // 5. Card Draw CIP Effect
+  // 5a. Illusionary Merfolk: if player controls another Cyber Lord draw 3, else draw 1
+  if (cardName.includes('illusionary merfolk')) {
+    const friendlyBZ = state.players[player].battleZone;
+    const hasOtherCyberLord = friendlyBZ.some(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.races?.some((r) => r.toLowerCase().includes('cyber lord'))
+    );
+    const count = hasOtherCyberLord ? 3 : 1;
+    return drawCards(state, player, count);
+  }
+
+  // 5b. Aqua Hulcus, Magris, or generic draw CIP: /when you put this creature into the battle zone.*draw (?:a|1|(\d+)) cards?/i
+  const drawCIPMatch = rules.match(
+    /when you put this creature into the battle zone.*draw (?:a|1|(\d+)) cards?/i
+  );
+  if (
+    cardName.includes('aqua hulcus') ||
+    cardName.includes('magris') ||
+    Boolean(drawCIPMatch)
+  ) {
+    const count = drawCIPMatch?.[1] ? parseInt(drawCIPMatch[1], 10) : 1;
+    return drawCards(state, player, count);
+  }
+
+  // No CIP effect: return state as is
+  return state;
+}
+
+/**
  * Resolves the rules text effects of a cast spell:
  * - Terror Pit, Death Smoke, Critical Blade, Volcano Charger (destruction)
  * - Holy Awe, Solar Ray, Lightning Charger (tapping)
@@ -512,6 +926,113 @@ export function resolveSpellEffect(
     /put the top card of (?:your )?deck into (?:your )?mana zone/i.test(rules)
   ) {
     return rampTopDeckToManaZone(state, player);
+  }
+
+  // 11a. Ultimate Force: Put the top 2 cards of your deck into your mana zone
+  if (
+    cardName === 'ultimate force' ||
+    /put the top 2 cards of (?:your )?deck into (?:your )?mana zone/i.test(rules)
+  ) {
+    let nextState = rampTopDeckToManaZone(state, player);
+    return rampTopDeckToManaZone(nextState, player);
+  }
+
+  // 11b. Miraculous Meltdown: If opponent has more shields than you do, choose up to that many of your opponent's shields and break them
+  if (
+    cardName === 'miraculous meltdown' ||
+    /opponent has more shields than you.*break them/i.test(rules) ||
+    /opponent chooses one of his shields for each shield you have/i.test(rules)
+  ) {
+    const playerShields = state.players[player].shields.filter((s) => !s.isBroken).length;
+    const opponentShields = state.players[opponent].shields.filter((s) => !s.isBroken).length;
+    const diff = opponentShields - playerShields;
+    if (diff > 0) {
+      return breakOpponentShields(state, player, diff, targets);
+    }
+    return {
+      ...state,
+      actionLog: [
+        ...state.actionLog,
+        `${player} cast Miraculous Meltdown, but opponent does not have more shields.`
+      ]
+    };
+  }
+
+  // 11c. Reverse Armor: Untap friendly creature
+  if (
+    cardName === 'reverse armor' ||
+    /untap (?:a|one|that|the) creature/i.test(rules)
+  ) {
+    const friendlyBZ = state.players[player].battleZone;
+    if (friendlyBZ.length === 0) {
+      return state;
+    }
+    let targetId = targets?.[0];
+    if (!targetId) {
+      const tapped = friendlyBZ.find((c) => c.isTapped);
+      targetId = tapped?.instanceId || friendlyBZ[0].instanceId;
+    }
+    const targetCreature = friendlyBZ.find((c) => c.instanceId === targetId);
+    if (!targetCreature) {
+      return state;
+    }
+    const updatedBZ = friendlyBZ.map((c) =>
+      c.instanceId === targetId ? { ...c, isTapped: false } : c
+    );
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...state.players[player],
+          battleZone: updatedBZ
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} untapped ${targetCreature.card.name} with ${card.name}.`
+      ]
+    };
+  }
+
+  // 11d. Sundrop Armor: Add a card from hand to shields
+  if (
+    cardName === 'sundrop armor' ||
+    /add a card from your hand to your shields/i.test(rules)
+  ) {
+    const curHand = state.players[player].hand;
+    if (curHand.length === 0) {
+      return state;
+    }
+    let chosenIndex = 0;
+    if (targets && targets.length > 0) {
+      const idx = curHand.findIndex((c) => c.instanceId === targets[0]);
+      if (idx !== -1) chosenIndex = idx;
+    }
+    const chosenCard = curHand[chosenIndex];
+    const nextHand = curHand.filter((_, idx) => idx !== chosenIndex);
+    const shieldId = `shield-${player}-${state.players[player].shields.length}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+    const newShield: ShieldInstance = {
+      id: shieldId,
+      shieldId,
+      card: chosenCard.card,
+      isBroken: false
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...state.players[player],
+          hand: nextHand,
+          shields: [...state.players[player].shields, newShield]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} added a card from hand to shields with ${card.name}.`
+      ]
+    };
   }
 
   // 12. Draw spells: Brain Serum (2), Cyber Brain (3), Energy Stream (2), Eureka Charger (1)

@@ -15,7 +15,7 @@ import {
   destroyCreature,
   resolveSpellEffect,
   isChargerSpell,
-  bounceCreature
+  resolveCreatureCIPEffect
 } from './spells.ts';
 
 /**
@@ -661,28 +661,5 @@ export function resolveShieldTrigger(
     ]
   };
 
-  // Check comes-into-play effect if targets are provided
-  if (targets && targets.length > 0) {
-    const cardName = trigger.card.name.toLowerCase();
-    if (cardName.includes('aqua surfer')) {
-      stateWithCreature = bounceCreature(stateWithCreature, targets[0]);
-    } else if (cardName.includes('kolon')) {
-      const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
-      const oppBZ = stateWithCreature.players[oppId].battleZone.map((c) =>
-        c.instanceId === targets[0] ? { ...c, isTapped: true } : c
-      );
-      stateWithCreature = {
-        ...stateWithCreature,
-        players: {
-          ...stateWithCreature.players,
-          [oppId]: {
-            ...stateWithCreature.players[oppId],
-            battleZone: oppBZ
-          }
-        }
-      };
-    }
-  }
-
-  return stateWithCreature;
+  return resolveCreatureCIPEffect(stateWithCreature, player, newCreature, targets);
 }

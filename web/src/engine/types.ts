@@ -33,6 +33,7 @@ export interface CreatureInstance {
 
 export interface ShieldInstance {
   id: string;
+  shieldId?: string;
   card: CardDefinition;
   isBroken: boolean;
 }
@@ -115,6 +116,7 @@ export type GameAction =
       player?: PlayerId;
       cardInstanceId: string;
       baitInstanceId?: string;
+      targets?: string[];
     }
   | {
       type: 'CAST_SPELL';

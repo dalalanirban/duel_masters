@@ -1,6 +1,7 @@
 import type { CardDefinition } from '../types/card';
 import type { GameState, PlayerId, CreatureInstance, CardInstance } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
+import { resolveCreatureCIPEffect } from './spells.ts';
 
 /**
  * Determines whether a card definition represents an Evolution Creature.
@@ -96,7 +97,8 @@ export function summonCreature(
   state: GameState,
   player: PlayerId,
   cardInstanceId: string,
-  baitInstanceId?: string
+  baitInstanceId?: string,
+  targets?: string[]
 ): GameState {
   if (state.winner !== null) {
     throw new Error(`Game has already ended. Winner: ${state.winner}`);
@@ -194,7 +196,7 @@ export function summonCreature(
     ? `${player} evolved ${handCard.card.name} on top of ${baitCreature.card.name}.`
     : `${player} summoned ${handCard.card.name}.`;
 
-  return {
+  const stateWithSummonedCreature: GameState = {
     ...state,
     phase: 'MAIN',
     players: {
@@ -208,4 +210,6 @@ export function summonCreature(
     },
     actionLog: [...state.actionLog, actionMessage]
   };
+
+  return resolveCreatureCIPEffect(stateWithSummonedCreature, player, newCreature, targets);
 }
