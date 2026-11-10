@@ -109,36 +109,60 @@ export interface GameState {
 }
 
 export type GameAction =
-  | { type: 'CHARGE_MANA'; player: PlayerId; cardInstanceId: string }
+  | { type: 'CHARGE_MANA'; player?: PlayerId; cardInstanceId: string }
   | {
       type: 'SUMMON_CREATURE';
-      player: PlayerId;
+      player?: PlayerId;
       cardInstanceId: string;
       baitInstanceId?: string;
     }
   | {
       type: 'CAST_SPELL';
-      player: PlayerId;
+      player?: PlayerId;
       cardInstanceId: string;
       targets?: string[];
     }
   | {
       type: 'DECLARE_ATTACK';
-      player: PlayerId;
-      attackerId: string;
+      player?: PlayerId;
+      attackerId?: string;
+      attackerInstanceId?: string;
       target: AttackTarget;
     }
-  | { type: 'DECLARE_BLOCK'; player: PlayerId; blockerId: string | null }
   | {
-      type: 'RESOLVE_TRIGGER';
-      player: PlayerId;
+      type: 'DECLARE_BLOCK';
+      player?: PlayerId;
+      blockerId?: string | null;
+      blockerInstanceId?: string | null;
+    }
+  | {
+      type: 'RESOLVE_SHIELD_TRIGGER';
+      player?: PlayerId;
       shieldId: string;
-      playTrigger: boolean;
+      activate?: boolean;
+      playTrigger?: boolean;
       targets?: string[];
     }
-  | { type: 'SELECT_TARGETS'; player: PlayerId; selectedIds: string[] }
-  | { type: 'NEXT_PHASE'; player: PlayerId }
-  | { type: 'END_TURN'; player: PlayerId }
-  | { type: 'START_TURN'; player: PlayerId };
+  | {
+      type: 'RESOLVE_TRIGGER';
+      player?: PlayerId;
+      shieldId: string;
+      playTrigger?: boolean;
+      activate?: boolean;
+      targets?: string[];
+    }
+  | { type: 'SELECT_TARGETS'; player?: PlayerId; selectedIds: string[] }
+  | {
+      type: 'PASS_PHASE';
+      player?: PlayerId;
+      targetPhase?: Phase | 'END_TURN';
+    }
+  | {
+      type: 'NEXT_PHASE';
+      player?: PlayerId;
+      targetPhase?: Phase | 'END_TURN';
+    }
+  | { type: 'END_TURN'; player?: PlayerId }
+  | { type: 'START_TURN'; player?: PlayerId };
 
 export type { CardDefinition, Deck };
