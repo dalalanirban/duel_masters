@@ -17,3 +17,6 @@ export * from './combat.ts';
 
 // Master Reducer
 export * from './reducer.ts';
+
+// Intelligent AI Player Agent
+export * from './ai.ts';

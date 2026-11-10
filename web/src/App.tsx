@@ -7,9 +7,11 @@ import { CardGrid } from './components/explorer/CardGrid';
 import { DeckPanel } from './components/deck/DeckPanel';
 import { CardModal } from './components/card/CardModal';
 import { SaveDeckModal } from './components/deck/SaveDeckModal';
-import { Swords, Check, ExternalLink } from 'lucide-react';
+import { DuelArena } from './components/duel/DuelArena';
+import { Swords, Check, ExternalLink, Layers } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'explorer' | 'duel'>('explorer');
   const [filters, setFilters] = useState<CardFilterOptions>({
     sortBy: 'id-asc'
   });
@@ -81,6 +83,41 @@ export const App: React.FC = () => {
             </div>
           </div>
 
+          {/* Top Navigation Tabs */}
+          <nav className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner">
+            <button
+              type="button"
+              onClick={() => setActiveTab('explorer')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all ${
+                activeTab === 'explorer'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Card Explorer & Deck Builder</span>
+              <span className="sm:hidden">Explorer</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('duel')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all relative ${
+                activeTab === 'duel'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Duel Battle Arena</span>
+              <span className="sm:hidden">Battle Arena</span>
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            </button>
+          </nav>
+
           {/* Quick Stats Pill */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
@@ -108,49 +145,56 @@ export const App: React.FC = () => {
 
       {/* Main App Body */}
       <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8">
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* Left Column: Explorer FilterBar + Card Grid */}
-          <div className="flex-1 w-full space-y-5">
-            <FilterBar
-              filters={filters}
-              onChange={setFilters}
-              onReset={resetFilters}
-              totalMatches={displayedCards.length}
-            />
+        {activeTab === 'explorer' ? (
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
+            {/* Left Column: Explorer FilterBar + Card Grid */}
+            <div className="flex-1 w-full space-y-5">
+              <FilterBar
+                filters={filters}
+                onChange={setFilters}
+                onReset={resetFilters}
+                totalMatches={displayedCards.length}
+              />
 
-            <CardGrid
-              cards={displayedCards}
-              getDeckCount={getCardCountInDeck}
-              onAdd={addCard}
-              onRemove={removeCard}
-              onInspect={setInspectedCard}
-              onResetFilters={resetFilters}
-            />
-          </div>
+              <CardGrid
+                cards={displayedCards}
+                getDeckCount={getCardCountInDeck}
+                onAdd={addCard}
+                onRemove={removeCard}
+                onInspect={setInspectedCard}
+                onResetFilters={resetFilters}
+              />
+            </div>
 
-          {/* Right Column: Sticky Deck Builder Sidebar */}
-          <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
-            <DeckPanel
-              items={activeDeck.items}
-              deckId={activeDeck.id}
-              deckName={activeDeck.name}
-              totalCards={totalCards}
-              deckStatus={deckStatus}
-              savedDecks={savedDecks}
-              onIncrement={addCard}
-              onDecrement={removeCard}
-              onRemoveAll={removeAllOfCard}
-              onClear={clearDeck}
-              onCreateBlank={createBlankDeck}
-              onLoadDeck={loadDeck}
-              onDeleteDeck={deleteDeck}
-              onSaveClick={() => setIsSaveModalOpen(true)}
-              onRename={setDeckName}
-              onInspect={setInspectedCard}
-              onExportText={handleExportText}
-            />
+            {/* Right Column: Sticky Deck Builder Sidebar */}
+            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
+              <DeckPanel
+                items={activeDeck.items}
+                deckId={activeDeck.id}
+                deckName={activeDeck.name}
+                totalCards={totalCards}
+                deckStatus={deckStatus}
+                savedDecks={savedDecks}
+                onIncrement={addCard}
+                onDecrement={removeCard}
+                onRemoveAll={removeAllOfCard}
+                onClear={clearDeck}
+                onCreateBlank={createBlankDeck}
+                onLoadDeck={loadDeck}
+                onDeleteDeck={deleteDeck}
+                onSaveClick={() => setIsSaveModalOpen(true)}
+                onRename={setDeckName}
+                onInspect={setInspectedCard}
+                onExportText={handleExportText}
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <DuelArena
+            activeDeck={activeDeck}
+            onNavigateToBuilder={() => setActiveTab('explorer')}
+          />
+        )}
       </main>
 
       {/* Inspected Card Detail Modal */}
