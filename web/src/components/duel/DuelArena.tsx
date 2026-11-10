@@ -11,7 +11,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
-import type { PlayerId } from '../../engine/types';
+import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
 import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
@@ -31,6 +31,15 @@ interface DuelArenaProps {
   onNavigateToBuilder?: () => void;
 }
 
+type ArenaAction = GameAction | { type: 'RESET_GAME'; playerDeck: Deck; opponentDeck: Deck };
+
+const arenaReducer = (currentState: GameState, action: ArenaAction): GameState => {
+  if (action.type === 'RESET_GAME') {
+    return initializeGame(action.playerDeck, action.opponentDeck, 'player');
+  }
+  return step(currentState, action as GameAction);
+};
+
 export const DuelArena: React.FC<DuelArenaProps> = ({
   activeDeck,
   onNavigateToBuilder
@@ -47,7 +56,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   // Game state reducer
   const [state, dispatch] = useReducer(
-    step,
+    arenaReducer,
     undefined,
     () => initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player')
   );
@@ -83,13 +92,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSelectedAttackerId(null);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
-    dispatch({ type: 'START_TURN', player: 'player' }); // trigger reset by re-init
-    // Re-initialize with current decks
-    const freshState = initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player');
-    // Replace state by resetting
-    Object.assign(state, freshState);
-    dispatch({ type: 'SELECT_TARGETS', selectedIds: [] }); // benign action to force re-render
-  }, [selectedPlayerDeck, selectedOpponentDeck, state]);
+    dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
+  }, [selectedPlayerDeck, selectedOpponentDeck]);
 
   // Restart game whenever decks change
   const handleDeckChange = (playerDeck: Deck, opponentDeck: Deck) => {
@@ -98,9 +102,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSelectedAttackerId(null);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
-    const fresh = initializeGame(playerDeck, opponentDeck, 'player');
-    Object.assign(state, fresh);
-    dispatch({ type: 'SELECT_TARGETS', selectedIds: [] });
+    dispatch({ type: 'RESET_GAME', playerDeck, opponentDeck });
   };
 
   // AI Step Trigger
@@ -366,12 +368,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   // Active interaction states for player modals
   const isPlayerTriggerPending =
-    state.pendingInteraction?.type === 'SHIELD_TRIGGER_RESOLUTION' &&
-    state.pendingInteraction.player === 'player';
+    Boolean(state.pendingInteraction &&
+    (state.pendingInteraction.type === 'SHIELD_TRIGGER_RESOLUTION' ||
+      state.pendingInteraction.type === 'SHIELD_TRIGGER_CHOICE') &&
+    state.pendingInteraction.player === 'player');
 
   const isPlayerBlockerPending =
-    state.pendingInteraction?.type === 'BLOCK_DECLARATION' &&
-    state.pendingInteraction.defendingPlayer === 'player';
+    Boolean(state.pendingInteraction &&
+    (state.pendingInteraction.type === 'BLOCK_DECLARATION' ||
+      state.pendingInteraction.type === 'BLOCKER_CHOICE') &&
+    state.pendingInteraction.defendingPlayer === 'player');
 
   return (
     <div className="flex-1 w-full max-w-[1700px] mx-auto p-2 sm:p-4 flex flex-col gap-3">
@@ -685,7 +691,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       <TriggerModal
         isOpen={isPlayerTriggerPending}
         interaction={
-          state.pendingInteraction?.type === 'SHIELD_TRIGGER_RESOLUTION'
+          state.pendingInteraction?.type === 'SHIELD_TRIGGER_RESOLUTION' ||
+          state.pendingInteraction?.type === 'SHIELD_TRIGGER_CHOICE'
             ? state.pendingInteraction
             : null
         }

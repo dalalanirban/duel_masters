@@ -24,7 +24,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const oppShields = state.players.opponent.shields.filter((s) => !s.isBroken).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true">
       <div
         className={`relative max-w-lg w-full bg-slate-900 border-2 rounded-2xl p-6 sm:p-8 shadow-2xl flex flex-col items-center text-center gap-6 overflow-hidden ${
           isPlayerWinner

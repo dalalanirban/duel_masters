@@ -82,7 +82,7 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true">
       <div
         className="relative max-w-xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-2xl p-6 shadow-2xl shadow-amber-500/20 flex flex-col gap-5 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
