@@ -969,14 +969,321 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
 }
 
 /**
- * Dispatches on-attack abilities ("Whenever this creature attacks...")
- * Detailed implementations in Task 2.
+ * Checks whether an attacker has Stealth (Light, Water, Darkness, Fire, Nature)
+ * that is currently active against the opponent's mana zone:
+ * - If the attacker has "<Civ> stealth" and opponent has at least one card of <Civ>
+ *   in their mana zone, the attacker cannot be blocked.
+ * - Pure helper.
+ */
+export function checkStealth(
+  attacker: CreatureInstance,
+  defenderManaZone: ManaCardInstance[]
+): boolean {
+  const rules = attacker?.card?.rulesText || '';
+  if (!rules || !defenderManaZone || defenderManaZone.length === 0) {
+    return false;
+  }
+
+  const stealthRegex = /([A-Za-z]+)\s+stealth/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = stealthRegex.exec(rules)) !== null) {
+    const civ = match[1].toLowerCase();
+    const hasCivInMana = defenderManaZone.some((manaCard) =>
+      (manaCard.card.civilizations || []).some(
+        (c) => c.toLowerCase() === civ
+      )
+    );
+    if (hasCivInMana) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether an attacker can attack untapped opponent creatures:
+ * - Matches general ability: "This creature can attack untapped creatures"
+ * - Matches civilization-specific ability: "This creature can attack untapped <civ> creatures"
+ * - Pure helper.
+ */
+export function canCreatureAttackUntapped(
+  attacker: CreatureInstance,
+  targetCreature?: CreatureInstance
+): boolean {
+  const rules = attacker?.card?.rulesText || '';
+  if (!rules) return false;
+
+  // General untapped attack ability
+  if (/can attack untapped creatures/i.test(rules)) {
+    return true;
+  }
+
+  // Civ-specific untapped attack ability
+  const civMatch = rules.match(/can attack untapped ([a-z]+) creatures/i);
+  if (civMatch) {
+    if (!targetCreature) {
+      return true;
+    }
+    const reqCiv = civMatch[1].toLowerCase();
+    return (targetCreature.card.civilizations || []).some(
+      (c) => c.toLowerCase() === reqCiv
+    );
+  }
+
+  // General fallback
+  if (/can attack untapped/i.test(rules)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Dispatches on-attack abilities ("Whenever this creature attacks..."):
+ * 1. Card draw: Snarling Net, Armored Transport Galiac, Hypersquid Walter, or draw regex.
+ * 2. Opponent discard: Gregoria, Gigamantis, or discard regex.
+ * 3. Add to shields: Cosmic Wing or shield add regex.
+ * 4. Creature destruction: blocker destruction or power-based destruction (Muramasa, Valdios, Skyterror).
+ * 5. Tapping opponent creature: Le Quist or tap regex.
+ * 6. Power buffs: on-attack power buffs (powerModifier).
+ * 7. Mana ramp / mana return: ramp or return mana to hand (Bloodwing Mantis).
+ * - Pure and immutable.
  */
 export function triggerAttack(
   state: GameState,
-  _player: PlayerId,
-  _attacker: CreatureInstance,
-  _target: AttackTarget
+  player: PlayerId,
+  attacker: CreatureInstance,
+  target: AttackTarget
 ): GameState {
-  return state;
+  if (state.winner !== null) {
+    return state;
+  }
+
+  const rules = attacker.card.rulesText || '';
+  const nameLower = attacker.card.name.toLowerCase();
+  const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
+
+  let nextState = state;
+
+  // 1. On-Attack Card Draw
+  // e.g. "Whenever this creature attacks, you may draw a card"
+  // e.g. Snarling Net, Armored Transport Galiac, Hypersquid Walter
+  const drawMatch = rules.match(
+    /whenever this creature attacks.*(?:you may )?draw (?:up to )?(?:a|1|(\d+)) cards?/i
+  );
+  if (
+    nameLower.includes('snarling net') ||
+    (nameLower.includes('galiac') && /draw/i.test(rules)) ||
+    nameLower.includes('hypersquid walter') ||
+    Boolean(drawMatch)
+  ) {
+    let drawCount = 1;
+    if (drawMatch?.[1]) {
+      drawCount = parseInt(drawMatch[1], 10);
+    }
+    nextState = drawCards(nextState, player, drawCount);
+  }
+
+  // 2. On-Attack Opponent Discard
+  // e.g. "Whenever this creature attacks, your opponent discards a card at random from his hand"
+  // e.g. Gregoria, Gigamantis
+  const discardMatch =
+    rules.match(
+      /whenever this creature attacks.*(?:your )?opponent discards (?:a|1|(\d+)) cards?(?: at random)?/i
+    ) || rules.match(/whenever this creature attacks.*opponent discards a card/i);
+  if (
+    nameLower.includes('gregoria') ||
+    nameLower.includes('gigamantis') ||
+    Boolean(discardMatch)
+  ) {
+    let discardCount = 1;
+    if (discardMatch?.[1]) {
+      discardCount = parseInt(discardMatch[1], 10);
+    }
+    nextState = discardRandomHandCards(nextState, opponent, discardCount);
+  }
+
+  // 3. On-Attack Shield Add
+  // e.g. "Whenever this creature attacks, you may add the top card of your deck to your shields"
+  // e.g. Cosmic Wing
+  if (
+    nameLower.includes('cosmic wing') ||
+    /whenever this creature attacks.*add the top card of your deck to your shields/i.test(rules)
+  ) {
+    nextState = addShieldFromDeck(nextState, player, 1);
+  }
+
+  // 4. On-Attack Destruction
+  // 4a. Blocker destruction:
+  // e.g. "Whenever this creature attacks, you may destroy one of your opponent's creatures that has 'blocker'."
+  const destroyBlockerMatch = rules.match(
+    /whenever this creature attacks.*destroy (?:one|1) of your opponent's creatures that has ["']?blocker["']?/i
+  );
+  if (destroyBlockerMatch) {
+    const oppBlockers = nextState.players[opponent].battleZone.filter(
+      (c) => c.card.isBlocker
+    );
+    if (oppBlockers.length > 0) {
+      const sorted = [...oppBlockers].sort(
+        (a, b) =>
+          (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
+      );
+      nextState = destroyCreature(nextState, sorted[0].instanceId);
+    }
+  }
+
+  // 4b. Power-based destruction:
+  // e.g. "Whenever this creature attacks, you may destroy one of your opponent's creatures with power 2000 or less"
+  // e.g. "Whenever this creature attacks, you may destroy one of your opponent's creatures that has power 2000 or less"
+  // e.g. Armored Blaster Valdios, Gatling Skyterror (if rules contain destruction)
+  const destroyPowerMatch = rules.match(
+    /whenever this creature attacks.*destroy (?:one|1) of your opponent's creatures (?:that has|with) power (\d+) or less/i
+  );
+  if (
+    destroyPowerMatch ||
+    (nameLower.includes('valdios') && /destroy/i.test(rules)) ||
+    (nameLower.includes('gatling skyterror') && /destroy/i.test(rules))
+  ) {
+    const maxPower = destroyPowerMatch ? parseInt(destroyPowerMatch[1], 10) : 2000;
+    const validOpponents = nextState.players[opponent].battleZone.filter(
+      (c) => (c.card.power ?? 0) + c.powerModifier <= maxPower
+    );
+    if (validOpponents.length > 0) {
+      const sorted = [...validOpponents].sort(
+        (a, b) =>
+          (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
+      );
+      nextState = destroyCreature(nextState, sorted[0].instanceId);
+    }
+  }
+
+  // 5. On-Attack Tapping Opponent Creature
+  // e.g. "Whenever this creature attacks, tap one of your opponent's creatures"
+  // e.g. "Whenever this creature attacks, you may choose a darkness or fire creature in the battle zone and tap it"
+  const tapOnAttackMatch = rules.match(
+    /whenever this creature attacks.*(?:tap (?:one|1) of your opponent's creatures|choose (?:a|an|one|1) .*creature .* and tap it)/i
+  );
+  if (tapOnAttackMatch) {
+    const oppBZ = nextState.players[opponent].battleZone;
+    const untapped = oppBZ.filter((c) => !c.isTapped);
+    if (untapped.length > 0) {
+      let candidates = untapped;
+      if (/darkness or fire/i.test(rules)) {
+        candidates = untapped.filter((c) =>
+          (c.card.civilizations || []).some(
+            (civ) => civ === 'Darkness' || civ === 'Fire'
+          )
+        );
+      }
+      if (candidates.length > 0) {
+        const targetToTap = candidates[0];
+        const updatedBZ = oppBZ.map((c) =>
+          c.instanceId === targetToTap.instanceId ? { ...c, isTapped: true } : c
+        );
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [opponent]: {
+              ...nextState.players[opponent],
+              battleZone: updatedBZ
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${attacker.card.name} tapped ${targetToTap.card.name} on attack.`
+          ]
+        };
+      }
+    }
+  }
+
+  // 6. On-Attack Power Buff
+  // e.g. "Whenever this creature attacks, this creature gets +2000 power until the end of the turn"
+  // e.g. "Whenever this creature attacks a creature, this creature gets +3000 power until the end of the turn"
+  // e.g. "Whenever this creature attacks, it gets 'power attacker +3000' until the end of the turn"
+  const powerMatch =
+    rules.match(
+      /whenever this creature attacks(?: a creature)?.*(?:this creature|it) gets \+(\d+) power/i
+    ) ||
+    rules.match(
+      /whenever this creature attacks(?: a creature)?.*(?:this creature|it) gets ["']?power attacker \+(\d+)["']?/i
+    );
+  if (powerMatch) {
+    const isAttackingCreatureOnly = /attacks a creature/i.test(powerMatch[0]);
+    if (!isAttackingCreatureOnly || target.type === 'creature') {
+      const buff = parseInt(powerMatch[1], 10);
+      const curBZ = nextState.players[player].battleZone;
+      const updatedBZ = curBZ.map((c) =>
+        c.instanceId === attacker.instanceId
+          ? {
+              ...c,
+              powerModifier: (c.powerModifier || 0) + buff
+            }
+          : c
+      );
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...nextState.players[player],
+            battleZone: updatedBZ
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${attacker.card.name} gained +${buff} power on attack.`
+        ]
+      };
+    }
+  }
+
+  // 7. On-Attack Mana Ramp
+  // e.g. "Whenever this creature attacks, you may put the top card of your deck into your mana zone."
+  if (/whenever this creature attacks.*put the top card of your deck into your mana zone/i.test(rules)) {
+    nextState = rampTopDeckToManaZone(nextState, player, 1);
+  }
+
+  // 8. On-Attack Return Mana to Hand (e.g. Bloodwing Mantis)
+  // e.g. "Whenever this creature attacks, return 2 creatures from your mana zone to your hand."
+  const manaToHandMatch = rules.match(
+    /whenever this creature attacks.*return (\d+) creatures? from your mana zone to your hand/i
+  );
+  if (manaToHandMatch) {
+    const count = parseInt(manaToHandMatch[1], 10);
+    const playerMana = nextState.players[player].manaZone;
+    const creatureCardsInMana = playerMana.filter(
+      (m) => m.card.type === 'Creature' || m.card.type === 'Evolution Creature'
+    );
+    const toReturn = creatureCardsInMana.slice(0, count);
+    if (toReturn.length > 0) {
+      const returnIds = new Set(toReturn.map((m) => m.instanceId));
+      const nextMana = playerMana.filter((m) => !returnIds.has(m.instanceId));
+      const handAdditions: CardInstance[] = toReturn.map((m) => ({
+        instanceId: m.instanceId,
+        card: m.card,
+        owner: player
+      }));
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...nextState.players[player],
+            manaZone: nextMana,
+            hand: [...nextState.players[player].hand, ...handAdditions]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${attacker.card.name} returned ${toReturn.map((m) => m.card.name).join(', ')} from mana zone to hand.`
+        ]
+      };
+    }
+  }
+
+  return nextState;
 }
