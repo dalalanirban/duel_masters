@@ -2,6 +2,7 @@ import type { CardDefinition } from '../types/card';
 import type { GameState, PlayerId, CreatureInstance, CardInstance } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { resolveCreatureCIPEffect } from './spells.ts';
+import { isSurvivor, getSurvivorSharedAbilities } from './effects.ts';
 
 /**
  * Determines whether a card definition represents an Evolution Creature.
@@ -70,7 +71,8 @@ export function isValidEvolutionBait(
  */
 export function isSummoningSick(
   creature: CreatureInstance,
-  currentTurn: number
+  currentTurn: number,
+  friendlyBattleZone?: CreatureInstance[]
 ): boolean {
   if (isEvolutionCreature(creature.card)) {
     return false;
@@ -78,6 +80,13 @@ export function isSummoningSick(
 
   if (creature.card.isSpeedAttacker) {
     return false;
+  }
+
+  if (friendlyBattleZone && isSurvivor(creature.card)) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    if (abilities.hasSpeedAttacker) {
+      return false;
+    }
   }
 
   return creature.summonedTurn >= currentTurn;

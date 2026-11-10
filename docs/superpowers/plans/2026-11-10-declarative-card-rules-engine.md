@@ -89,12 +89,12 @@ The engine standardizes triggers (`ON_ENTER`, `ON_ATTACK`, `ON_DESTROY`, `ON_END
 - Survivor ability sharing: DM-05 Survivor creatures share their abilities (Blocker, Slayer, Power Attacker +X) with all friendly Survivors in the battle zone.
 - Continuous civilization/race buffs: *"All your Fire creatures get +1000 power"*, *"Your Dragons get..."*.
 
-- [ ] **Step 1: Implement `applySurvivorAbilities` and aura power calculation in `effects.ts`**
+- [x] **Step 1: Implement `applySurvivorAbilities` and aura power calculation in `effects.ts`**
   Integrate with `getCreatureEffectivePower` in `combat.ts`.
-- [ ] **Step 2: Write tests in `web/src/engine/tests/survivorAndAuras.test.mjs`**
-- [ ] **Step 3: Run tests & verify**
+- [x] **Step 2: Write tests in `web/src/engine/tests/survivorAndAuras.test.mjs`**
+- [x] **Step 3: Run tests & verify**
   Run: `node --test web/src/engine/tests/survivorAndAuras.test.mjs`
-- [ ] **Step 4: Commit Task 4**
+- [x] **Step 4: Commit Task 4**
   Commit: `feat(engine): implement Survivor ability sharing and continuous auras`
 
 ---

@@ -50,7 +50,7 @@ function executeMandatoryAttack(state: GameState, player: PlayerId): GameState {
 
   // Find the first mandatory attacker
   const mandatoryCreature = activeBZ.find((c) => {
-    if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+    if (c.isTapped || isSummoningSick(c, state.turn, activeBZ)) return false;
     const rules = c.card.rulesText || '';
     return c.card.id === 'DM01-074' || /attacks each turn if able/i.test(rules);
   });

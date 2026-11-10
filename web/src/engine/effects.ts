@@ -6,11 +6,422 @@ import type {
   CardInstance,
   ManaCardInstance,
   ShieldInstance,
-  AttackTarget
+  AttackTarget,
+  PlayerState
 } from './types.ts';
 import { destroyCreature } from './spells.ts';
 
 export { destroyCreature };
+
+/**
+ * Checks whether a card definition is a Survivor.
+ * Returns true if card.isSurvivor || card.races?.includes('Survivor') || /survivor/i.test(card.race || '').
+ */
+export function isSurvivor(
+  card?: CardDefinition | { race?: string; races?: string[]; isSurvivor?: boolean } | null
+): boolean {
+  if (!card) return false;
+  if (card.isSurvivor) return true;
+  if (card.races && card.races.some((r) => /survivor/i.test(r))) return true;
+  if ('race' in card && typeof card.race === 'string' && /survivor/i.test(card.race)) return true;
+  return false;
+}
+
+export interface SurvivorSharedAbilities {
+  hasBlocker: boolean;
+  hasSlayer: boolean;
+  hasSpeedAttacker: boolean;
+  isUnblockable: boolean;
+  hasUntapAtEndTurn: boolean;
+  hasManaZoneOnDestroy: boolean;
+  powerBonus: number;
+  powerAttackerBonus: number;
+  minBreakerCount: number;
+  hasAttackDraw: boolean;
+  hasAttackDiscard: boolean;
+}
+
+/**
+ * Aggregates all shared Survivor abilities from a friendly battle zone.
+ */
+export function getSurvivorSharedAbilities(
+  friendlyBattleZone: CreatureInstance[] = []
+): SurvivorSharedAbilities {
+  const friendlySurvivors = friendlyBattleZone.filter((c) => isSurvivor(c.card));
+
+  const hasBlocker = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('gallia zohl') ||
+      c.card.isBlocker ||
+      /blocker/i.test(c.card.rulesText || '')
+  );
+
+  const hasSlayer = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('gigaling') ||
+      c.card.isSlayer ||
+      /slayer/i.test(c.card.rulesText || '')
+  );
+
+  const hasSpeedAttacker = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('rumblesaur') ||
+      c.card.isSpeedAttacker ||
+      /speed attacker/i.test(c.card.rulesText || '')
+  );
+
+  const isUnblockable = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('spikestrike ichthys') ||
+      /can't be blocked/i.test(c.card.rulesText || '')
+  );
+
+  const hasUntapAtEndTurn = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('ballus') ||
+      /untap this creature/i.test(c.card.rulesText || '')
+  );
+
+  const hasManaZoneOnDestroy = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('balloonshroom') ||
+      /put it into your mana zone instead/i.test(c.card.rulesText || '')
+  );
+
+  const smashHornCopies = friendlySurvivors.filter(
+    (c) =>
+      c.card.name.toLowerCase().includes('smash horn') ||
+      (/gets \+1000 power/i.test(c.card.rulesText || '') && /survivor/i.test(c.card.rulesText || ''))
+  ).length;
+  const powerBonus = smashHornCopies * 1000;
+
+  const blazosaurCopies = friendlySurvivors.filter(
+    (c) =>
+      c.card.name.toLowerCase().includes('blazosaur') ||
+      (/power attacker \+1000/i.test(c.card.rulesText || '') && /survivor/i.test(c.card.rulesText || ''))
+  ).length;
+  const powerAttackerBonus = blazosaurCopies * 1000;
+
+  const hasDoubleBreaker = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('bladerush skyterror') ||
+      (c.card.breakerCount && c.card.breakerCount >= 2) ||
+      /double breaker/i.test(c.card.rulesText || '')
+  );
+  const minBreakerCount = hasDoubleBreaker ? 2 : 1;
+
+  const hasAttackDraw = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('split-head hydroturtle') ||
+      (/draw a card/i.test(c.card.rulesText || '') && /attacks/i.test(c.card.rulesText || ''))
+  );
+
+  const hasAttackDiscard = friendlySurvivors.some(
+    (c) =>
+      c.card.name.toLowerCase().includes('skullsweeper') ||
+      (/discards a card/i.test(c.card.rulesText || '') && /attacks/i.test(c.card.rulesText || ''))
+  );
+
+  return {
+    hasBlocker,
+    hasSlayer,
+    hasSpeedAttacker,
+    isUnblockable,
+    hasUntapAtEndTurn,
+    hasManaZoneOnDestroy,
+    powerBonus,
+    powerAttackerBonus,
+    minBreakerCount,
+    hasAttackDraw,
+    hasAttackDiscard
+  };
+}
+
+/**
+ * Checks whether a creature has Blocker, taking Survivor shared abilities into account.
+ */
+export function hasCreatureBlocker(
+  creature: CreatureInstance,
+  friendlyBattleZone: CreatureInstance[] = []
+): boolean {
+  if (creature.card.isBlocker) {
+    return true;
+  }
+  if (isSurvivor(creature.card)) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    if (abilities.hasBlocker) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Checks whether a creature has Slayer, taking Survivor shared abilities into account.
+ */
+export function hasCreatureSlayer(
+  creature: CreatureInstance,
+  friendlyBattleZone: CreatureInstance[] = []
+): boolean {
+  if (creature.card.isSlayer) {
+    return true;
+  }
+  if (isSurvivor(creature.card)) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    if (abilities.hasSlayer) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Calculates breaker count for a creature:
+ * - Minimum of card.breakerCount or 1.
+ * - If Survivor and Bladerush Skyterror Q in battle zone, at least 2.
+ * - If Q-tronic Gargantua, adds 1 for each other friendly Survivor in battle zone.
+ */
+export function getCreatureBreakerCount(
+  creature: CreatureInstance,
+  friendlyBattleZone: CreatureInstance[] = []
+): number {
+  let count = Math.max(1, creature.card.breakerCount || 1);
+  if (isSurvivor(creature.card) && friendlyBattleZone.length > 0) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    count = Math.max(count, abilities.minBreakerCount);
+  }
+  if (
+    creature.card.name.toLowerCase().includes('q-tronic gargantua') &&
+    friendlyBattleZone.length > 0
+  ) {
+    const otherSurvivors = friendlyBattleZone.filter(
+      (c) => c.instanceId !== creature.instanceId && isSurvivor(c.card)
+    ).length;
+    count += otherSurvivors;
+  }
+  return count;
+}
+
+/**
+ * Calculates continuous aura bonuses for a creature:
+ * - Smash Horn Q: +1000 to all friendly Survivors per Smash Horn Q.
+ * - Barkwhip, the Smasher: If tapped, each other friendly Beast Folk gets +2000.
+ * - Armored Blaster Valdios: Each other friendly Human gets +1000.
+ * - Überdragon Jabaha: If attacking, each other friendly Fire creature gets +2000 power attacker.
+ * - Re Bil, Seeker of Archery: Each other Light creature in the battle zone (both sides) gets +2000.
+ * - Shadow Moon, Cursed Shade: Each other Darkness creature in the battle zone (both sides) gets +2000.
+ * - Blasto, Explosive Soldier: Gets +2000 if friendly battle zone has a Darkness creature.
+ * - Exploding Cactus: Gets +2000 if friendly battle zone has a Light creature.
+ * - Pala Olesis, Morning Guardian: During opponent's turn (isOpponentsTurn === true), each other friendly creature gets +2000.
+ * - Legacy Shell: If attacking, each friendly Light and Fire creature gets +3000 power attacker.
+ * - Wave Striker power aura: Merlee, the Oracle (+1000 to all friendly if 3+ wave strikers in battle zone).
+ * - Multi-civ evolution auras (+2000 to respective races: Agira, Hydrooze, Nemonex, Comet Eye).
+ * - Techno Totem: If tapped and attacking, each other friendly creature gets +1500 power attacker.
+ */
+export function calculateContinuousAuraPower(
+  creature: CreatureInstance,
+  isAttacking: boolean,
+  friendlyBattleZone: CreatureInstance[] = [],
+  opponentBattleZone: CreatureInstance[] = [],
+  playerState?: PlayerState,
+  opponentState?: PlayerState,
+  isOpponentsTurn?: boolean
+): { powerBonus: number; powerAttackerBonus: number } {
+  let powerBonus = 0;
+  let powerAttackerBonus = 0;
+
+  const card = creature.card;
+  const nameLower = card.name.toLowerCase();
+  const civs = card.civilizations || [];
+  const races = card.races || ((card as any).race ? [(card as any).race] : []);
+
+  const fZone = friendlyBattleZone.length > 0 ? friendlyBattleZone : (playerState?.battleZone || []);
+  const oZone = opponentBattleZone.length > 0 ? opponentBattleZone : (opponentState?.battleZone || []);
+  const allCreatures = [...fZone, ...oZone];
+
+  // 1. Smash Horn Q & Blazosaur Q (Survivor power bonuses)
+  if (isSurvivor(card) && fZone.length > 0) {
+    const survivorAbilities = getSurvivorSharedAbilities(fZone);
+    powerBonus += survivorAbilities.powerBonus;
+    if (isAttacking) {
+      powerAttackerBonus += survivorAbilities.powerAttackerBonus;
+    }
+  }
+
+  // 2. Barkwhip, the Smasher: If tapped, each other friendly Beast Folk gets +2000
+  const isBeastFolk = races.some((r: string) => /beast folk/i.test(r));
+  if (isBeastFolk) {
+    const barkwhipCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.isTapped &&
+        c.card.name.toLowerCase().includes('barkwhip')
+    ).length;
+    powerBonus += barkwhipCount * 2000;
+  }
+
+  // 3. Armored Blaster Valdios: Each other friendly Human gets +1000
+  const isHuman = races.some((r: string) => /human/i.test(r));
+  if (isHuman) {
+    const valdiosCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('valdios')
+    ).length;
+    powerBonus += valdiosCount * 1000;
+  }
+
+  // 4. Überdragon Jabaha: If attacking, each other friendly Fire creature gets +2000 power attacker
+  const isFire = civs.includes('Fire');
+  if (isFire && isAttacking) {
+    const jabahaCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('jabaha')
+    ).length;
+    powerAttackerBonus += jabahaCount * 2000;
+  }
+
+  // 5. Re Bil, Seeker of Archery: Each other Light creature in the battle zone (both sides) gets +2000
+  const isLight = civs.includes('Light');
+  if (isLight) {
+    const reBilCount = allCreatures.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('re bil')
+    ).length;
+    powerBonus += reBilCount * 2000;
+  }
+
+  // 6. Shadow Moon, Cursed Shade: Each other Darkness creature in the battle zone (both sides) gets +2000
+  const isDarkness = civs.includes('Darkness');
+  if (isDarkness) {
+    const shadowMoonCount = allCreatures.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('shadow moon')
+    ).length;
+    powerBonus += shadowMoonCount * 2000;
+  }
+
+  // 7. Blasto, Explosive Soldier: Gets +2000 if friendly battle zone has a Darkness creature
+  if (
+    nameLower.includes('blasto') ||
+    /while you have a darkness creature in the battle zone, this creature gets \+2000 power/i.test(
+      card.rulesText || ''
+    )
+  ) {
+    const hasDarkness = fZone.some(
+      (c) => c.instanceId !== creature.instanceId && (c.card.civilizations || []).includes('Darkness')
+    );
+    if (hasDarkness) {
+      powerBonus += 2000;
+    }
+  }
+
+  // 8. Exploding Cactus: Gets +2000 if friendly battle zone has a Light creature
+  if (
+    nameLower.includes('exploding cactus') ||
+    /while you have a light creature in the battle zone, this creature gets \+2000 power/i.test(
+      card.rulesText || ''
+    )
+  ) {
+    const hasLight = fZone.some(
+      (c) => c.instanceId !== creature.instanceId && (c.card.civilizations || []).includes('Light')
+    );
+    if (hasLight) {
+      powerBonus += 2000;
+    }
+  }
+
+  // 9. Pala Olesis, Morning Guardian: During opponent's turn, each other friendly creature gets +2000
+  if (isOpponentsTurn) {
+    const palaCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('pala olesis')
+    ).length;
+    powerBonus += palaCount * 2000;
+  }
+
+  // 10. Legacy Shell: If attacking, each friendly Light and Fire creature gets +3000 power attacker
+  const isLightOrFire = civs.some((c) => c === 'Light' || c === 'Fire');
+  if (isLightOrFire && isAttacking) {
+    const legacyShellCount = fZone.filter((c) =>
+      c.card.name.toLowerCase().includes('legacy shell')
+    ).length;
+    powerAttackerBonus += legacyShellCount * 3000;
+  }
+
+  // 11. Wave Striker power aura: Merlee, the Oracle (+1000 to all friendly if 3+ wave strikers in battle zone)
+  const isWaveStrikerCreature = (c: CreatureInstance) =>
+    Boolean(
+      (c.card as any).isWaveStriker ||
+      /wave striker/i.test(c.card.rulesText || '') ||
+      (c.card.races && c.card.races.some((r: string) => /wave striker/i.test(r)))
+    );
+  const totalWaveStrikers = allCreatures.filter(isWaveStrikerCreature).length;
+  if (totalWaveStrikers >= 3) {
+    const merleeCount = fZone.filter((c) =>
+      c.card.name.toLowerCase().includes('merlee')
+    ).length;
+    powerBonus += merleeCount * 1000;
+  }
+
+  // 12. Multi-civ evolution auras (+2000 to respective races)
+  // Agira, the Warlord Crawler: +2000 to other Gladiators & Earth Eaters
+  if (races.some((r: string) => /gladiator|earth eater/i.test(r))) {
+    const agiraCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('agira')
+    ).length;
+    powerBonus += agiraCount * 2000;
+  }
+
+  // Hydrooze, the Mutant Emperor: +2000 to other Cyber Lords & Hedrians
+  if (races.some((r: string) => /cyber lord|hedrian/i.test(r))) {
+    const hydroozeCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('hydrooze')
+    ).length;
+    powerBonus += hydroozeCount * 2000;
+  }
+
+  // Nemonex, Bajula's Robomantis: +2000 to other Xeno Parts & Giant Insects
+  if (races.some((r: string) => /xeno\s*parts?|giant insect/i.test(r))) {
+    const nemonexCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('nemonex')
+    ).length;
+    powerBonus += nemonexCount * 2000;
+  }
+
+  // Comet Eye, The Spectral Spud: +2000 to other Wild Veggies & Rainbow Phantoms
+  if (races.some((r: string) => /wild veggies?|rainbow phantom/i.test(r))) {
+    const cometEyeCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('comet eye')
+    ).length;
+    powerBonus += cometEyeCount * 2000;
+  }
+
+  // 13. Techno Totem: If tapped and attacking, each other friendly creature gets +1500 power attacker
+  if (isAttacking) {
+    const technoTotemCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.isTapped &&
+        c.card.name.toLowerCase().includes('techno totem')
+    ).length;
+    powerAttackerBonus += technoTotemCount * 1500;
+  }
+
+  return { powerBonus, powerAttackerBonus };
+}
 
 /**
  * Helper to locate a creature across all players' battle zones.
@@ -832,6 +1243,107 @@ export function triggerCIP(
   const rules = card.rulesText || '';
   const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
 
+  // 0. Survivor Come-Into-Play Abilities
+  if (isSurvivor(card)) {
+    let survivorState = state;
+    const friendlyBZ = state.players[player].battleZone;
+
+    // Q-tronic Hypermind: draw 1 card for each Survivor in battle zone
+    if (cardName.includes('q-tronic hypermind')) {
+      const allSurvivors = [
+        ...survivorState.players.player.battleZone,
+        ...survivorState.players.opponent.battleZone
+      ].filter((c) => isSurvivor(c.card));
+      const drawCount = allSurvivors.length;
+      if (drawCount > 0) {
+        survivorState = drawCards(survivorState, player, drawCount);
+      }
+    }
+
+    // Ripple Lotus Q: tap an opponent creature
+    const hasRippleLotus = friendlyBZ.some(
+      (c) =>
+        c.card.name.toLowerCase().includes('ripple lotus') ||
+        (isSurvivor(c.card) && /tap it/i.test(c.card.rulesText || ''))
+    );
+    if (hasRippleLotus) {
+      const oppBZ = survivorState.players[opponent].battleZone;
+      if (oppBZ.length > 0) {
+        let targetId: string | undefined;
+        if (targets && targets.length > 0) {
+          const exists = oppBZ.some((c) => c.instanceId === targets[0]);
+          if (exists) {
+            targetId = targets[0];
+          }
+        }
+        if (!targetId) {
+          const untapped = oppBZ.find((c) => !c.isTapped);
+          targetId = untapped?.instanceId || oppBZ[0].instanceId;
+        }
+
+        const updatedOppBZ = oppBZ.map((c) =>
+          c.instanceId === targetId ? { ...c, isTapped: true } : c
+        );
+        const targetCreature = oppBZ.find((c) => c.instanceId === targetId);
+
+        survivorState = {
+          ...survivorState,
+          players: {
+            ...survivorState.players,
+            [opponent]: {
+              ...survivorState.players[opponent],
+              battleZone: updatedOppBZ
+            }
+          },
+          actionLog: [
+            ...survivorState.actionLog,
+            `${player} tapped ${targetCreature?.card.name ?? 'opponent creature'} with Survivor ability.`
+          ]
+        };
+      }
+    }
+
+    // Forbos, Sanctum Guardian Q: search deck for a spell to hand
+    const hasForbos = friendlyBZ.some(
+      (c) =>
+        c.card.name.toLowerCase().includes('forbos') ||
+        (isSurvivor(c.card) && /take a spell from your deck/i.test(c.card.rulesText || ''))
+    );
+    if (hasForbos) {
+      survivorState = searchDeckForCard(survivorState, player, (c) => c.type === 'Spell', 'hand');
+    }
+
+    // Grave Worm Q: salvage a Survivor from graveyard to hand
+    const hasGraveWorm = friendlyBZ.some(
+      (c) =>
+        c.card.name.toLowerCase().includes('grave worm') ||
+        (isSurvivor(c.card) && /return a survivor from your graveyard/i.test(c.card.rulesText || ''))
+    );
+    if (hasGraveWorm) {
+      survivorState = salvageFromGraveyard(survivorState, player, (c) => isSurvivor(c), 'hand');
+    }
+
+    // Factory Shell Q: search deck for a Survivor to hand
+    const hasFactoryShell = friendlyBZ.some(
+      (c) =>
+        c.card.name.toLowerCase().includes('factory shell') ||
+        (isSurvivor(c.card) && /take a survivor from your deck/i.test(c.card.rulesText || ''))
+    );
+    if (hasFactoryShell) {
+      survivorState = searchDeckForCard(survivorState, player, (c) => isSurvivor(c), 'hand');
+    }
+
+    if (
+      cardName.includes('q-tronic hypermind') ||
+      hasRippleLotus ||
+      hasForbos ||
+      hasGraveWorm ||
+      hasFactoryShell
+    ) {
+      return survivorState;
+    }
+  }
+
   // 1. Bouncing Creature CIP Effect
   // Aqua Surfer, Aqua Sniper, Corile, Unicorn Fish, or matching rules text
   const bounceMatch = rules.match(
@@ -1145,8 +1657,12 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
     // Check untap vigilance
     let isTapped = creature.isTapped;
     if (isTapped) {
+      const survivorAbilities = getSurvivorSharedAbilities(activeState.battleZone);
+      const hasSurvivorUntap = isSurvivor(creature.card) && survivorAbilities.hasUntapAtEndTurn;
+
       const hasUntapVigilance =
         hasMassUntap ||
+        hasSurvivorUntap ||
         nameLower.includes('urth') ||
         nameLower.includes('frei') ||
         nameLower.includes('ruby grass') ||
@@ -1240,8 +1756,54 @@ export function checkStealth(
 }
 
 /**
+ * Checks whether an attacking creature cannot be blocked:
+ * - Card rules text ("can't be blocked", "while attacking a creature...").
+ * - Civilization stealth against defending player's mana zone.
+ * - Survivor shared ability: Spikestrike Ichthys Q.
+ * - Multi-civ aura: Hydrooze, the Mutant Emperor ("Your Cyber Lords or Hedrians can't be blocked").
+ */
+export function isCreatureUnblockable(
+  attacker: CreatureInstance,
+  target: AttackTarget,
+  defendingManaZone: ManaCardInstance[] = [],
+  friendlyBattleZone: CreatureInstance[] = []
+): boolean {
+  const cleanRules = (attacker?.card?.rulesText || '').replace(/\([^)]*\)/g, '');
+  const isUnconditionallyUnblockable = /(?:this creature|it)\s+can't be blocked(?!\s+by|\s+while)/i.test(cleanRules);
+  const isAttackingCreatureUnblockable =
+    target.type === 'creature' &&
+    /while attacking a creature, this creature can't be blocked/i.test(cleanRules);
+  const isStealthActive = checkStealth(attacker, defendingManaZone);
+
+  if (isUnconditionallyUnblockable || isAttackingCreatureUnblockable || isStealthActive) {
+    return true;
+  }
+
+  // Survivor ability: Spikestrike Ichthys Q
+  if (isSurvivor(attacker.card)) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    if (abilities.isUnblockable) {
+      return true;
+    }
+  }
+
+  // Hydrooze, the Mutant Emperor: "Your Cyber Lords or Hedrians can't be blocked."
+  const races = attacker.card.races || ((attacker.card as any).race ? [(attacker.card as any).race] : []);
+  const isCyberLordOrHedrian = races.some((r: string) => /cyber lord|hedrian/i.test(r));
+  if (isCyberLordOrHedrian) {
+    const hasHydrooze = friendlyBattleZone.some((c) =>
+      c.card.name.toLowerCase().includes('hydrooze')
+    );
+    if (hasHydrooze) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Checks whether an attacker can attack untapped opponent creatures:
- * - Matches general ability: "This creature can attack untapped creatures"
  * - Matches civilization-specific ability: "This creature can attack untapped <civ> creatures"
  * - Pure helper.
  */
@@ -1340,6 +1902,33 @@ export function triggerAttack(
       discardCount = parseInt(discardMatch[1], 10);
     }
     nextState = discardRandomHandCards(nextState, opponent, discardCount);
+  }
+
+  // 2b. Survivor Attack Triggers (Split-Head Hydroturtle Q & Skullsweeper Q)
+  if (isSurvivor(attacker.card)) {
+    const friendlyBZ = state.players[player].battleZone;
+    const survivorAbilities = getSurvivorSharedAbilities(friendlyBZ);
+
+    if (survivorAbilities.hasAttackDraw) {
+      const alreadyDrawn =
+        Boolean(drawMatch) ||
+        nameLower.includes('snarling net') ||
+        nameLower.includes('hypersquid walter') ||
+        (nameLower.includes('galiac') && /draw/i.test(rules));
+      if (!alreadyDrawn) {
+        nextState = drawCards(nextState, player, 1);
+      }
+    }
+
+    if (survivorAbilities.hasAttackDiscard) {
+      const alreadyDiscarded =
+        Boolean(discardMatch) ||
+        nameLower.includes('gregoria') ||
+        nameLower.includes('gigamantis');
+      if (!alreadyDiscarded) {
+        nextState = discardRandomHandCards(nextState, opponent, 1);
+      }
+    }
   }
 
   // 3. On-Attack Shield Add

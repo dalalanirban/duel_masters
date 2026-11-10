@@ -10,7 +10,7 @@ import type {
 } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { getCreatureEffectivePower } from './combat.ts';
-import { triggerDestroyed } from './effects.ts';
+import { triggerDestroyed, isSurvivor, triggerCIP } from './effects.ts';
 
 /**
  * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard.
@@ -156,9 +156,17 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
     ownerState.battleZone.some(
       (c) => c.instanceId !== creatureInstanceId && c.card.name.toLowerCase().includes('gigamantis')
     );
+  const hasBalloonshroomAura =
+    isSurvivor(creature.card) &&
+    ownerState.battleZone.some(
+      (c) =>
+        c.card.name.toLowerCase().includes('balloonshroom') ||
+        (isSurvivor(c.card) && /put it into your mana zone instead/i.test(c.card.rulesText || ''))
+    );
   const isManaReplacement =
     manaMatch ||
     hasGigamantisAura ||
+    hasBalloonshroomAura ||
     nameLower.includes('pochan') ||
     nameLower.includes('stinger worm') ||
     nameLower.includes('aura blast') ||
@@ -660,205 +668,7 @@ export function resolveCreatureCIPEffect(
   creature: CreatureInstance,
   targets?: string[]
 ): GameState {
-  const card = creature.card;
-  const cardName = card.name.toLowerCase().trim();
-  const rules = card.rulesText || '';
-  const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
-
-  // 1. Bouncing Creature CIP Effect
-  // Aqua Surfer, Aqua Sniper, Corile, or matching /when you put this creature into the battle zone.*return (?:a|one|up to (\d+)) creatures? .* to (?:its|their) owner's hand/i
-  const bounceMatch = rules.match(
-    /when you put this creature into the battle zone.*return (?:a|one|up to (\d+)) creatures? .* to (?:its|their) owner's hand/i
-  );
-  if (
-    cardName.includes('aqua surfer') ||
-    cardName.includes('aqua sniper') ||
-    cardName.includes('corile') ||
-    Boolean(bounceMatch)
-  ) {
-    let bounceCount = 1;
-    if (cardName.includes('aqua sniper') || (bounceMatch && bounceMatch[1] === '2')) {
-      bounceCount = 2;
-    }
-
-    let targetsToBounce: string[] = [];
-    if (targets && targets.length > 0) {
-      targetsToBounce = targets.slice(0, bounceCount);
-    } else {
-      // Opponent's highest power creature if no target specified
-      const opponentBZ = state.players[opponent].battleZone;
-      if (opponentBZ.length > 0) {
-        const sorted = [...opponentBZ].sort(
-          (a, b) =>
-            (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
-        );
-        targetsToBounce = sorted.slice(0, bounceCount).map((c) => c.instanceId);
-      }
-    }
-
-    let nextState = state;
-    for (const tid of targetsToBounce) {
-      nextState = bounceCreature(nextState, tid);
-    }
-    return nextState;
-  }
-
-  // 2. Tapping Opponent Creature CIP Effect
-  // Miele, Vizier of Lightning, Kolon, the Oracle, or /when you put this creature into the battle zone.*tap (?:1|one) of your opponent's creatures/i
-  const tapMatch = rules.match(
-    /when you put this creature into the battle zone.*tap (?:1|one) of your opponent's creatures/i
-  );
-  if (
-    cardName.includes('miele') ||
-    cardName.includes('kolon') ||
-    Boolean(tapMatch)
-  ) {
-    const opponentBZ = state.players[opponent].battleZone;
-    if (opponentBZ.length === 0) {
-      return state;
-    }
-
-    let targetId: string | undefined;
-    if (targets && targets.length > 0) {
-      const exists = opponentBZ.some((c) => c.instanceId === targets[0]);
-      if (exists) {
-        targetId = targets[0];
-      }
-    }
-
-    if (!targetId) {
-      const untapped = opponentBZ.find((c) => !c.isTapped);
-      targetId = untapped?.instanceId || opponentBZ[0].instanceId;
-    }
-
-    const updatedBZ = opponentBZ.map((c) =>
-      c.instanceId === targetId ? { ...c, isTapped: true } : c
-    );
-    const targetCreature = opponentBZ.find((c) => c.instanceId === targetId);
-
-    return {
-      ...state,
-      players: {
-        ...state.players,
-        [opponent]: {
-          ...state.players[opponent],
-          battleZone: updatedBZ
-        }
-      },
-      actionLog: [
-        ...state.actionLog,
-        `${player} tapped ${targetCreature?.card.name ?? 'opponent creature'} with ${card.name}.`
-      ]
-    };
-  }
-
-  // 3. Shield Action CIP Effects
-  // 3a. Fortress Shell: burns opponent shields directly to graveyard without triggering Shield Triggers
-  const burnShieldMatch = rules.match(
-    /choose up to (\d+) of your opponent's shields and put them into (?:his|their) graveyard/i
-  );
-  if (cardName.includes('fortress shell') || Boolean(burnShieldMatch)) {
-    const count = burnShieldMatch ? parseInt(burnShieldMatch[1], 10) : 2;
-    return destroyOpponentShields(state, player, count, targets);
-  }
-
-  // 3b. Aqua Patrol: returns an opponent shield to their deck and shuffles
-  if (
-    cardName.includes('aqua patrol') ||
-    /choose (?:1|one) of your opponent's shields and put it into (?:his|their) deck/i.test(rules)
-  ) {
-    const oppShields = state.players[opponent].shields.filter((s) => !s.isBroken);
-    if (oppShields.length === 0) {
-      return state;
-    }
-    const targetShield =
-      targets && targets.length > 0
-        ? oppShields.find((s) => s.id === targets[0] || s.shieldId === targets[0]) || oppShields[0]
-        : oppShields[0];
-
-    const nextShields = state.players[opponent].shields.filter((s) => s.id !== targetShield.id);
-    const deckCard: CardInstance = {
-      instanceId: targetShield.id,
-      card: targetShield.card,
-      owner: opponent
-    };
-
-    return {
-      ...state,
-      players: {
-        ...state.players,
-        [opponent]: {
-          ...state.players[opponent],
-          shields: nextShields,
-          deck: [...state.players[opponent].deck, deckCard]
-        }
-      },
-      actionLog: [
-        ...state.actionLog,
-        `${player} returned an opponent shield to their deck with ${card.name}.`
-      ]
-    };
-  }
-
-  // 3c. Sven, the Explorer or add top card of deck to shields
-  if (
-    cardName.includes('sven') ||
-    /when you put this creature into the battle zone.*add the top card of your deck to your shields/i.test(
-      rules
-    )
-  ) {
-    return addShieldFromDeck(state, player, 1);
-  }
-
-  // 4. Mana Ramp CIP Effect
-  // Bronze-Arm Tribe, Torcon, or matching /when you put this creature into the battle zone.*put the top card of your deck into your mana zone/i
-  if (
-    cardName.includes('bronze-arm tribe') ||
-    cardName.includes('torcon') ||
-    /when you put this creature into the battle zone.*put the top card of your deck into your mana zone/i.test(
-      rules
-    )
-  ) {
-    return rampTopDeckToManaZone(state, player);
-  }
-
-  // 5. Card Draw CIP Effect
-  // 5a. Illusionary Merfolk: if player controls another Cyber Lord draw 3, else draw 1
-  if (cardName.includes('illusionary merfolk')) {
-    const friendlyBZ = state.players[player].battleZone;
-    const hasOtherCyberLord = friendlyBZ.some(
-      (c) =>
-        c.instanceId !== creature.instanceId &&
-        c.card.races?.some((r) => r.toLowerCase().includes('cyber lord'))
-    );
-    const count = hasOtherCyberLord ? 3 : 1;
-    return drawCards(state, player, count);
-  }
-
-  // 5b. Aqua Hulcus, Magris, or generic draw CIP: /when you put this creature into the battle zone.*draw (?:a|1|(\d+)) cards?/i
-  const drawCIPMatch = rules.match(
-    /when you put this creature into the battle zone.*draw (?:a|1|(\d+)) cards?/i
-  );
-  if (
-    cardName.includes('aqua hulcus') ||
-    cardName.includes('magris') ||
-    Boolean(drawCIPMatch)
-  ) {
-    const count = drawCIPMatch?.[1] ? parseInt(drawCIPMatch[1], 10) : 1;
-    return drawCards(state, player, count);
-  }
-
-  // 6. Masked Horror: opponent discards a card at random
-  if (
-    cardName.includes('masked horror') ||
-    (/when you put this creature into the battle zone/i.test(rules) &&
-      /opponent discards a card at random/i.test(rules))
-  ) {
-    return discardRandomHandCards(state, opponent, 1);
-  }
-
-  // No CIP effect: return state as is
-  return state;
+  return triggerCIP(state, player, creature, targets);
 }
 
 /**

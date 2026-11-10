@@ -240,7 +240,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
       // Find ready untapped creatures without summoning sickness and respecting attack restrictions
       const eligible = aiState.battleZone.filter((c) => {
-        if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+        if (c.isTapped || isSummoningSick(c, state.turn, aiState.battleZone)) return false;
         const rules = c.card.rulesText || '';
         if (/this creature can't attack(?!\s+players)/i.test(rules)) return false;
         if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) return false;
