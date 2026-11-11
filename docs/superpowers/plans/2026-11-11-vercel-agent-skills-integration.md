@@ -33,4 +33,4 @@
 
 - [x] Run `npm run build --prefix web` to verify clean build.
 - [x] Commit all changes to `feature/compact-watermark-layout`.
-- [ ] Push to remote.
+- [x] Push to remote.
