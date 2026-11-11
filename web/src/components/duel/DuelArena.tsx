@@ -10,7 +10,6 @@ import { PRESET_DECKS } from '../../data/presets';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
-import { DeckPile } from './DeckPile';
 import { BattleZoneView } from './BattleZoneView';
 import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
@@ -512,33 +511,28 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
         {/* ================= 1. OPPONENT TERRITORY ================= */}
         <div className="shrink-0 flex flex-col gap-1 w-full">
-          {/* Opponent Hand Tray + Deck Pile (Top Right) - Balanced with Left Flank Spacer */}
-          <div className="w-full flex items-center justify-between gap-1.5 sm:gap-2">
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 aspect-[491/682] shrink-0 opacity-0 pointer-events-none select-none" />
-            <div className="flex-1 min-w-0">
-              <HandView
-                hand={state.players.opponent.hand}
-                owner="opponent"
-                manaZone={state.players.opponent.manaZone}
-                isPlayerTurn={isPlayerTurn}
-                phase={state.phase}
-                manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
-                onHoverCard={handleHoverCard}
-                onInspectCard={handleInspectCard}
-              />
-            </div>
-            <div className="shrink-0 flex items-center justify-end">
-              <DeckPile deck={state.players.opponent.deck} owner="opponent" />
-            </div>
+          {/* Opponent Hand Tray (Compact, Centered) */}
+          <div className="w-full flex items-center justify-center">
+            <HandView
+              hand={state.players.opponent.hand}
+              owner="opponent"
+              manaZone={state.players.opponent.manaZone}
+              isPlayerTurn={isPlayerTurn}
+              phase={state.phase}
+              manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+              onHoverCard={handleHoverCard}
+              onInspectCard={handleInspectCard}
+            />
           </div>
 
-          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields (Center) */}
+          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields (Center) | Deck (R) */}
           <ShieldsRow
             owner="opponent"
             shields={state.players.opponent.shields}
             manaZone={state.players.opponent.manaZone}
             graveyard={state.players.opponent.graveyard}
             deck={state.players.opponent.deck}
+            showDeck={true}
             canTargetShields={canTargetShields}
             canDirectAttack={canDirectAttack}
             onDirectAttack={handleDirectAttack}
@@ -553,26 +547,22 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
         <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
-          {/* Opponent Field - Symmetrically Aligned */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-between gap-1.5 sm:gap-2">
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 shrink-0 opacity-0 pointer-events-none select-none" />
-            <div className="flex-1 min-w-0 flex items-center justify-center">
-              <BattleZoneView
-                battleZone={state.players.opponent.battleZone}
-                owner="opponent"
-                turn={state.turn}
-                phase={state.phase}
-                activePlayer={state.activePlayer}
-                selectedAttackerId={selectedAttackerId}
-                onSelectTargetCreature={handleSelectCreatureTarget}
-                onInspectCard={handleInspectCard}
-                onHoverCard={handleHoverCard}
-                spellTargetMode={spellCandidate !== null}
-                validSpellTargetIds={spellCandidate?.validTargetIds}
-                onSelectSpellTarget={handleSelectSpellTarget}
-              />
-            </div>
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 shrink-0 opacity-0 pointer-events-none select-none" />
+          {/* Opponent Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.opponent.battleZone}
+              owner="opponent"
+              turn={state.turn}
+              phase={state.phase}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectTargetCreature={handleSelectCreatureTarget}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              spellTargetMode={spellCandidate !== null}
+              validSpellTargetIds={spellCandidate?.validTargetIds}
+              onSelectSpellTarget={handleSelectSpellTarget}
+            />
           </div>
 
           {/* Minimalist Center Midline Divider */}
@@ -580,65 +570,56 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             <div className="w-4/5 h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
           </div>
 
-          {/* Player Field - Symmetrically Aligned */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-between gap-1.5 sm:gap-2">
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 shrink-0 opacity-0 pointer-events-none select-none" />
-            <div className="flex-1 min-w-0 flex items-center justify-center">
-              <BattleZoneView
-                battleZone={state.players.player.battleZone}
-                owner="player"
-                turn={state.turn}
-                phase={state.phase}
-                activePlayer={state.activePlayer}
-                selectedAttackerId={selectedAttackerId}
-                onSelectAttacker={handleSelectAttacker}
-                onInspectCard={handleInspectCard}
-                onHoverCard={handleHoverCard}
-                evolutionSelectionMode={evolutionCandidate !== null}
-                validBaitIds={evolutionCandidate?.validBaitIds}
-                onSelectBait={handleSelectBait}
-              />
-            </div>
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 shrink-0 opacity-0 pointer-events-none select-none" />
+          {/* Player Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.player.battleZone}
+              owner="player"
+              turn={state.turn}
+              phase={state.phase}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectAttacker={handleSelectAttacker}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              evolutionSelectionMode={evolutionCandidate !== null}
+              validBaitIds={evolutionCandidate?.validBaitIds}
+              onSelectBait={handleSelectBait}
+            />
           </div>
         </div>
 
         {/* ================= 3. PLAYER TERRITORY ================= */}
         <div className="shrink-0 flex flex-col gap-1 w-full">
-          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana (Center) */}
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana (Center) | Deck (R) */}
           <ShieldsRow
             owner="player"
             shields={state.players.player.shields}
             manaZone={state.players.player.manaZone}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
+            showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
 
-          {/* Player Hand Tray + Deck Pile (Bottom Right "Show Deck here") - Balanced with Left Flank Spacer */}
-          <div className="w-full flex items-center justify-between gap-1.5 sm:gap-2">
-            <div aria-hidden="true" className="w-14 sm:w-16 md:w-18 aspect-[491/682] shrink-0 opacity-0 pointer-events-none select-none" />
-            <div className="flex-1 min-w-0">
-              <HandView
-                hand={state.players.player.hand}
-                owner="player"
-                manaZone={state.players.player.manaZone}
-                isPlayerTurn={isPlayerTurn}
-                phase={state.phase}
-                manaChargedThisTurn={state.players.player.manaChargedThisTurn}
-                onChargeMana={handleChargeMana}
-                onSummonCreature={handleSummonCreature}
-                onCastSpell={handleCastSpell}
-                onHoverCard={handleHoverCard}
-                onInspectCard={handleInspectCard}
-              />
-            </div>
-            <div className="shrink-0 flex items-center justify-end">
-              <DeckPile deck={state.players.player.deck} owner="player" />
-            </div>
+          {/* Player Hand Tray (Expanded, Prominent, Centered) */}
+          <div className="w-full flex items-center justify-center">
+            <HandView
+              hand={state.players.player.hand}
+              owner="player"
+              manaZone={state.players.player.manaZone}
+              isPlayerTurn={isPlayerTurn}
+              phase={state.phase}
+              manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+              onChargeMana={handleChargeMana}
+              onSummonCreature={handleSummonCreature}
+              onCastSpell={handleCastSpell}
+              onHoverCard={handleHoverCard}
+              onInspectCard={handleInspectCard}
+            />
           </div>
         </div>
       </div>
