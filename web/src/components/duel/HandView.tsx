@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Swords, Wand2, Eye } from 'lucide-react';
+import { Sparkles, Swords, Wand2 } from 'lucide-react';
 import type { CardInstance, ManaCardInstance, Phase, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import { canPayManaCost } from '../../engine/mana';
@@ -32,61 +32,47 @@ export const HandView: React.FC<HandViewProps> = ({
   onHoverCard
 }) => {
   const isOpponent = owner === 'opponent';
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // If opponent, display concealed card backs in ultra-compact single row with watermark & count badge
+  // Opponent Hand: Minimalist Concealed Hand Bar
   if (isOpponent) {
     return (
       <div
         title={`Opponent Hand: ${hand.length} cards`}
-        className="h-7 sm:h-8 px-2 py-0.5 rounded-lg bg-slate-950/60 border border-slate-800/60 relative flex items-center justify-center shrink-0 select-none"
+        className="h-6 sm:h-7 px-3 rounded-md bg-slate-950/40 border border-slate-800/40 flex items-center justify-between shrink-0 select-none"
       >
-        {/* Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-800/40 uppercase tracking-[0.25em]">
+        <span className="text-[9px] font-cinzel font-bold text-slate-500 tracking-wider">
           OPPONENT HAND
-        </div>
+        </span>
 
-        {/* Floating Count Badge */}
-        <div className="absolute top-1 right-2 text-[9px] font-mono text-slate-500/70 pointer-events-none z-10">
-          {hand.length} cards
-        </div>
-
-        {/* Mini Card Backs */}
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5 relative z-10 max-w-full">
+        {/* Mini Card Backs Cascade */}
+        <div className="flex items-center gap-1">
           {hand.map((item, idx) => (
             <div
               key={item.instanceId || idx}
-              className="w-4 h-5 sm:w-5 sm:h-6 rounded-xs bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/80 shadow-xs flex items-center justify-center shrink-0"
-            >
-              <div className="w-2 h-3 sm:w-2.5 sm:h-3.5 rounded-xs border border-slate-700/60 bg-slate-950/60" />
-            </div>
+              className="w-3.5 h-4.5 sm:w-4 sm:h-5 rounded-xs bg-slate-900 border border-slate-700/60 shadow-xs shrink-0"
+            />
           ))}
+          <span className="text-[9px] font-mono text-slate-400 font-semibold ml-1 tabular-nums">
+            {hand.length}
+          </span>
         </div>
       </div>
     );
   }
 
-  // Player's Hand
+  // Player Hand: Spacious, Clean Tray
   return (
     <div
       title={`Your Hand: ${hand.length} cards`}
       className="relative select-none w-full shrink-0"
     >
-      {/* Floating Card Count Badge taking zero vertical space */}
-      <div className="absolute top-1 right-2 text-[9px] font-mono text-slate-500/70 pointer-events-none z-20">
-        {hand.length} cards
-      </div>
-
-      {/* Hand Row */}
-      <div className="h-22 sm:h-24 relative rounded-lg border border-slate-800/80 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-thin">
-        {/* Subtle Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/30 uppercase tracking-[0.25em]">
-          YOUR HAND
-        </div>
-
+      {/* Hand Row with Card Overlap */}
+      <div className="h-28 sm:h-30 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent p-1 pt-7 flex items-center justify-center gap-1.5 sm:gap-2.5 overflow-x-auto scrollbar-thin">
         {hand.length === 0 ? (
-          <div className="w-full text-center py-2 text-xs text-slate-600/70 font-mono italic relative z-10 pointer-events-none">
-            Your hand is empty
+          <div className="text-center py-3 text-xs text-slate-600 font-mono italic pointer-events-none">
+            Hand empty
           </div>
         ) : (
           hand.map((item) => {
@@ -103,27 +89,96 @@ export const HandView: React.FC<HandViewProps> = ({
               (phase === 'MAIN' || phase === 'MANA_CHARGE') &&
               affordable;
 
-            const isMenuOpen = activeMenuId === item.instanceId;
             const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
+
+            const isHovered = hoveredId === item.instanceId;
+            const isSelected = selectedId === item.instanceId;
+            const isActive = isHovered || isSelected;
 
             return (
               <div
                 key={item.instanceId}
-                className="relative group shrink-0 transition-transform duration-200 hover:z-30 hover:-translate-y-1.5"
-                onMouseEnter={() => onHoverCard?.(card)}
-                onMouseLeave={() => onHoverCard?.(null)}
+                className={`relative group shrink-0 transition-transform duration-200 cursor-pointer ${
+                  isActive ? '-translate-y-3.5 scale-108 z-30' : 'hover:-translate-y-3.5 hover:scale-108 hover:z-30'
+                }`}
+                onMouseEnter={() => {
+                  setHoveredId(item.instanceId);
+                  onHoverCard?.(card);
+                  onInspectCard?.(card);
+                }}
+                onMouseLeave={() => {
+                  setHoveredId(null);
+                  onHoverCard?.(null);
+                }}
                 onClick={() => {
-                  setActiveMenuId(isMenuOpen ? null : item.instanceId);
+                  setSelectedId(selectedId === item.instanceId ? null : item.instanceId);
+                  onInspectCard?.(card);
                 }}
               >
-                {/* Physical Card Scan */}
+                {/* Floating Minimalist Action Pill Above Card on Hover / Active */}
+                {(canPlay || canCharge) && (
+                  <div
+                    className={`absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-md z-40 whitespace-nowrap transition-all duration-150 pointer-events-auto ${
+                      isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto'
+                    }`}
+                  >
+                    {/* Primary Play Action */}
+                    {canPlay && isCreature && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(null);
+                          onSummonCreature?.(item.instanceId);
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold font-cinzel transition-colors cursor-pointer"
+                      >
+                        <Swords className="w-2.5 h-2.5" />
+                        <span>Summon</span>
+                      </button>
+                    )}
+
+                    {canPlay && isSpell && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(null);
+                          onCastSpell?.(item.instanceId);
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold font-cinzel transition-colors cursor-pointer"
+                      >
+                        <Wand2 className="w-2.5 h-2.5" />
+                        <span>Cast</span>
+                      </button>
+                    )}
+
+                    {/* Charge Mana Action */}
+                    {canCharge && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(null);
+                          onChargeMana?.(item.instanceId);
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 text-[9px] font-bold font-cinzel transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>+1 Mana</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Card Artwork Face */}
                 <div
-                  className={`relative w-14 h-20 sm:w-15 sm:h-22 aspect-[491/682] rounded-md overflow-hidden cursor-pointer transition-all duration-200 shadow-md ${
+                  className={`relative w-16 h-22 sm:w-18 sm:h-25 aspect-[491/682] rounded-md overflow-hidden shadow-lg transition-shadow duration-200 border ${
                     canPlay
-                      ? 'ring-2 ring-emerald-400 shadow-emerald-500/30 group-hover:ring-amber-300 group-hover:shadow-amber-400/50 group-hover:scale-105'
+                      ? 'border-emerald-400/90 shadow-emerald-500/25 ring-1 ring-emerald-400/60'
                       : canCharge
-                      ? 'ring-1 ring-amber-500/50 group-hover:ring-amber-400/80 group-hover:scale-104'
-                      : 'border border-slate-700/80 opacity-90 group-hover:scale-104'
+                      ? 'border-amber-500/50 shadow-amber-500/10'
+                      : 'border-slate-800 opacity-90'
                   }`}
                 >
                   <img
@@ -138,80 +193,17 @@ export const HandView: React.FC<HandViewProps> = ({
                     }}
                   />
 
-                  {/* Top-Right: Mana Cost Badge */}
-                  <div className="absolute top-0.5 right-0.5 px-1 py-0.2 rounded-full bg-slate-950/90 border border-amber-400/80 text-amber-300 font-mono font-black text-[10px] shadow-md">
+                  {/* Top-Right: Mana Cost Jewel */}
+                  <div className="absolute top-0.5 right-0.5 w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-full bg-slate-950/90 border border-amber-400/80 text-amber-300 font-mono font-black text-[9px] sm:text-[10px] flex items-center justify-center shadow-md tabular-nums">
                     {card.manaCost}
                   </div>
 
-                  {/* Playable Badge */}
+                  {/* Top-Left: Playable Badge */}
                   {canPlay && (
-                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-cinzel font-black text-[7px] tracking-wider shadow animate-pulse">
-                      PLAYABLE
+                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-black text-[7px] font-cinzel tracking-wider shadow animate-pulse">
+                      PLAY
                     </div>
                   )}
-
-                  {/* Quick Action Bottom Bar on Hover / Active */}
-                  <div
-                    className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent flex flex-col items-center justify-end gap-1 p-1 pt-3 transition-all duration-200 z-30 ${
-                      isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* 1. Summon Creature */}
-                    {isCreature && (
-                      <button
-                        type="button"
-                        disabled={!canPlay}
-                        onClick={() => {
-                          setActiveMenuId(null);
-                          onSummonCreature?.(item.instanceId);
-                        }}
-                        className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
-                      >
-                        <Swords className="w-2.5 h-2.5" /> Summon
-                      </button>
-                    )}
-
-                    {/* 2. Cast Spell */}
-                    {isSpell && (
-                      <button
-                        type="button"
-                        disabled={!canPlay}
-                        onClick={() => {
-                          setActiveMenuId(null);
-                          onCastSpell?.(item.instanceId);
-                        }}
-                        className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
-                      >
-                        <Wand2 className="w-2.5 h-2.5" /> Cast Spell
-                      </button>
-                    )}
-
-                    {/* 3. Charge Mana */}
-                    <button
-                      type="button"
-                      disabled={!canCharge}
-                      onClick={() => {
-                        setActiveMenuId(null);
-                        onChargeMana?.(item.instanceId);
-                      }}
-                      className="w-full flex items-center justify-center gap-1 py-0.5 px-1.5 rounded-md text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shadow"
-                    >
-                      <Sparkles className="w-2.5 h-2.5" /> +1 Mana
-                    </button>
-
-                    {/* 4. Inspect */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveMenuId(null);
-                        onInspectCard?.(card);
-                      }}
-                      className="w-full flex items-center justify-center gap-1 py-0.5 px-1 rounded text-[9px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
-                    >
-                      <Eye className="w-2.5 h-2.5" /> Inspect
-                    </button>
-                  </div>
                 </div>
               </div>
             );
