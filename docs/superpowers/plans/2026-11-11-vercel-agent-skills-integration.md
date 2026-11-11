@@ -31,6 +31,6 @@
 
 ### Task 3: Verify and Commit
 
-- [ ] Run `npm run build --prefix web` to verify clean build.
-- [ ] Commit all changes to `feature/compact-watermark-layout`.
+- [x] Run `npm run build --prefix web` to verify clean build.
+- [x] Commit all changes to `feature/compact-watermark-layout`.
 - [ ] Push to remote.
