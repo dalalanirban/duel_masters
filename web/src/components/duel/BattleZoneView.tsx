@@ -65,7 +65,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   }
 
   return (
-    <div className="w-full flex-1 min-h-0 flex items-center justify-center gap-2 sm:gap-3 py-1 overflow-x-auto scrollbar-thin relative select-none">
+    <div className="w-full flex-1 min-h-0 flex items-center justify-center gap-2 sm:gap-3 py-1.5 sm:py-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden relative select-none">
       {/* Floating targeting alert overlay */}
       {selectedAttackerId && isOpponent && (
         <div className="absolute top-1 right-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/90 border border-red-500/50 text-[9px] font-semibold text-red-300 animate-pulse pointer-events-none shadow-md">
@@ -146,10 +146,9 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
             onClick={handleClick}
             onMouseEnter={() => {
               onHoverCard?.(card);
-              onInspectCard?.(card);
             }}
             onMouseLeave={() => onHoverCard?.(null)}
-            className={`relative shrink-0 w-22 h-31 sm:w-24 sm:h-34 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
+            className={`relative shrink-0 w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
               isAttacker
                 ? 'ring-2 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
                 : canBeAttacked

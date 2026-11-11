@@ -87,16 +87,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   }, []);
 
-  // Sticky Card Inspection: Keep card details visible even after mouse moves away
+  // Card Inspection: Hover is transient (clears on mouse leave), click toggles sticky pin
   const handleHoverCard = useCallback((card: CardDefinition | null) => {
-    if (card) {
-      setInspectedCard(card);
-    }
     setHoveredCard(card);
   }, []);
 
   const handleInspectCard = useCallback((card: CardDefinition) => {
-    setInspectedCard(card);
+    setInspectedCard((prev) => (prev?.id === card.id ? null : card));
   }, []);
 
   // Restart match handler
@@ -366,9 +363,42 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     dispatch({ type: 'END_TURN', player: 'player' });
   };
 
+  // Undo mana charge
+  const handleUndoChargeMana = () => {
+    dispatch({ type: 'UNDO_CHARGE_MANA', player: 'player' });
+  };
+
   const isPlayerTurn = state.activePlayer === 'player';
+
+  // Calculate attack targeting constraints
+  const selectedAttacker = selectedAttackerId
+    ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
+    : null;
+
+  const attackerCannotAttackPlayers = Boolean(
+    selectedAttacker &&
+    /this creature can't attack players/i.test(selectedAttacker.card.rulesText || '')
+  );
+
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
-  const canDirectAttack = selectedAttackerId !== null && oppUnbrokenShieldsCount === 0;
+
+  const canTargetShields = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount > 0
+  );
+
+  const canDirectAttack = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount === 0
+  );
+
+  const canUndoMana = Boolean(
+    isPlayerTurn &&
+    state.phase === 'MANA_CHARGE' &&
+    state.players.player.manaChargedThisTurn
+  );
 
   // Active interaction states for player modals
   const isPlayerTriggerPending =
@@ -395,7 +425,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       />
 
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
-      <div className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl">
+      <div
+        onClick={() => setInspectedCard(null)}
+        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+      >
         {/* Ephemeral Turn Switch Banner */}
         {turnBanner && (
           <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
@@ -435,7 +468,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             manaZone={state.players.opponent.manaZone}
             graveyard={state.players.opponent.graveyard}
             deck={state.players.opponent.deck}
-            canTargetShields={selectedAttackerId !== null}
+            canTargetShields={canTargetShields}
+            canDirectAttack={canDirectAttack}
+            onDirectAttack={handleDirectAttack}
             onSelectShield={handleSelectShieldTarget}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
@@ -495,6 +530,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             manaZone={state.players.player.manaZone}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
+            canUndoMana={canUndoMana}
+            onUndoMana={handleUndoChargeMana}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
@@ -529,6 +566,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         isPlayerTurn={isPlayerTurn}
         canDirectAttack={canDirectAttack}
         onDirectAttack={handleDirectAttack}
+        canUndoMana={canUndoMana}
+        onUndoMana={handleUndoChargeMana}
         onPassPhase={handlePassPhase}
         onEndTurn={handleEndTurn}
         onPlayOpponentMove={triggerAiStep}

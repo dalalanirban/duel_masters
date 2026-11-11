@@ -1,11 +1,13 @@
 import React from 'react';
-import { Crosshair } from 'lucide-react';
+import { Crosshair, Skull } from 'lucide-react';
 import type { ShieldInstance, AttackTarget, PlayerId } from '../../engine/types';
 
 export interface ShieldsViewProps {
   shields: ShieldInstance[];
   owner: PlayerId;
   canTargetShields?: boolean;
+  canDirectAttack?: boolean;
+  onDirectAttack?: () => void;
   selectedTarget?: AttackTarget | null;
   onSelectShield?: (index: number) => void;
   compact?: boolean;
@@ -16,10 +18,41 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
   shields,
   owner: _owner,
   canTargetShields = false,
+  canDirectAttack = false,
+  onDirectAttack,
   selectedTarget = null,
   onSelectShield,
   className = ''
 }) => {
+  const cardDimensions = 'w-9 h-13 sm:w-10 sm:h-14 md:w-11 md:h-15.5 aspect-[491/682]';
+
+  // If opponent has 0 unbroken shields and canDirectAttack is active:
+  // Render the entire shield zone as a clickable Final Blow Direct Attack target!
+  if (canDirectAttack) {
+    return (
+      <div className={`flex items-center justify-center w-full select-none ${className}`}>
+        <button
+          type="button"
+          onClick={onDirectAttack}
+          aria-label="Direct Attack Opponent"
+          title="Direct Attack! Click here to land the final blow and win the duel!"
+          className="relative w-full max-w-md h-13 sm:h-14 md:h-15.5 rounded-lg border-2 border-red-500/90 bg-gradient-to-r from-red-950/90 via-slate-950/95 to-red-950/90 shadow-[0_0_20px_rgba(239,68,68,0.5)] ring-2 ring-red-400/80 flex items-center justify-center gap-2.5 px-4 cursor-pointer hover:scale-103 active:scale-97 transition-all animate-pulse"
+        >
+          <Crosshair className="w-5 h-5 text-red-400 animate-spin-slow" />
+          <div className="flex flex-col items-center">
+            <span className="font-cinzel font-black text-xs sm:text-sm text-red-100 tracking-widest uppercase">
+              FINAL BLOW &bull; DIRECT ATTACK
+            </span>
+            <span className="text-[9px] font-mono text-red-400 font-semibold">
+              Click to strike player directly
+            </span>
+          </div>
+          <Skull className="w-5 h-5 text-red-400" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex items-center justify-center gap-2 sm:gap-2.5 select-none ${className}`}>
       {shields.map((shield, index) => {
@@ -27,7 +60,6 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
         const isTargeted =
           selectedTarget?.type === 'shield' && selectedTarget.index === index;
         const isClickable = canTargetShields && !isBroken;
-        const cardDimensions = 'w-9 h-13 sm:w-10 sm:h-14 md:w-11 md:h-15.5 aspect-[491/682]';
 
         if (isBroken) {
           return (

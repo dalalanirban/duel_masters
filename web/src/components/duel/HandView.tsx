@@ -33,40 +33,38 @@ export const HandView: React.FC<HandViewProps> = ({
 }) => {
   const isOpponent = owner === 'opponent';
 
-  // Opponent Hand: Minimalist Concealed Hand Bar
+  // Opponent Hand: Centered, Proportional Card Backs (No label text)
   if (isOpponent) {
     return (
       <div
         title={`Opponent Hand: ${hand.length} cards`}
-        className="h-6 sm:h-7 px-3 rounded-md bg-slate-950/40 border border-slate-800/40 flex items-center justify-between shrink-0 select-none"
+        className="h-12 sm:h-14 w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-1 shrink-0 select-none"
       >
-        <span className="text-[9px] font-cinzel font-bold text-slate-500 tracking-wider">
-          OPPONENT HAND
-        </span>
-
-        {/* Mini Card Backs Cascade */}
-        <div className="flex items-center gap-1">
-          {hand.map((item, idx) => (
-            <div
-              key={item.instanceId || idx}
-              className="w-3.5 h-4.5 sm:w-4 sm:h-5 rounded-xs bg-slate-900 border border-slate-700/60 shadow-xs shrink-0"
-            />
-          ))}
-          <span className="text-[9px] font-mono text-slate-400 font-semibold ml-1 tabular-nums">
-            {hand.length}
-          </span>
-        </div>
+        {hand.map((item, idx) => (
+          <div
+            key={item.instanceId || idx}
+            className="w-7 h-10 sm:w-8 sm:h-11 md:w-9 md:h-12.5 aspect-[491/682] rounded-xs sm:rounded-sm bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-700/80 shadow-xs flex flex-col items-center justify-between p-0.5 shrink-0"
+          >
+            <div className="w-2.5 h-2.5 rounded-full border border-amber-500/30 bg-amber-500/10 flex items-center justify-center text-[5px] font-cinzel text-amber-400">
+              DM
+            </div>
+            <div className="w-3/4 h-[1px] bg-slate-800 rounded-full" />
+          </div>
+        ))}
+        {hand.length === 0 && (
+          <span className="text-[10px] font-mono text-slate-600 italic">No cards in opponent hand</span>
+        )}
       </div>
     );
   }
 
-  // Player Hand: Spacious, Clean Tray with Always-Visible Action Buttons
+  // Player Hand: Spacious, Clean Tray with Hover-Only Action Overlays
   return (
     <div
       title={`Your Hand: ${hand.length} cards`}
       className="relative select-none w-full shrink-0"
     >
-      <div className="h-26 sm:h-28 md:h-30 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent p-1 flex items-center justify-center gap-2 sm:gap-3 overflow-x-auto scrollbar-thin">
+      <div className="h-28 sm:h-30 md:h-32 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent px-1 pt-3.5 sm:pt-4 pb-1 flex items-center justify-center gap-2 sm:gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {hand.length === 0 ? (
           <div className="text-center py-3 text-xs text-slate-600 font-mono italic pointer-events-none">
             Hand empty
@@ -77,10 +75,11 @@ export const HandView: React.FC<HandViewProps> = ({
             const isCreature = card.type.includes('Creature');
             const isSpell = card.type.includes('Spell');
             const affordable = canPayManaCost(manaZone, card);
+            // In Duel Masters, mana can ONLY be charged during the MANA_CHARGE phase before advancing!
             const canCharge =
               isPlayerTurn &&
               !manaChargedThisTurn &&
-              (phase === 'MANA_CHARGE' || phase === 'MAIN');
+              phase === 'MANA_CHARGE';
             const canPlay =
               isPlayerTurn &&
               (phase === 'MAIN' || phase === 'MANA_CHARGE') &&
@@ -94,14 +93,13 @@ export const HandView: React.FC<HandViewProps> = ({
                 className="relative flex flex-col items-center shrink-0 group transition-transform duration-200 hover:-translate-y-2 cursor-pointer z-10 hover:z-30"
                 onMouseEnter={() => {
                   onHoverCard?.(card);
-                  onInspectCard?.(card);
                 }}
                 onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => onInspectCard?.(card)}
               >
-                {/* Physical Card Scan */}
+                {/* Physical Card Scan (Balanced to match battle zone creatures) */}
                 <div
-                  className={`relative w-16 h-22 sm:w-18 sm:h-25 md:w-20 md:h-28 aspect-[491/682] rounded-md overflow-hidden shadow-md border transition-all duration-150 ${
+                  className={`relative w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden shadow-md border transition-all duration-150 ${
                     canPlay
                       ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-emerald-500/30'
                       : canCharge

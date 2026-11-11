@@ -13,6 +13,10 @@ export interface ShieldsRowProps {
   graveyard: CardInstance[];
   deck: CardInstance[];
   canTargetShields?: boolean;
+  canDirectAttack?: boolean;
+  onDirectAttack?: () => void;
+  canUndoMana?: boolean;
+  onUndoMana?: () => void;
   selectedTarget?: AttackTarget | null;
   onSelectShield?: (index: number) => void;
   onHoverCard?: (card: CardDefinition | null) => void;
@@ -28,6 +32,10 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
   graveyard,
   deck,
   canTargetShields = false,
+  canDirectAttack = false,
+  onDirectAttack,
+  canUndoMana = false,
+  onUndoMana,
   selectedTarget = null,
   onSelectShield,
   onHoverCard,
@@ -56,7 +64,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
         </div>
       )}
 
-      {/* 1. LEFT FLANK: GRAVEYARD PILE (Spans full height of shield + mana rows) */}
+      {/* 1. LEFT FLANK: GRAVEYARD PILE (Card Aspect Ratio matching full zone) */}
       <div className="shrink-0 flex items-stretch">
         <button
           type="button"
@@ -66,7 +74,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
           }}
           onMouseLeave={() => onHoverCard?.(null)}
           title={`Graveyard (${graveyard.length} cards) - Click to view`}
-          className="relative w-12 sm:w-14 min-h-[5.5rem] sm:min-h-[6.2rem] rounded-md border border-slate-800 hover:border-purple-500/60 bg-slate-950/90 overflow-hidden cursor-pointer shadow-sm transition-all duration-150 hover:scale-105 shrink-0 flex flex-col items-center justify-between p-1 group"
+          className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-slate-800 hover:border-purple-500/60 bg-slate-950/90 overflow-hidden cursor-pointer shadow-sm transition-all duration-150 hover:scale-105 shrink-0 flex flex-col items-center justify-between p-1 group"
         >
           {topGraveyardImg ? (
             <>
@@ -88,8 +96,8 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-600 group-hover:text-purple-400">
-              <Skull className="w-4 h-4 sm:w-5 sm:h-5 opacity-60" />
-              <span className="text-[8px] sm:text-[9px] font-mono mt-1 font-semibold">0 GY</span>
+              <Skull className="w-5 h-5 sm:w-6 sm:h-6 opacity-60" />
+              <span className="text-[9px] font-mono mt-1 font-semibold">0 GY</span>
             </div>
           )}
         </button>
@@ -111,6 +119,8 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
               shields={shields}
               owner={owner}
               canTargetShields={canTargetShields}
+              canDirectAttack={canDirectAttack}
+              onDirectAttack={onDirectAttack}
               selectedTarget={selectedTarget}
               onSelectShield={onSelectShield}
               compact={true}
@@ -130,6 +140,8 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
               <ManaZoneView
                 manaZone={manaZone}
                 owner="player"
+                canUndoMana={canUndoMana}
+                onUndoMana={onUndoMana}
                 onHoverCard={onHoverCard}
                 onInspectCard={onInspectCard}
               />
@@ -138,13 +150,13 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
         )}
       </div>
 
-      {/* 3. RIGHT FLANK: DECK PILE (Spans full height of shield + mana rows) */}
+      {/* 3. RIGHT FLANK: DECK PILE (Card Aspect Ratio matching full zone) */}
       <div className="shrink-0 flex items-stretch">
         <div
           title={`Deck (${deck.length} cards)`}
-          className="relative w-12 sm:w-14 min-h-[5.5rem] sm:min-h-[6.2rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
+          className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
         >
-          <div className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[7px] sm:text-[8px] mt-0.5 shadow-inner">
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[9px] sm:text-[10px] mt-1 shadow-inner">
             DM
           </div>
           <div className="w-full bg-slate-950/95 px-1 py-0.5 rounded flex items-center justify-between text-amber-300 font-mono text-[8px] sm:text-[9px] border border-amber-500/30">

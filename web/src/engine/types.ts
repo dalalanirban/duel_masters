@@ -112,6 +112,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'CHARGE_MANA'; player?: PlayerId; cardInstanceId: string }
+  | { type: 'UNDO_CHARGE_MANA'; player?: PlayerId }
   | {
       type: 'SUMMON_CREATURE';
       player?: PlayerId;
