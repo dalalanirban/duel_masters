@@ -108,16 +108,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
   }, [selectedPlayerDeck, selectedOpponentDeck]);
 
-  // Restart game whenever decks change
-  const handleDeckChange = (playerDeck: Deck, opponentDeck: Deck) => {
-    setSelectedPlayerDeck(playerDeck);
-    setSelectedOpponentDeck(opponentDeck);
-    setSelectedAttackerId(null);
-    setSelectedShieldIndices([]);
-    setEvolutionCandidate(null);
-    setSpellCandidate(null);
-    dispatch({ type: 'RESET_GAME', playerDeck, opponentDeck });
-  };
 
   // AI Step Trigger
   const triggerAiStep = useCallback(() => {
@@ -451,12 +441,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   );
 
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
-  const selectedAttacker = selectedAttackerId
-    ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
-    : null;
-  const attackerBreakerCount = selectedAttacker?.card.breakerCount || 1;
+  const attackerBreakerCount = selectedAttacker ? (selectedAttacker.card.breakerCount || 1) : 1;
   const requiredBreakerCount = Math.min(attackerBreakerCount, oppUnbrokenShieldsCount);
-  const canDirectAttack = selectedAttackerId !== null && oppUnbrokenShieldsCount === 0;
 
   const canTargetShields = Boolean(
     selectedAttacker &&
@@ -491,9 +477,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status (Expanded to fill gap to battle zone) */}
+      {/* Left Column: Card Inspector & Match Status (Expanded to fill up to the battle zone) */}
       <CardInspectorPane
-        className="w-56 sm:w-64 xl:w-72 shrink-0 h-full"
+        className="w-80 lg:w-88 xl:w-96 2xl:w-[24.5rem] shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
@@ -503,7 +489,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
       <div
         onClick={() => setInspectedCard(null)}
-        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1.5 py-1 sm:py-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
       >
         {/* Ephemeral Turn Switch Banner */}
         {turnBanner && (
@@ -524,29 +510,35 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         )}
 
         {/* ================= 1. OPPONENT TERRITORY ================= */}
-        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
-          {/* Opponent Hand */}
-          <HandView
-            hand={state.players.opponent.hand}
-            owner="opponent"
-            manaZone={state.players.opponent.manaZone}
-            isPlayerTurn={isPlayerTurn}
-            phase={state.phase}
-            manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
+        <div className="shrink-0 flex flex-col gap-1 w-full">
+          {/* Opponent Hand Tray (Compact, Centered) */}
+          <div className="w-full flex items-center justify-center">
+            <HandView
+              hand={state.players.opponent.hand}
+              owner="opponent"
+              manaZone={state.players.opponent.manaZone}
+              isPlayerTurn={isPlayerTurn}
+              phase={state.phase}
+              manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+              onHoverCard={handleHoverCard}
+              onInspectCard={handleInspectCard}
+            />
+          </div>
 
-          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields | Deck (R) */}
+          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields (Center) | Deck (R) */}
           <ShieldsRow
             owner="opponent"
             shields={state.players.opponent.shields}
             manaZone={state.players.opponent.manaZone}
             graveyard={state.players.opponent.graveyard}
             deck={state.players.opponent.deck}
+            showDeck={true}
             canTargetShields={canTargetShields}
             canDirectAttack={canDirectAttack}
             onDirectAttack={handleDirectAttack}
+            selectedTarget={state.combatState?.target}
+            selectedShieldIndices={selectedShieldIndices}
+            requiredSelectionCount={requiredBreakerCount}
             onSelectShield={handleSelectShieldTarget}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
@@ -554,9 +546,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
-        <div className="flex-1 min-h-0 w-full px-1.5 flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
+        <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 relative my-0.5 px-0.5 sm:px-1">
           {/* Opponent Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.opponent.battleZone}
               owner="opponent"
@@ -571,169 +563,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               validSpellTargetIds={spellCandidate?.validTargetIds}
               onSelectSpellTarget={handleSelectSpellTarget}
             />
-
-            <ManaZoneView
-              manaZone={state.players.opponent.manaZone}
-              owner="opponent"
-              onInspectCard={setInspectedCard}
-            />
-          </div>
-
-          {/* Opponent Battle Zone & Shields */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-            <div className="lg:col-span-8">
-              <BattleZoneView
-                battleZone={state.players.opponent.battleZone}
-                owner="opponent"
-                turn={state.turn}
-                phase={state.phase}
-                activePlayer={state.activePlayer}
-                selectedAttackerId={selectedAttackerId}
-                onSelectTargetCreature={handleSelectCreatureTarget}
-                onInspectCard={setInspectedCard}
-                spellTargetMode={spellCandidate !== null}
-                validSpellTargetIds={spellCandidate?.validTargetIds}
-                onSelectSpellTarget={handleSelectSpellTarget}
-              />
-            </div>
-
-            <div className="lg:col-span-4">
-              <ShieldsView
-                shields={state.players.opponent.shields}
-                owner="opponent"
-                canTargetShields={selectedAttackerId !== null}
-                selectedShieldIndices={selectedShieldIndices}
-                requiredSelectionCount={requiredBreakerCount}
-                onSelectShield={handleSelectShieldTarget}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ================= CENTER BATTLEFIELD HUB ================= */}
-        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-4 shadow-xl flex flex-wrap items-center justify-between gap-4">
-          {/* Turn & Player Status */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-400 font-cinzel font-black text-lg shadow-inner">
-              T{state.turn}
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-cinzel font-bold text-sm text-white">
-                  {state.activePlayer === 'player' ? "Player's Turn" : "Opponent's Turn"}
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase ${
-                    state.phase === 'MANA_CHARGE'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : state.phase === 'MAIN'
-                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                      : state.phase === 'ATTACK'
-                      ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                      : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {state.phase}
-                </span>
-              </div>
-
-              <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2">
-                <span>
-                  {state.activePlayer === 'player'
-                    ? state.phase === 'MANA_CHARGE'
-                      ? 'Charge 1 card to mana, or pass to Main Phase'
-                      : state.phase === 'MAIN'
-                      ? 'Summon creatures, cast spells, or enter Attack Phase'
-                      : 'Declare attacks with ready creatures, or End Turn'
-                    : 'Opponent is executing moves...'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Center Buttons */}
-          <div className="flex items-center gap-2.5">
-            {/* Direct Attack to Win Button */}
-            {canDirectAttack && (
-              <button
-                type="button"
-                onClick={handleDirectAttack}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-cinzel font-black text-xs tracking-wider shadow-lg shadow-red-500/40 animate-bounce transition-all cursor-pointer"
-              >
-                <Zap className="w-4 h-4 fill-current" />
-                <span>DIRECT ATTACK TO WIN!</span>
-              </button>
-            )}
-
-            {/* If player's turn: Phase Advancement Controls */}
-            {isPlayerTurn && (
-              <>
-                {state.phase === 'MANA_CHARGE' && (
-                  <button
-                    type="button"
-                    onClick={handlePassPhase}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-xs tracking-wider shadow-md transition-all cursor-pointer"
-                  >
-                    <span>Pass to Main Phase</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
-                {state.phase === 'MAIN' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handlePassPhase}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-cinzel font-bold text-xs tracking-wider shadow-md transition-all cursor-pointer"
-                    >
-                      <Swords className="w-3.5 h-3.5" />
-                      <span>Attack Phase</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleEndTurn}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-colors"
-                    >
-                      <span>End Turn</span>
-                    </button>
-                  </>
-                )}
-
-                {state.phase === 'ATTACK' && (
-                  <button
-                    type="button"
-                    onClick={handleEndTurn}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-cinzel font-bold text-xs tracking-wider transition-colors cursor-pointer"
-                  >
-                    <span>End Turn</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* If opponent's turn: Manual AI Step trigger button */}
-            {!isPlayerTurn && (
-              <button
-                type="button"
-                onClick={triggerAiStep}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-cinzel font-bold text-xs tracking-wider shadow-md transition-all cursor-pointer animate-pulse"
-              >
-                <Bot className="w-3.5 h-3.5" />
-                <span>Play Opponent Move</span>
-              </button>
-            )}
           </div>
 
           {/* Minimalist Center Midline Divider */}
-          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none">
-            <div className="w-4/5 h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
+          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none px-2">
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
           </div>
 
           {/* Player Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.player.battleZone}
               owner="player"
@@ -752,34 +590,37 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 3. PLAYER TERRITORY ================= */}
-        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
-          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana | Deck (R) */}
+        <div className="shrink-0 flex flex-col gap-1 w-full">
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana (Center) | Deck (R) */}
           <ShieldsRow
             owner="player"
             shields={state.players.player.shields}
             manaZone={state.players.player.manaZone}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
+            showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
 
-          {/* Player Hand */}
-          <HandView
-            hand={state.players.player.hand}
-            owner="player"
-            manaZone={state.players.player.manaZone}
-            isPlayerTurn={isPlayerTurn}
-            phase={state.phase}
-            manaChargedThisTurn={state.players.player.manaChargedThisTurn}
-            onChargeMana={handleChargeMana}
-            onSummonCreature={handleSummonCreature}
-            onCastSpell={handleCastSpell}
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
+          {/* Player Hand Tray (Expanded, Prominent, Centered) */}
+          <div className="w-full flex items-center justify-center">
+            <HandView
+              hand={state.players.player.hand}
+              owner="player"
+              manaZone={state.players.player.manaZone}
+              isPlayerTurn={isPlayerTurn}
+              phase={state.phase}
+              manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+              onChargeMana={handleChargeMana}
+              onSummonCreature={handleSummonCreature}
+              onCastSpell={handleCastSpell}
+              onHoverCard={handleHoverCard}
+              onInspectCard={handleInspectCard}
+            />
+          </div>
         </div>
       </div>
 

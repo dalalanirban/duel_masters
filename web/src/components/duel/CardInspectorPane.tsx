@@ -148,7 +148,7 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
           <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-2.5 custom-scrollbar">
             {/* Clean Card Artwork Preview */}
             <div className="flex justify-center items-center pt-0.5">
-              <div className="relative w-full aspect-[491/682] max-w-[155px] sm:max-w-[180px] xl:max-w-[200px] rounded-lg overflow-hidden shadow-2xl border border-slate-700/60 bg-slate-950">
+              <div className="relative w-full aspect-[491/682] max-w-[175px] sm:max-w-[200px] xl:max-w-[220px] 2xl:max-w-[230px] rounded-lg overflow-hidden shadow-2xl border border-slate-700/60 bg-slate-950">
                 <img
                   src={imageSrc || ''}
                   alt={inspectedCard.name}

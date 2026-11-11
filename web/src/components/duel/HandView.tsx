@@ -33,19 +33,19 @@ export const HandView: React.FC<HandViewProps> = ({
 }) => {
   const isOpponent = owner === 'opponent';
 
-  // Opponent Hand: Centered, Proportional Card Backs (No label text)
+  // Opponent Hand: Compact Centered Proportional Card Backs
   if (isOpponent) {
     return (
       <div
         title={`Opponent Hand: ${hand.length} cards`}
-        className="h-12 sm:h-14 w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-1 shrink-0 select-none"
+        className="h-9 sm:h-10 w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-0.5 shrink-0 select-none"
       >
         {hand.map((item, idx) => (
           <div
             key={item.instanceId || idx}
-            className="w-7 h-10 sm:w-8 sm:h-11 md:w-9 md:h-12.5 aspect-[491/682] rounded-xs sm:rounded-sm bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-700/80 shadow-xs flex flex-col items-center justify-between p-0.5 shrink-0"
+            className="w-6 h-8 sm:w-6.5 sm:h-9 md:w-7 md:h-9.5 aspect-[491/682] rounded-xs bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-700/80 shadow-xs flex flex-col items-center justify-between p-0.5 shrink-0"
           >
-            <div className="w-2.5 h-2.5 rounded-full border border-amber-500/30 bg-amber-500/10 flex items-center justify-center text-[5px] font-cinzel text-amber-400">
+            <div className="w-2 h-2 rounded-full border border-amber-500/30 bg-amber-500/10 flex items-center justify-center text-[4.5px] font-cinzel text-amber-400">
               DM
             </div>
             <div className="w-3/4 h-[1px] bg-slate-800 rounded-full" />
@@ -58,13 +58,13 @@ export const HandView: React.FC<HandViewProps> = ({
     );
   }
 
-  // Player Hand: Spacious, Clean Tray with Hover-Only Action Overlays
+  // Player Hand: Spacious, Prominent Tray with Hover-Only Action Overlays
   return (
     <div
       title={`Your Hand: ${hand.length} cards`}
       className="relative select-none w-full shrink-0"
     >
-      <div className="h-28 sm:h-30 md:h-32 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent px-1 pt-3.5 sm:pt-4 pb-1 flex items-center justify-center gap-2 sm:gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="h-32 sm:h-36 md:h-38 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent px-1 pt-3 sm:pt-4 pb-1 flex items-center justify-center gap-2 sm:gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {hand.length === 0 ? (
           <div className="text-center py-3 text-xs text-slate-600 font-mono italic pointer-events-none">
             Hand empty
@@ -97,9 +97,9 @@ export const HandView: React.FC<HandViewProps> = ({
                 onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => onInspectCard?.(card)}
               >
-                {/* Physical Card Scan (Balanced to match battle zone creatures) */}
+                {/* Physical Card Scan (Prominent, spacious size utilizing reclaimed vertical pixels) */}
                 <div
-                  className={`relative w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden shadow-md border transition-all duration-150 ${
+                  className={`relative w-18 h-25 sm:w-20 sm:h-28 md:w-22 md:h-30.5 aspect-[491/682] rounded-md overflow-hidden shadow-md border transition-all duration-150 ${
                     canPlay
                       ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-emerald-500/30'
                       : canCharge
