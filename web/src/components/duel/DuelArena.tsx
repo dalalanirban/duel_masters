@@ -477,9 +477,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status (18rem / w-72 per responsive guidelines) */}
+      {/* Left Column: Card Inspector & Match Status (Expanded to fill up to the battle zone) */}
       <CardInspectorPane
-        className="w-72 2xl:w-72 shrink-0 h-full"
+        className="w-80 lg:w-88 xl:w-96 2xl:w-[24.5rem] shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
@@ -546,9 +546,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
-        <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
+        <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 relative my-0.5 px-0.5 sm:px-1">
           {/* Opponent Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.opponent.battleZone}
               owner="opponent"
@@ -566,12 +566,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           </div>
 
           {/* Minimalist Center Midline Divider */}
-          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none">
-            <div className="w-4/5 h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
+          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none px-2">
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
           </div>
 
           {/* Player Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.player.battleZone}
               owner="player"
