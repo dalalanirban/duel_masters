@@ -50,4 +50,4 @@
   - Component tokens (card aspect ratio `2.5 : 3.5`, shield pill badges, battle zones, watermark styling).
   - Layout rules (100vh viewport lock, 3-column duel arena grid).
 - [x] Run `npm run build --prefix web` to verify frontend build passes cleanly.
-- [ ] Commit all changes with informative git commit message.
+- [x] Commit all changes with informative git commit message.
