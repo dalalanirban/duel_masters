@@ -533,16 +533,13 @@ export function resolveCombat(state: GameState): GameState {
       return { ...state, combatState: null };
     }
 
-    const breakerCount = Math.max(1, attacker.card.breakerCount || 1);
+    const breakerCount = getCreatureBreakerCount(attacker, state.players[activeId].battleZone);
     const targetIndices: number[] =
       target.indices && target.indices.length > 0
         ? target.indices
         : target.index !== undefined
         ? [target.index]
         : [];
-    const breakerCount = getCreatureBreakerCount(attacker, state.players[activeId].battleZone);
-    const primaryIndex = target.index;
-    const primaryShield = defendingPlayer.shields[primaryIndex];
 
     const shieldsToBreak: ShieldInstance[] = [];
     for (const idx of targetIndices) {

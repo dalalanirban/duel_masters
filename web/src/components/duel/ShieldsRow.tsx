@@ -11,13 +11,16 @@ export interface ShieldsRowProps {
   shields: ShieldInstance[];
   manaZone?: ManaCardInstance[];
   graveyard: CardInstance[];
-  deck: CardInstance[];
+  deck?: CardInstance[];
+  showDeck?: boolean;
   canTargetShields?: boolean;
   canDirectAttack?: boolean;
   onDirectAttack?: () => void;
   canUndoMana?: boolean;
   onUndoMana?: () => void;
   selectedTarget?: AttackTarget | null;
+  selectedShieldIndices?: number[];
+  requiredSelectionCount?: number;
   onSelectShield?: (index: number) => void;
   onHoverCard?: (card: CardDefinition | null) => void;
   onInspectCard?: (card: CardDefinition) => void;
@@ -31,12 +34,15 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
   manaZone,
   graveyard,
   deck,
+  showDeck = false,
   canTargetShields = false,
   canDirectAttack = false,
   onDirectAttack,
   canUndoMana = false,
   onUndoMana,
   selectedTarget = null,
+  selectedShieldIndices = [],
+  requiredSelectionCount = 1,
   onSelectShield,
   onHoverCard,
   onInspectCard,
@@ -64,7 +70,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
         </div>
       )}
 
-      {/* 1. LEFT FLANK: GRAVEYARD PILE (Card Aspect Ratio matching full zone) */}
+      {/* 1. LEFT FLANK: GRAVEYARD PILE (Spanning vertically both Shields and Mana Zone) */}
       <div className="shrink-0 flex items-stretch">
         <button
           type="button"
@@ -74,7 +80,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
           }}
           onMouseLeave={() => onHoverCard?.(null)}
           title={`Graveyard (${graveyard.length} cards) - Click to view`}
-          className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-slate-800 hover:border-purple-500/60 bg-slate-950/90 overflow-hidden cursor-pointer shadow-sm transition-all duration-150 hover:scale-105 shrink-0 flex flex-col items-center justify-between p-1 group"
+          className="relative w-14 sm:w-16 md:w-18 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-slate-800 hover:border-purple-500/60 bg-slate-950/90 overflow-hidden cursor-pointer shadow-sm transition-all duration-150 hover:scale-105 shrink-0 flex flex-col items-center justify-between p-1 group"
         >
           {topGraveyardImg ? (
             <>
@@ -98,6 +104,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
             <div className="flex-1 flex flex-col items-center justify-center text-slate-600 group-hover:text-purple-400">
               <Skull className="w-5 h-5 sm:w-6 sm:h-6 opacity-60" />
               <span className="text-[9px] font-mono mt-1 font-semibold">0 GY</span>
+              <span className="text-[7.5px] font-cinzel text-slate-600 uppercase tracking-widest mt-0.5">GRAVE</span>
             </div>
           )}
         </button>
@@ -122,6 +129,8 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
               canDirectAttack={canDirectAttack}
               onDirectAttack={onDirectAttack}
               selectedTarget={selectedTarget}
+              selectedShieldIndices={selectedShieldIndices}
+              requiredSelectionCount={requiredSelectionCount}
               onSelectShield={onSelectShield}
               compact={true}
             />
@@ -132,7 +141,11 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
               shields={shields}
               owner={owner}
               canTargetShields={canTargetShields}
+              canDirectAttack={canDirectAttack}
+              onDirectAttack={onDirectAttack}
               selectedTarget={selectedTarget}
+              selectedShieldIndices={selectedShieldIndices}
+              requiredSelectionCount={requiredSelectionCount}
               onSelectShield={onSelectShield}
               compact={true}
             />
@@ -150,21 +163,23 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
         )}
       </div>
 
-      {/* 3. RIGHT FLANK: DECK PILE (Card Aspect Ratio matching full zone) */}
-      <div className="shrink-0 flex items-stretch">
-        <div
-          title={`Deck (${deck.length} cards)`}
-          className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
-        >
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[9px] sm:text-[10px] mt-1 shadow-inner">
-            DM
-          </div>
-          <div className="w-full bg-slate-950/95 px-1 py-0.5 rounded flex items-center justify-between text-amber-300 font-mono text-[8px] sm:text-[9px] border border-amber-500/30">
-            <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
-            <span className="tabular-nums font-bold">{deck.length}</span>
+      {/* 3. OPTIONAL RIGHT FLANK: DECK PILE (When showDeck is explicitly true) */}
+      {showDeck && deck && (
+        <div className="shrink-0 flex items-stretch">
+          <div
+            title={`Deck (${deck.length} cards)`}
+            className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
+          >
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[9px] sm:text-[10px] mt-1 shadow-inner">
+              DM
+            </div>
+            <div className="w-full bg-slate-950/95 px-1 py-0.5 rounded flex items-center justify-between text-amber-300 font-mono text-[8px] sm:text-[9px] border border-amber-500/30">
+              <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
+              <span className="tabular-nums font-bold">{deck.length}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* GRAVEYARD MODAL */}
       <GraveyardModal
