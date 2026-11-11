@@ -11,7 +11,7 @@ export type Phase =
   | 'END_OF_TURN';
 
 export type AttackTarget =
-  | { type: 'shield'; index: number }
+  | { type: 'shield'; index?: number; indices?: number[] }
   | { type: 'creature'; instanceId: string }
   | { type: 'player' };
 
