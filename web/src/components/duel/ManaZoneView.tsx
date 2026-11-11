@@ -30,51 +30,56 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
     new Set(manaZone.flatMap((m) => m.card.civilizations))
   ) as Civilization[];
 
+  // 1. Empty State (0 Cards in Mana Zone)
   if (totalCount === 0) {
     return (
-      <div className={`h-6 sm:h-7 px-2 rounded-md border border-dashed border-slate-800/80 bg-slate-950/40 flex items-center justify-between text-[10px] text-slate-500 font-mono select-none shrink-0 ${className}`}>
-        <div className="flex items-center gap-1.5 text-slate-400 font-cinzel font-bold">
-          <Sparkles className="w-3 h-3 text-amber-500/70" />
-          <span>{isOpponent ? "Opponent's" : "Your"} Mana: 0/0</span>
+      <div
+        title={`${isOpponent ? "Opponent's" : "Your"} Mana: 0/0`}
+        className={`h-6 sm:h-7 px-2 rounded-md border border-dashed border-slate-800/60 bg-slate-950/30 relative flex items-center justify-center select-none shrink-0 ${className}`}
+      >
+        <div className="text-[10px] font-cinzel font-bold text-slate-600/60 tracking-wider flex items-center gap-1.5 pointer-events-none">
+          <Sparkles className="w-2.5 h-2.5 text-amber-500/50" />
+          <span>{isOpponent ? "OPPONENT MANA" : "MANA ZONE"} (0/0)</span>
         </div>
-        <span className="italic text-slate-600 text-[9px]">No cards in mana zone</span>
       </div>
     );
   }
 
+  // 2. Populated State - Direct card strip with watermark & floating stats chip
   return (
-    <div className={`flex flex-col gap-0.5 select-none shrink-0 ${className}`}>
-      {/* Header with Civ Icons and Ready/Tapped Ratio */}
-      <div className="flex items-center justify-between px-1 text-[10px]">
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 font-cinzel font-bold text-slate-300">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>
-              {isOpponent ? "Opponent's" : "Your"} Mana: {untappedCount}/{totalCount}
-            </span>
-          </div>
-
-          {/* Civ icons */}
-          <div className="flex items-center gap-0.5 ml-1">
+    <div
+      title={`${isOpponent ? "Opponent's" : "Your"} Mana: ${untappedCount}/${totalCount} (${untappedCount} ready, ${totalCount - untappedCount} tapped)`}
+      className={`relative select-none shrink-0 ${className}`}
+    >
+      {/* Floating Overlay Pill: Untapped/Total Mana Count + Civ Icons */}
+      <div className="absolute top-0.5 right-1 z-20 flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-900/80 border border-slate-800/80 text-[9px] font-mono font-bold text-amber-400/90 pointer-events-none backdrop-blur-xs shadow-xs">
+        <Sparkles className="w-2.5 h-2.5 text-amber-400/80 shrink-0" />
+        <span>
+          {untappedCount}/{totalCount}
+        </span>
+        {civilizations.length > 0 && (
+          <div className="flex items-center gap-0.5 ml-0.5">
             {civilizations.map((civ) => (
               <div key={civ} title={civ}>
-                <CivilizationIcon civilization={civ} className="w-3 h-3" />
+                <CivilizationIcon civilization={civ} className="w-2.5 h-2.5" />
               </div>
             ))}
           </div>
-        </div>
-
-        <span className="text-[9px] text-slate-500 font-mono">
-          {untappedCount} ready, {totalCount - untappedCount} tapped
-        </span>
+        )}
       </div>
 
-      {/* Cards list - Compact horizontal strip */}
+      {/* Cards Strip */}
       <div
         className={`${
           compact ? 'h-11 sm:h-12 py-0.5 px-1' : 'min-h-14 p-1.5'
-        } rounded-md border border-slate-800/80 bg-slate-950/60 flex items-center gap-1 overflow-x-auto scrollbar-thin`}
+        } relative rounded-md border border-slate-800/80 bg-slate-950/60 flex items-center gap-1 overflow-x-auto scrollbar-thin`}
       >
+        {/* Background Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/40 uppercase tracking-widest">
+          {isOpponent ? 'OPPONENT MANA' : 'MANA ZONE'}
+        </div>
+
+        {/* Cards */}
         {manaZone.map((manaCard) => {
           const card = manaCard.card;
           const isTapped = manaCard.isTapped;
@@ -89,7 +94,7 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
               onMouseEnter={() => onHoverCard?.(card)}
               onMouseLeave={() => onHoverCard?.(null)}
               onClick={() => onInspectCard?.(card)}
-              className={`relative shrink-0 rounded-sm overflow-hidden border transition-all duration-200 cursor-pointer group ${
+              className={`relative shrink-0 rounded-sm overflow-hidden border transition-all duration-200 cursor-pointer group z-10 ${
                 compact ? 'w-8 h-10 sm:w-9 sm:h-11' : 'w-14 h-18 sm:w-16 sm:h-20'
               } ${
                 isTapped

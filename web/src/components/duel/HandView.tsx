@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Swords, Wand2, Eye, Hand as HandIcon } from 'lucide-react';
+import { Sparkles, Swords, Wand2, Eye } from 'lucide-react';
 import type { CardInstance, ManaCardInstance, Phase, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import { canPayManaCost } from '../../engine/mana';
@@ -34,28 +34,33 @@ export const HandView: React.FC<HandViewProps> = ({
   const isOpponent = owner === 'opponent';
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // If opponent, display concealed card backs with count in a slim single bar
+  // If opponent, display concealed card backs in ultra-compact single row with watermark & count badge
   if (isOpponent) {
     return (
-      <div className="flex items-center justify-between px-2 py-0.5 rounded-lg bg-slate-950/70 border border-slate-800/80 shrink-0 select-none">
-        <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-slate-400">
-          <HandIcon className="w-3 h-3 text-slate-500" />
-          <span>Opponent's Hand ({hand.length} Cards)</span>
+      <div
+        title={`Opponent Hand: ${hand.length} cards`}
+        className="h-7 sm:h-8 px-2 py-0.5 rounded-lg bg-slate-950/60 border border-slate-800/60 relative flex items-center justify-center shrink-0 select-none"
+      >
+        {/* Background Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-800/60 uppercase tracking-widest">
+          OPPONENT HAND
         </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
-          {hand.length === 0 ? (
-            <span className="text-[10px] text-slate-600 font-mono italic">Hand is empty</span>
-          ) : (
-            hand.map((item, idx) => (
-              <div
-                key={item.instanceId || idx}
-                className="w-5 h-7 rounded-xs bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/80 shadow-xs flex items-center justify-center shrink-0"
-              >
-                <div className="w-2.5 h-3.5 rounded-xs border border-slate-700/60 bg-slate-950/60" />
-              </div>
-            ))
-          )}
+        {/* Floating Count Badge */}
+        <div className="absolute top-1 right-2 text-[9px] font-mono text-slate-500/70 pointer-events-none z-10">
+          {hand.length} cards
+        </div>
+
+        {/* Mini Card Backs */}
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5 relative z-10 max-w-full">
+          {hand.map((item, idx) => (
+            <div
+              key={item.instanceId || idx}
+              className="w-4 h-5 sm:w-5 sm:h-6 rounded-xs bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/80 shadow-xs flex items-center justify-center shrink-0"
+            >
+              <div className="w-2 h-3 sm:w-2.5 sm:h-3.5 rounded-xs border border-slate-700/60 bg-slate-950/60" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -63,23 +68,24 @@ export const HandView: React.FC<HandViewProps> = ({
 
   // Player's Hand
   return (
-    <div className="flex flex-col gap-0.5 select-none w-full shrink-0">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-slate-300">
-          <HandIcon className="w-3 h-3 text-sky-400" />
-          <span>Your Hand ({hand.length} Cards)</span>
-        </div>
-
-        <span className="text-[9px] text-slate-400 font-mono">
-          Click card to Charge or Play
-        </span>
+    <div
+      title={`Your Hand: ${hand.length} cards`}
+      className="relative select-none w-full shrink-0"
+    >
+      {/* Floating Card Count Badge taking zero vertical space */}
+      <div className="absolute top-1 right-2 text-[9px] font-mono text-slate-500/70 pointer-events-none z-20">
+        {hand.length} cards
       </div>
 
       {/* Hand Row */}
-      <div className="h-22 sm:h-24 rounded-lg border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+      <div className="h-22 sm:h-24 relative rounded-lg border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+        {/* Subtle Background Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-xs font-cinzel font-bold text-slate-800/40 uppercase tracking-widest">
+          YOUR HAND
+        </div>
+
         {hand.length === 0 ? (
-          <div className="w-full text-center py-2 text-xs text-slate-600 font-mono italic">
+          <div className="w-full text-center py-2 text-xs text-slate-600/70 font-mono italic relative z-10 pointer-events-none">
             Your hand is empty
           </div>
         ) : (
@@ -103,7 +109,7 @@ export const HandView: React.FC<HandViewProps> = ({
             return (
               <div
                 key={item.instanceId}
-                className="relative group shrink-0"
+                className="relative group shrink-0 z-10"
                 onMouseEnter={() => onHoverCard?.(card)}
                 onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => {
@@ -146,7 +152,7 @@ export const HandView: React.FC<HandViewProps> = ({
 
                   {/* Quick Action Overlay on Hover / Active */}
                   <div
-                    className={`absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center gap-1 p-1 transition-opacity duration-200 ${
+                    className={`absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center gap-1 p-1 transition-opacity duration-200 z-30 ${
                       isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     }`}
                     onClick={(e) => e.stopPropagation()}
