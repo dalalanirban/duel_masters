@@ -163,12 +163,12 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
         )}
       </div>
 
-      {/* 3. OPTIONAL RIGHT FLANK: DECK PILE (When showDeck is explicitly true) */}
-      {showDeck && deck && (
+      {/* 3. RIGHT FLANK: DECK PILE or Symmetrical Balancing Spacer */}
+      {showDeck && deck ? (
         <div className="shrink-0 flex items-stretch">
           <div
             title={`Deck (${deck.length} cards)`}
-            className="relative w-14 sm:w-16 md:w-17 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
+            className="relative w-14 sm:w-16 md:w-18 aspect-[491/682] h-full min-h-[6.5rem] sm:min-h-[7.5rem] rounded-md border border-amber-500/30 hover:border-amber-400/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-sm flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help"
           >
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[9px] sm:text-[10px] mt-1 shadow-inner">
               DM
@@ -179,6 +179,11 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
             </div>
           </div>
         </div>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="relative w-14 sm:w-16 md:w-18 aspect-[491/682] h-full shrink-0 opacity-0 pointer-events-none select-none"
+        />
       )}
 
       {/* GRAVEYARD MODAL */}

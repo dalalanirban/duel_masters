@@ -18,7 +18,7 @@ export const DeckPile: React.FC<DeckPileProps> = ({
   return (
     <div
       title={`${isOpponent ? "Opponent's" : 'Your'} Deck (${deck.length} cards remaining)`}
-      className={`relative w-12 sm:w-14 md:w-16 aspect-[491/682] h-18 sm:h-20 md:h-24 rounded-md border border-amber-500/40 hover:border-amber-400/80 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-md flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help ${className}`}
+      className={`relative w-14 sm:w-16 md:w-18 aspect-[491/682] h-18 sm:h-20 md:h-24 rounded-md border border-amber-500/40 hover:border-amber-400/80 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 overflow-hidden shadow-md flex flex-col items-center justify-between p-1 select-none transition-all duration-150 hover:scale-105 cursor-help ${className}`}
     >
       <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-amber-400/40 bg-amber-500/10 flex items-center justify-center text-amber-400 font-cinzel font-black text-[8px] sm:text-[9px] mt-0.5 shadow-inner">
         DM
