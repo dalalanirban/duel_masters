@@ -367,13 +367,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     <div className="w-full h-full flex flex-row overflow-hidden bg-slate-950 text-slate-100 select-none">
       {/* Left Column: Card Inspector & Match Status */}
       <CardInspectorPane
-        className="w-64 lg:w-72 xl:w-80 shrink-0 h-full"
+        className="w-44 sm:w-48 xl:w-52 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
         phase={state.phase}
-        playerDeckName={selectedPlayerDeck.name}
-        opponentDeckName={selectedOpponentDeck.name}
       />
 
       {/* Center Column: The Battle Arena (8 Rows, Zero Page Scroll) */}
