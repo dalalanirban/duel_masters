@@ -429,7 +429,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             onInspectCard={handleInspectCard}
           />
 
-          {/* Opponent Shields, Graveyard, and Deck */}
+          {/* Opponent Mana Strip */}
+          <ManaZoneView
+            manaZone={state.players.opponent.manaZone}
+            owner="opponent"
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
+
+          {/* Opponent Shields, Graveyard, and Deck (directly above battlefield) */}
           <ShieldsRow
             owner="opponent"
             shields={state.players.opponent.shields}
@@ -437,14 +445,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             deck={state.players.opponent.deck}
             canTargetShields={selectedAttackerId !== null}
             onSelectShield={handleSelectShieldTarget}
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
-
-          {/* Opponent Mana Strip */}
-          <ManaZoneView
-            manaZone={state.players.opponent.manaZone}
-            owner="opponent"
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
@@ -496,20 +496,20 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
         {/* ================= 3. PLAYER TERRITORY ================= */}
         <div className="shrink-0 flex flex-col gap-1 w-full max-w-4xl mx-auto">
-          {/* Player Mana Strip */}
-          <ManaZoneView
-            manaZone={state.players.player.manaZone}
-            owner="player"
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
-
-          {/* Player Shields, Graveyard, and Deck */}
+          {/* Player Shields, Graveyard, and Deck (directly below battlefield, ABOVE mana bar!) */}
           <ShieldsRow
             owner="player"
             shields={state.players.player.shields}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
+
+          {/* Player Mana Strip (below shields, above hand!) */}
+          <ManaZoneView
+            manaZone={state.players.player.manaZone}
+            owner="player"
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
