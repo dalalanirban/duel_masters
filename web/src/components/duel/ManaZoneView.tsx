@@ -60,9 +60,14 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
         {manaZone.map((manaCard) => {
           const card = manaCard.card;
           const isTapped = manaCard.isTapped;
+          const isPlayer = owner === 'player';
           const imageSrc = card.imageAssetPath
             ? `/${card.imageAssetPath}`
             : card.imageUrl;
+
+          const rotationStyle = isPlayer
+            ? (isTapped ? 'rotate-90 scale-90 opacity-50 border-slate-700' : 'rotate-180 hover:scale-110 border-amber-400/60 shadow-xs')
+            : (isTapped ? 'rotate-90 scale-90 opacity-50 border-slate-700' : 'border-slate-700 hover:scale-110 shadow-xs');
 
           return (
             <div
@@ -73,11 +78,7 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
               }}
               onMouseLeave={() => onHoverCard?.(null)}
               onClick={() => onInspectCard?.(card)}
-              className={`relative shrink-0 w-6 h-7 sm:w-7 sm:h-8 rounded-xs overflow-hidden border transition-transform duration-150 cursor-pointer ${
-                isTapped
-                  ? 'opacity-40 border-slate-700 rotate-12 scale-90'
-                  : 'border-amber-400/60 hover:scale-110 shadow-xs'
-              }`}
+              className={`relative shrink-0 w-6 h-7 sm:w-7 sm:h-8 rounded-xs overflow-hidden border transition-transform duration-150 cursor-pointer ${rotationStyle}`}
               title={`${card.name} (${card.civilizations.join('/')}) - ${
                 isTapped ? 'Tapped' : 'Ready'
               }`}

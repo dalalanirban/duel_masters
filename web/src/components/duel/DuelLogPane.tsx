@@ -221,14 +221,23 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
         {isPlayerTurn ? (
           <>
             {phase === 'MANA_CHARGE' && (
-              <button
-                type="button"
-                onClick={onPassPhase}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-xs tracking-wider shadow-md transition-all cursor-pointer"
-              >
-                <span>Pass to Main Phase</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onPassPhase}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-xs tracking-wider shadow-md transition-colors cursor-pointer"
+                >
+                  <span>Pass to Main</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onEndTurn}
+                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <span>End Turn</span>
+                </button>
+              </div>
             )}
 
             {phase === 'MAIN' && (

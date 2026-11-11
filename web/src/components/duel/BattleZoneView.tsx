@@ -149,7 +149,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
               onInspectCard?.(card);
             }}
             onMouseLeave={() => onHoverCard?.(null)}
-            className={`relative shrink-0 w-20 h-28 sm:w-22 sm:h-30 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
+            className={`relative shrink-0 w-22 h-31 sm:w-24 sm:h-34 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
               isAttacker
                 ? 'ring-2 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
                 : canBeAttacked

@@ -10,7 +10,6 @@ import { PRESET_DECKS } from '../../data/presets';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
-import { ManaZoneView } from './ManaZoneView';
 import { BattleZoneView } from './BattleZoneView';
 import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
@@ -386,9 +385,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status */}
+      {/* Left Column: Card Inspector & Match Status (Expanded to fill gap to battle zone) */}
       <CardInspectorPane
-        className="w-44 sm:w-48 xl:w-52 shrink-0 h-full"
+        className="w-56 sm:w-64 xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
@@ -396,7 +395,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       />
 
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
-      <div className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-2 sm:p-3 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl">
+      <div className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl">
         {/* Ephemeral Turn Switch Banner */}
         {turnBanner && (
           <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
@@ -416,7 +415,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         )}
 
         {/* ================= 1. OPPONENT TERRITORY ================= */}
-        <div className="shrink-0 flex flex-col gap-1 w-full max-w-4xl mx-auto">
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
           {/* Opponent Hand */}
           <HandView
             hand={state.players.opponent.hand}
@@ -429,18 +428,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             onInspectCard={handleInspectCard}
           />
 
-          {/* Opponent Mana Strip */}
-          <ManaZoneView
-            manaZone={state.players.opponent.manaZone}
-            owner="opponent"
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
-
-          {/* Opponent Shields, Graveyard, and Deck (directly above battlefield) */}
+          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields | Deck (R) */}
           <ShieldsRow
             owner="opponent"
             shields={state.players.opponent.shields}
+            manaZone={state.players.opponent.manaZone}
             graveyard={state.players.opponent.graveyard}
             deck={state.players.opponent.deck}
             canTargetShields={selectedAttackerId !== null}
@@ -451,7 +443,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
-        <div className="flex-1 min-h-0 w-full max-w-4xl mx-auto flex flex-col justify-between py-2 relative my-1">
+        <div className="flex-1 min-h-0 w-full px-1.5 flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
           {/* Opponent Field */}
           <div className="w-full flex-1 min-h-0 flex items-center justify-center">
             <BattleZoneView
@@ -495,21 +487,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 3. PLAYER TERRITORY ================= */}
-        <div className="shrink-0 flex flex-col gap-1 w-full max-w-4xl mx-auto">
-          {/* Player Shields, Graveyard, and Deck (directly below battlefield, ABOVE mana bar!) */}
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana | Deck (R) */}
           <ShieldsRow
             owner="player"
             shields={state.players.player.shields}
+            manaZone={state.players.player.manaZone}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
-            onHoverCard={handleHoverCard}
-            onInspectCard={handleInspectCard}
-          />
-
-          {/* Player Mana Strip (below shields, above hand!) */}
-          <ManaZoneView
-            manaZone={state.players.player.manaZone}
-            owner="player"
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
