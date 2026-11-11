@@ -1,5 +1,5 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Swords } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
@@ -59,6 +59,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
+
+  // Turn change impact banner
+  useEffect(() => {
+    setTurnBanner({ turn: state.turn, player: state.activePlayer });
+    const timer = setTimeout(() => {
+      setTurnBanner(null);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [state.turn, state.activePlayer]);
 
   // Evolution bait mode
   const [evolutionCandidate, setEvolutionCandidate] = useState<{
@@ -375,7 +385,25 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       />
 
       {/* Center Column: The Battle Arena (8 Rows, Zero Page Scroll) */}
-      <div className="flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-1.5 gap-0.5 sm:gap-1 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950">
+      <div className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-1.5 gap-0.5 sm:gap-1 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/35 via-slate-950/75 to-[#070b14] border-x border-slate-800/60 shadow-inner">
+        {/* Ephemeral Turn Switch Banner */}
+        {turnBanner && (
+          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-all duration-300">
+            <div
+              className={`px-6 py-2.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2.5 ${
+                turnBanner.player === 'player'
+                  ? 'bg-amber-950/85 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40 animate-pulse'
+                  : 'bg-indigo-950/85 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40 animate-pulse'
+              }`}
+            >
+              <Swords className={`w-4 h-4 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
+              <span className="font-cinzel font-bold text-xs sm:text-sm tracking-widest uppercase">
+                TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 1. Opponent Hand */}
         <HandView
           hand={state.players.opponent.hand}

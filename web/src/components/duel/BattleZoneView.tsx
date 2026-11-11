@@ -57,20 +57,20 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
 
   if (battleZone.length === 0) {
     return (
-      <div className="h-10 sm:h-12 w-full rounded-lg border border-dashed border-slate-800/50 bg-slate-950/25 relative flex items-center justify-center select-none shrink-0">
-        <div className="flex items-center gap-1.5 font-cinzel font-bold text-slate-700/60 text-xs tracking-wider uppercase select-none pointer-events-none">
-          <Swords className="w-3.5 h-3.5 opacity-50" />
-          <span>{isOpponent ? "Opponent Field" : "Your Field"}</span>
+      <div className="h-10 sm:h-12 w-full rounded-lg border border-dashed border-slate-800/40 bg-slate-950/20 relative flex items-center justify-center select-none shrink-0">
+        <div className="flex items-center gap-2 font-cinzel font-bold text-slate-700/40 text-[10px] tracking-[0.25em] uppercase select-none pointer-events-none">
+          <Swords className="w-3 h-3 opacity-40" />
+          <span>{isOpponent ? 'OPPONENT BATTLE ZONE' : 'YOUR BATTLE ZONE'}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-21 sm:h-23 rounded-lg border border-slate-800/90 bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin relative select-none shrink-0 w-full">
+    <div className="h-21 sm:h-23 rounded-lg border border-slate-800/80 bg-gradient-to-b from-slate-950/90 via-slate-900/50 to-slate-950/90 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin relative select-none shrink-0 w-full">
       {/* Subtle centered watermark */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-xs font-cinzel font-bold text-slate-800/30 uppercase tracking-widest">
-        BATTLE ZONE
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/30 uppercase tracking-[0.25em]">
+        {isOpponent ? 'OPPONENT BATTLE ZONE' : 'YOUR BATTLE ZONE'}
       </div>
 
       {/* Floating targeting alert overlay - zero vertical height */}
@@ -156,9 +156,11 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
               onMouseLeave={() => onHoverCard?.(null)}
               className={`relative shrink-0 w-14 h-19 sm:w-15 sm:h-20 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-md group ${
                 isAttacker
-                  ? 'ring-3 ring-amber-400 scale-105 shadow-amber-500/50 z-20 animate-pulse'
+                  ? 'ring-3 ring-amber-400 scale-105 shadow-lg shadow-amber-500/50 z-20 animate-pulse'
                   : canBeAttacked
-                  ? 'ring-2 ring-red-500 hover:scale-105 shadow-red-500/40 z-10 animate-bounce-subtle'
+                  ? 'ring-3 ring-red-500 hover:scale-110 shadow-lg shadow-red-500/50 z-20 animate-pulse cursor-crosshair'
+                  : selectedAttackerId && isOpponent
+                  ? 'opacity-35 grayscale-40 border border-slate-800 cursor-not-allowed'
                   : isBaitCandidate
                   ? 'ring-2 ring-cyan-400 hover:scale-105 shadow-cyan-500/40 z-10'
                   : isSpellTargetCandidate
@@ -167,6 +169,8 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                   ? 'ring-1 ring-emerald-400/80 hover:ring-amber-400 hover:scale-105 shadow-emerald-500/20'
                   : isTapped
                   ? 'opacity-65 rotate-90 scale-90 border border-slate-700'
+                  : selectedAttackerId && !isOpponent
+                  ? 'opacity-70 border border-slate-700'
                   : 'border border-slate-700 hover:border-slate-500'
               }`}
               title={`${card.name} - Power: ${effectivePower}`}

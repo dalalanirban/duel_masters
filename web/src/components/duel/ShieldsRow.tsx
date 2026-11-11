@@ -103,7 +103,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
       {/* ================= 2. CENTER: 5 SHIELD SLOTS ================= */}
       <div className="flex-1 min-w-0 relative">
         {/* Subtle centered watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/40 uppercase tracking-widest">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-700/30 uppercase tracking-[0.25em]">
           {isOpponent ? 'OPPONENT SHIELDS' : 'YOUR SHIELDS'}
         </div>
         <ShieldsView

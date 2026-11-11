@@ -22,13 +22,18 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
   className = ''
 }) => {
   const isOpponent = owner === 'opponent';
-  const untappedCount = manaZone.filter((m) => !m.isTapped).length;
+  const untappedMana = manaZone.filter((m) => !m.isTapped);
+  const untappedCount = untappedMana.length;
   const totalCount = manaZone.length;
 
-  // Collect available civilizations
-  const civilizations = Array.from(
+  // Collect all available civilizations and available untapped civilizations
+  const allCivilizations = Array.from(
     new Set(manaZone.flatMap((m) => m.card.civilizations))
   ) as Civilization[];
+
+  const untappedCivs = new Set(
+    untappedMana.flatMap((m) => m.card.civilizations)
+  );
 
   // 1. Empty State (0 Cards in Mana Zone)
   if (totalCount === 0) {
@@ -52,18 +57,31 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
       className={`relative select-none shrink-0 ${className}`}
     >
       {/* Floating Overlay Pill: Untapped/Total Mana Count + Civ Icons */}
-      <div className="absolute top-0.5 right-1 z-20 flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-900/80 border border-slate-800/80 text-[9px] font-mono font-bold text-amber-400/90 pointer-events-none backdrop-blur-xs shadow-xs">
-        <Sparkles className="w-2.5 h-2.5 text-amber-400/80 shrink-0" />
-        <span>
-          {untappedCount}/{totalCount}
-        </span>
-        {civilizations.length > 0 && (
-          <div className="flex items-center gap-0.5 ml-0.5">
-            {civilizations.map((civ) => (
-              <div key={civ} title={civ}>
-                <CivilizationIcon civilization={civ} className="w-2.5 h-2.5" />
-              </div>
-            ))}
+      <div className="absolute top-0.5 right-1 z-20 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-800 text-[9px] font-mono font-bold text-amber-400 pointer-events-none backdrop-blur-md shadow-md">
+        <div className="flex items-center gap-1">
+          <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+          <span>
+            {untappedCount}/{totalCount}
+          </span>
+        </div>
+        {allCivilizations.length > 0 && (
+          <div className="flex items-center gap-1 border-l border-slate-800/80 pl-1">
+            {allCivilizations.map((civ) => {
+              const isReady = untappedCivs.has(civ);
+              return (
+                <div
+                  key={civ}
+                  title={`${civ} (${isReady ? 'Ready' : 'All tapped'})`}
+                  className={`rounded-full p-0.5 transition-all ${
+                    isReady
+                      ? 'ring-1 ring-amber-400/80 shadow-xs shadow-amber-400/30'
+                      : 'opacity-35 grayscale'
+                  }`}
+                >
+                  <CivilizationIcon civilization={civ} className="w-2.5 h-2.5" />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -75,7 +93,7 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
         } relative rounded-md border border-slate-800/80 bg-slate-950/60 flex items-center gap-1 overflow-x-auto scrollbar-thin`}
       >
         {/* Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/40 uppercase tracking-widest">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-700/30 uppercase tracking-[0.25em]">
           {isOpponent ? 'OPPONENT MANA' : 'MANA ZONE'}
         </div>
 

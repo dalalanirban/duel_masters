@@ -42,7 +42,7 @@ export const HandView: React.FC<HandViewProps> = ({
         className="h-7 sm:h-8 px-2 py-0.5 rounded-lg bg-slate-950/60 border border-slate-800/60 relative flex items-center justify-center shrink-0 select-none"
       >
         {/* Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-800/60 uppercase tracking-widest">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[9px] font-cinzel font-bold text-slate-800/40 uppercase tracking-[0.25em]">
           OPPONENT HAND
         </div>
 
@@ -78,9 +78,9 @@ export const HandView: React.FC<HandViewProps> = ({
       </div>
 
       {/* Hand Row */}
-      <div className="h-22 sm:h-24 relative rounded-lg border border-slate-800/90 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+      <div className="h-22 sm:h-24 relative rounded-lg border border-slate-800/80 bg-gradient-to-t from-slate-950 via-slate-900/40 to-slate-950/80 p-1 flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-thin">
         {/* Subtle Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-xs font-cinzel font-bold text-slate-800/40 uppercase tracking-widest">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-[10px] font-cinzel font-bold text-slate-800/30 uppercase tracking-[0.25em]">
           YOUR HAND
         </div>
 
@@ -109,7 +109,7 @@ export const HandView: React.FC<HandViewProps> = ({
             return (
               <div
                 key={item.instanceId}
-                className="relative group shrink-0 z-10"
+                className="relative group shrink-0 transition-transform duration-200 hover:z-30 hover:-translate-y-1.5"
                 onMouseEnter={() => onHoverCard?.(card)}
                 onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => {
@@ -120,10 +120,10 @@ export const HandView: React.FC<HandViewProps> = ({
                 <div
                   className={`relative w-14 h-20 sm:w-15 sm:h-22 aspect-[491/682] rounded-md overflow-hidden cursor-pointer transition-all duration-200 shadow-md ${
                     canPlay
-                      ? 'ring-2 ring-cyan-400/90 shadow-cyan-500/25 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:shadow-cyan-400/50'
+                      ? 'ring-2 ring-emerald-400 shadow-emerald-500/30 group-hover:ring-amber-300 group-hover:shadow-amber-400/50 group-hover:scale-105'
                       : canCharge
-                      ? 'ring-1 ring-amber-500/60 group-hover:-translate-y-0.5'
-                      : 'border border-slate-700/80 opacity-90 group-hover:-translate-y-0.5'
+                      ? 'ring-1 ring-amber-500/50 group-hover:ring-amber-400/80 group-hover:scale-104'
+                      : 'border border-slate-700/80 opacity-90 group-hover:scale-104'
                   }`}
                 >
                   <img
@@ -145,15 +145,15 @@ export const HandView: React.FC<HandViewProps> = ({
 
                   {/* Playable Badge */}
                   {canPlay && (
-                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-cyan-500 text-slate-950 font-cinzel font-black text-[8px] shadow animate-pulse">
+                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-cinzel font-black text-[7px] tracking-wider shadow animate-pulse">
                       PLAYABLE
                     </div>
                   )}
 
-                  {/* Quick Action Overlay on Hover / Active */}
+                  {/* Quick Action Bottom Bar on Hover / Active */}
                   <div
-                    className={`absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center gap-1 p-1 transition-opacity duration-200 z-30 ${
-                      isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent flex flex-col items-center justify-end gap-1 p-1 pt-3 transition-all duration-200 z-30 ${
+                      isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
                     }`}
                     onClick={(e) => e.stopPropagation()}
                   >
