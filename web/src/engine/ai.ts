@@ -1,7 +1,7 @@
 import type { GameState, GameAction, PlayerId, CardInstance, CreatureInstance } from './types.ts';
 import { canPayManaCost } from './mana.ts';
 import { isSummoningSick, isValidEvolutionBait, isEvolutionCreature } from './evolution.ts';
-import { getCreatureEffectivePower } from './combat.ts';
+import { getCreatureEffectivePower, hasCreatureSlayer } from './combat.ts';
 
 /**
  * Intelligent AI player step generator.
@@ -47,7 +47,25 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
           };
         }
 
-        // 2. If AI has 0 unbroken shields and attack is on player, sacrifice lowest power blocker to survive!
+        // 2. Check if a blocker has Slayer to trade with a high-threat attacker (attPower >= 4000 or direct attack)
+        const isDirectAttack = state.combatState?.target.type === 'player';
+        if (attPower >= 4000 || isDirectAttack) {
+          const slayerBlockers = validBlockers.filter((b) =>
+            hasCreatureSlayer(b, aiState.battleZone)
+          );
+          if (slayerBlockers.length > 0) {
+            const sortedSlayers = [...slayerBlockers].sort(
+              (a, b) => getCreatureEffectivePower(a, false) - getCreatureEffectivePower(b, false)
+            );
+            return {
+              type: 'DECLARE_BLOCK',
+              player: aiPlayer,
+              blockerId: sortedSlayers[0].instanceId
+            };
+          }
+        }
+
+        // 3. If AI has 0 unbroken shields and attack is on player, sacrifice lowest power blocker to survive!
         const unbrokenCount = aiState.shields.filter((s) => !s.isBroken).length;
         if (unbrokenCount === 0) {
           const sorted = [...validBlockers].sort(
@@ -240,7 +258,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
       // Find ready untapped creatures without summoning sickness and respecting attack restrictions
       const eligible = aiState.battleZone.filter((c) => {
-        if (c.isTapped || isSummoningSick(c, state.turn)) return false;
+        if (c.isTapped || isSummoningSick(c, state.turn, aiState.battleZone)) return false;
         const rules = c.card.rulesText || '';
         if (/this creature can't attack(?!\s+players)/i.test(rules)) return false;
         if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) return false;

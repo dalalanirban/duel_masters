@@ -1,5 +1,5 @@
 import type { CardDefinition, Civilization } from '../types/card';
-import type { GameState, ManaCardInstance, PlayerId } from './types';
+import type { GameState, ManaCardInstance, CardInstance, PlayerId } from './types';
 
 /**
  * Returns the number of currently untapped cards in the mana zone.
@@ -91,8 +91,8 @@ export function chargeMana(
     throw new Error(`Cannot charge mana when it is not ${player}'s turn.`);
   }
 
-  if (state.phase !== 'MANA_CHARGE' && state.phase !== 'MAIN') {
-    throw new Error(`Cannot charge mana during ${state.phase} phase.`);
+  if (state.phase !== 'MANA_CHARGE') {
+    throw new Error(`Cannot charge mana during ${state.phase} phase. Mana must be charged during MANA_CHARGE phase.`);
   }
 
   const playerState = state.players[player];
@@ -134,6 +134,66 @@ export function chargeMana(
     actionLog: [
       ...state.actionLog,
       `${player} charged ${cardToCharge.card.name} into the mana zone${isMultiCiv ? ' (tapped)' : ''}.`
+    ]
+  };
+}
+
+/**
+ * Undoes the mana charge action performed this turn:
+ * - Only permitted during the MANA_CHARGE phase before moving to Main Phase or taking other actions.
+ * - Removes the charged card from the mana zone and returns it back to the hand.
+ * - Resets manaChargedThisTurn to false.
+ */
+export function undoChargeMana(
+  state: GameState,
+  player: PlayerId
+): GameState {
+  if (state.winner !== null) {
+    throw new Error(`Game has already ended. Winner: ${state.winner}`);
+  }
+
+  if (state.activePlayer !== player) {
+    throw new Error(`Cannot undo mana charge when it is not ${player}'s turn.`);
+  }
+
+  if (state.phase !== 'MANA_CHARGE') {
+    throw new Error(`Cannot undo mana charge outside of MANA_CHARGE phase.`);
+  }
+
+  const playerState = state.players[player];
+  if (!playerState.manaChargedThisTurn) {
+    throw new Error(`No mana card was charged this turn to undo.`);
+  }
+
+  if (playerState.manaZone.length === 0) {
+    throw new Error(`Mana zone is empty.`);
+  }
+
+  const lastIndex = playerState.manaZone.length - 1;
+  const returnedManaCard = playerState.manaZone[lastIndex];
+
+  const nextManaZone = playerState.manaZone.slice(0, lastIndex);
+  const returnedCardInstance: CardInstance = {
+    instanceId: returnedManaCard.instanceId,
+    card: returnedManaCard.card,
+    owner: player
+  };
+  const nextHand = [...playerState.hand, returnedCardInstance];
+
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [player]: {
+        ...playerState,
+        hand: nextHand,
+        manaZone: nextManaZone,
+        manaChargedThisTurn: false
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${player} returned ${returnedManaCard.card.name} from the mana zone back to hand.`
     ]
   };
 }

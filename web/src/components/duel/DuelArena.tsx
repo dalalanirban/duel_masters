@@ -1,15 +1,5 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  Swords,
-  RotateCcw,
-  Bot,
-  User,
-  History,
-  X,
-  Sparkles,
-  Zap,
-  ArrowRight
-} from 'lucide-react';
+import { Sparkles, Swords } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
@@ -17,14 +7,14 @@ import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
 import { isValidEvolutionBait, isEvolutionCreature } from '../../engine/evolution';
 import { PRESET_DECKS } from '../../data/presets';
-import { ShieldsView } from './ShieldsView';
-import { ManaZoneView } from './ManaZoneView';
+import { CardInspectorPane } from './CardInspectorPane';
+import { DuelLogPane } from './DuelLogPane';
+import { ShieldsRow } from './ShieldsRow';
 import { BattleZoneView } from './BattleZoneView';
 import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
-import { CardModal } from '../card/CardModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -51,8 +41,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     return totalCards >= 10 ? activeDeck : PRESET_DECKS[0];
   }, [activeDeck]);
 
-  const [selectedPlayerDeck, setSelectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
-  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
+  const [selectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
+  const [selectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
 
   // Game state reducer
   const [state, dispatch] = useReducer(
@@ -64,9 +54,19 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // UI state
   const [selectedAttackerId, setSelectedAttackerId] = useState<string | null>(null);
   const [isAutoPlayOpponent, setIsAutoPlayOpponent] = useState<boolean>(true);
-  const [isLogDrawerOpen, setIsLogDrawerOpen] = useState<boolean>(false);
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
+
+  // Turn change impact banner
+  useEffect(() => {
+    setTurnBanner({ turn: state.turn, player: state.activePlayer });
+    const timer = setTimeout(() => {
+      setTurnBanner(null);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [state.turn, state.activePlayer]);
 
   // Evolution bait mode
   const [evolutionCandidate, setEvolutionCandidate] = useState<{
@@ -88,6 +88,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  }, []);
+
+  // Card Inspection: Hover is transient (clears on mouse leave), click toggles sticky pin
+  const handleHoverCard = useCallback((card: CardDefinition | null) => {
+    setHoveredCard(card);
+  }, []);
+
+  const handleInspectCard = useCallback((card: CardDefinition) => {
+    setInspectedCard((prev) => (prev?.id === card.id ? null : card));
   }, []);
 
   // Restart match handler
@@ -424,7 +433,23 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     dispatch({ type: 'END_TURN', player: 'player' });
   };
 
+  // Undo mana charge
+  const handleUndoChargeMana = () => {
+    dispatch({ type: 'UNDO_CHARGE_MANA', player: 'player' });
+  };
+
   const isPlayerTurn = state.activePlayer === 'player';
+
+  // Calculate attack targeting constraints
+  const selectedAttacker = selectedAttackerId
+    ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
+    : null;
+
+  const attackerCannotAttackPlayers = Boolean(
+    selectedAttacker &&
+    /this creature can't attack players/i.test(selectedAttacker.card.rulesText || '')
+  );
+
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
   const selectedAttacker = selectedAttackerId
     ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
@@ -432,6 +457,24 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const attackerBreakerCount = selectedAttacker?.card.breakerCount || 1;
   const requiredBreakerCount = Math.min(attackerBreakerCount, oppUnbrokenShieldsCount);
   const canDirectAttack = selectedAttackerId !== null && oppUnbrokenShieldsCount === 0;
+
+  const canTargetShields = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount > 0
+  );
+
+  const canDirectAttack = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount === 0
+  );
+
+  const canUndoMana = Boolean(
+    isPlayerTurn &&
+    state.phase === 'MANA_CHARGE' &&
+    state.players.player.manaChargedThisTurn
+  );
 
   // Active interaction states for player modals
   const isPlayerTriggerPending =
@@ -447,103 +490,86 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     state.pendingInteraction.defendingPlayer === 'player');
 
   return (
-    <div className="flex-1 w-full max-w-[1700px] mx-auto p-2 sm:p-4 flex flex-col gap-3">
-      {/* Top Deck & Settings Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
-        {/* Left: Player vs Opponent Info */}
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-emerald-400" />
-            <span className="font-cinzel font-bold text-slate-200">Player:</span>
-            <span className="font-mono text-amber-300 font-semibold">{selectedPlayerDeck.name}</span>
-          </div>
+    <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
+      {/* Left Column: Card Inspector & Match Status (Expanded to fill gap to battle zone) */}
+      <CardInspectorPane
+        className="w-56 sm:w-64 xl:w-72 shrink-0 h-full"
+        inspectedCard={hoveredCard || inspectedCard}
+        turn={state.turn}
+        activePlayer={state.activePlayer}
+        phase={state.phase}
+      />
 
-          <span className="text-slate-600">VS</span>
-
-          <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 text-red-400" />
-            <span className="font-cinzel font-bold text-slate-200">Opponent:</span>
-            {/* Opponent Deck Selector */}
-            <div className="relative inline-block">
-              <select
-                value={selectedOpponentDeck.id}
-                onChange={(e) => {
-                  const picked = PRESET_DECKS.find((d) => d.id === e.target.value);
-                  if (picked) handleDeckChange(selectedPlayerDeck, picked);
-                }}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs focus:ring-1 focus:ring-amber-500"
-              >
-                {PRESET_DECKS.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+      {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
+      <div
+        onClick={() => setInspectedCard(null)}
+        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+      >
+        {/* Ephemeral Turn Switch Banner */}
+        {turnBanner && (
+          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
+            <div
+              className={`px-6 py-2.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2.5 ${
+                turnBanner.player === 'player'
+                  ? 'bg-amber-950/90 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40 animate-pulse'
+                  : 'bg-indigo-950/90 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40 animate-pulse'
+              }`}
+            >
+              <Swords className={`w-4 h-4 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
+              <span className="font-cinzel font-bold text-xs sm:text-sm tracking-widest uppercase">
+                TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+              </span>
             </div>
           </div>
+        )}
+
+        {/* ================= 1. OPPONENT TERRITORY ================= */}
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
+          {/* Opponent Hand */}
+          <HandView
+            hand={state.players.opponent.hand}
+            owner="opponent"
+            manaZone={state.players.opponent.manaZone}
+            isPlayerTurn={isPlayerTurn}
+            phase={state.phase}
+            manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
+
+          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields | Deck (R) */}
+          <ShieldsRow
+            owner="opponent"
+            shields={state.players.opponent.shields}
+            manaZone={state.players.opponent.manaZone}
+            graveyard={state.players.opponent.graveyard}
+            deck={state.players.opponent.deck}
+            canTargetShields={canTargetShields}
+            canDirectAttack={canDirectAttack}
+            onDirectAttack={handleDirectAttack}
+            onSelectShield={handleSelectShieldTarget}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
         </div>
 
-        {/* Right: Quick Match Actions */}
-        <div className="flex items-center gap-2">
-          {/* Auto-Play Opponent Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsAutoPlayOpponent(!isAutoPlayOpponent)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-              isAutoPlayOpponent
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm'
-                : 'bg-slate-800 border-slate-700 text-slate-400'
-            }`}
-            title="When active, AI automatically takes its turn and resolves reactions"
-          >
-            {isAutoPlayOpponent ? (
-              <>
-                <Bot className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span>AI Auto-Play: ON</span>
-              </>
-            ) : (
-              <>
-                <Bot className="w-3.5 h-3.5 text-slate-500" />
-                <span>AI Auto-Play: OFF</span>
-              </>
-            )}
-          </button>
-
-          {/* Action Log Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsLogDrawerOpen(!isLogDrawerOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-          >
-            <History className="w-3.5 h-3.5 text-amber-400" />
-            <span>Duel Log</span>
-          </button>
-
-          {/* Restart Match */}
-          <button
-            type="button"
-            onClick={handleRestart}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 text-slate-300 border border-slate-700 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restart</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Duel Battlefield Arena Grid */}
-      <div className="flex flex-col gap-3">
-        {/* ================= OPPONENT FIELD (TOP) ================= */}
-        <div className="rounded-2xl border border-red-950/60 bg-gradient-to-b from-slate-950 via-slate-900/60 to-slate-950 p-3 sm:p-4 space-y-3">
-          {/* Opponent Hand & Mana */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <HandView
-              hand={state.players.opponent.hand}
+        {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
+        <div className="flex-1 min-h-0 w-full px-1.5 flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
+          {/* Opponent Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.opponent.battleZone}
               owner="opponent"
-              manaZone={state.players.opponent.manaZone}
-              isPlayerTurn={isPlayerTurn}
+              turn={state.turn}
               phase={state.phase}
-              manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectTargetCreature={handleSelectCreatureTarget}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              spellTargetMode={spellCandidate !== null}
+              validSpellTargetIds={spellCandidate?.validTargetIds}
+              onSelectSpellTarget={handleSelectSpellTarget}
             />
 
             <ManaZoneView
@@ -700,63 +726,86 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               </button>
             )}
           </div>
+
+          {/* Minimalist Center Midline Divider */}
+          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none">
+            <div className="w-4/5 h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
+          </div>
+
+          {/* Player Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.player.battleZone}
+              owner="player"
+              turn={state.turn}
+              phase={state.phase}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectAttacker={handleSelectAttacker}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              evolutionSelectionMode={evolutionCandidate !== null}
+              validBaitIds={evolutionCandidate?.validBaitIds}
+              onSelectBait={handleSelectBait}
+            />
+          </div>
         </div>
 
-        {/* ================= PLAYER FIELD (BOTTOM) ================= */}
-        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-slate-950 via-slate-900/60 to-slate-950 p-3 sm:p-4 space-y-3">
-          {/* Player Shields & Battle Zone */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-            <div className="lg:col-span-4">
-              <ShieldsView
-                shields={state.players.player.shields}
-                owner="player"
-              />
-            </div>
+        {/* ================= 3. PLAYER TERRITORY ================= */}
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana | Deck (R) */}
+          <ShieldsRow
+            owner="player"
+            shields={state.players.player.shields}
+            manaZone={state.players.player.manaZone}
+            graveyard={state.players.player.graveyard}
+            deck={state.players.player.deck}
+            canUndoMana={canUndoMana}
+            onUndoMana={handleUndoChargeMana}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
 
-            <div className="lg:col-span-8">
-              <BattleZoneView
-                battleZone={state.players.player.battleZone}
-                owner="player"
-                turn={state.turn}
-                phase={state.phase}
-                activePlayer={state.activePlayer}
-                selectedAttackerId={selectedAttackerId}
-                onSelectAttacker={handleSelectAttacker}
-                onInspectCard={setInspectedCard}
-                evolutionSelectionMode={evolutionCandidate !== null}
-                validBaitIds={evolutionCandidate?.validBaitIds}
-                onSelectBait={handleSelectBait}
-              />
-            </div>
-          </div>
-
-          {/* Player Mana & Hand */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <ManaZoneView
-              manaZone={state.players.player.manaZone}
-              owner="player"
-              onInspectCard={setInspectedCard}
-            />
-
-            <HandView
-              hand={state.players.player.hand}
-              owner="player"
-              manaZone={state.players.player.manaZone}
-              isPlayerTurn={isPlayerTurn}
-              phase={state.phase}
-              manaChargedThisTurn={state.players.player.manaChargedThisTurn}
-              onChargeMana={handleChargeMana}
-              onSummonCreature={handleSummonCreature}
-              onCastSpell={handleCastSpell}
-              onInspectCard={setInspectedCard}
-            />
-          </div>
+          {/* Player Hand */}
+          <HandView
+            hand={state.players.player.hand}
+            owner="player"
+            manaZone={state.players.player.manaZone}
+            isPlayerTurn={isPlayerTurn}
+            phase={state.phase}
+            manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+            onChargeMana={handleChargeMana}
+            onSummonCreature={handleSummonCreature}
+            onCastSpell={handleCastSpell}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
         </div>
       </div>
 
-      {/* ================= MODALS & DRAWERS ================= */}
+      {/* Right Column: Duel Log & Action Controls */}
+      <DuelLogPane
+        className="w-64 lg:w-72 xl:w-80 shrink-0 h-full"
+        actionLog={state.actionLog}
+        activePlayer={state.activePlayer}
+        phase={state.phase}
+        isAutoPlayOpponent={isAutoPlayOpponent}
+        onToggleAutoPlay={() => setIsAutoPlayOpponent(!isAutoPlayOpponent)}
+        onRestart={handleRestart}
+        onExit={onNavigateToBuilder}
+        isPlayerTurn={isPlayerTurn}
+        canDirectAttack={canDirectAttack}
+        onDirectAttack={handleDirectAttack}
+        canUndoMana={canUndoMana}
+        onUndoMana={handleUndoChargeMana}
+        onPassPhase={handlePassPhase}
+        onEndTurn={handleEndTurn}
+        onPlayOpponentMove={triggerAiStep}
+        onInspectCard={handleInspectCard}
+        onHoverCard={handleHoverCard}
+      />
 
-      {/* 1. Shield Trigger Modal (For Player) */}
+      {/* Modals & Overlays */}
       <TriggerModal
         isOpen={isPlayerTriggerPending}
         interaction={
@@ -777,7 +826,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         }}
       />
 
-      {/* 2. Blocker Modal (For Player) */}
       <BlockerModal
         isOpen={isPlayerBlockerPending}
         interaction={
@@ -796,7 +844,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         }}
       />
 
-      {/* 3. Game Over Celebration Modal */}
       <GameOverModal
         isOpen={state.winner !== null}
         winner={state.winner}
@@ -805,57 +852,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onChangeDecks={onNavigateToBuilder}
       />
 
-      {/* 4. Inspected Card Detail Modal */}
-      <CardModal
-        card={inspectedCard}
-        deckCount={0}
-        onClose={() => setInspectedCard(null)}
-        onAdd={() => {}}
-        onRemove={() => {}}
-      />
-
-      {/* 5. Slide-out Action Log Drawer */}
-      {isLogDrawerOpen && (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-fade-in"
-          onClick={() => setIsLogDrawerOpen(false)}
-        >
-          <div
-            className="w-full max-w-md h-full bg-slate-900 border-l border-slate-800 p-5 shadow-2xl flex flex-col gap-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-amber-400" />
-                <h3 className="font-cinzel font-bold text-white text-base">Duel Event Log</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsLogDrawerOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs pr-1">
-              {state.actionLog.slice().reverse().map((log, i) => (
-                <div
-                  key={i}
-                  className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/80 text-slate-300 leading-relaxed"
-                >
-                  <span className="text-amber-500 font-bold mr-2">#{state.actionLog.length - i}</span>
-                  {log}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Notification Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-semibold text-xs shadow-2xl animate-fade-in">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-semibold text-xs shadow-2xl animate-fade-in pointer-events-none">
           <Sparkles className="w-4 h-4" />
           <span>{toastMessage}</span>
         </div>
