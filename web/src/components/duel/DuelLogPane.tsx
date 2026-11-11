@@ -7,7 +7,8 @@ import {
   LogOut,
   Zap,
   ArrowRight,
-  History
+  History,
+  Undo2
 } from 'lucide-react';
 import type { CardDefinition } from '../../types/card';
 import { parseLogTextWithCards, type LogToken } from './duelLogParser';
@@ -25,6 +26,8 @@ export interface DuelLogPaneProps {
   isPlayerTurn: boolean;
   canDirectAttack: boolean;
   onDirectAttack?: () => void;
+  canUndoMana?: boolean;
+  onUndoMana?: () => void;
   onPassPhase?: () => void;
   onEndTurn?: () => void;
   onPlayOpponentMove?: () => void;
@@ -44,6 +47,8 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
   isPlayerTurn,
   canDirectAttack,
   onDirectAttack,
+  canUndoMana = false,
+  onUndoMana,
   onPassPhase,
   onEndTurn,
   onPlayOpponentMove,
@@ -221,14 +226,34 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
         {isPlayerTurn ? (
           <>
             {phase === 'MANA_CHARGE' && (
-              <button
-                type="button"
-                onClick={onPassPhase}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-xs tracking-wider shadow-md transition-all cursor-pointer"
-              >
-                <span>Pass to Main Phase</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {canUndoMana && (
+                  <button
+                    type="button"
+                    onClick={onUndoMana}
+                    title="Undo mana charge"
+                    className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-mono text-xs font-semibold transition-colors cursor-pointer border border-amber-400/30 shadow-sm shrink-0"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Undo</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onPassPhase}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-xs tracking-wider shadow-md transition-colors cursor-pointer"
+                >
+                  <span>Pass to Main</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onEndTurn}
+                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                >
+                  <span>End Turn</span>
+                </button>
+              </div>
             )}
 
             {phase === 'MAIN' && (

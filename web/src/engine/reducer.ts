@@ -1,5 +1,5 @@
 import type { GameState, GameAction, PlayerId, AttackTarget } from './types.ts';
-import { chargeMana } from './mana.ts';
+import { chargeMana, undoChargeMana } from './mana.ts';
 import { summonCreature, isSummoningSick } from './evolution.ts';
 import { castSpell } from './spells.ts';
 import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
@@ -92,6 +92,11 @@ export function step(state: GameState, action: GameAction): GameState {
       case 'CHARGE_MANA': {
         const player: PlayerId = action.player || state.activePlayer;
         return chargeMana(state, player, action.cardInstanceId);
+      }
+
+      case 'UNDO_CHARGE_MANA': {
+        const player: PlayerId = action.player || state.activePlayer;
+        return undoChargeMana(state, player);
       }
 
       case 'SUMMON_CREATURE': {

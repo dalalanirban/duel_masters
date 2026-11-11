@@ -1,5 +1,5 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Swords } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
@@ -10,13 +10,11 @@ import { PRESET_DECKS } from '../../data/presets';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
-import { ManaZoneView } from './ManaZoneView';
 import { BattleZoneView } from './BattleZoneView';
 import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
-import { CardModal } from '../card/CardModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -59,6 +57,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
+
+  // Turn change impact banner
+  useEffect(() => {
+    setTurnBanner({ turn: state.turn, player: state.activePlayer });
+    const timer = setTimeout(() => {
+      setTurnBanner(null);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [state.turn, state.activePlayer]);
 
   // Evolution bait mode
   const [evolutionCandidate, setEvolutionCandidate] = useState<{
@@ -77,6 +85,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  }, []);
+
+  // Card Inspection: Hover is transient (clears on mouse leave), click toggles sticky pin
+  const handleHoverCard = useCallback((card: CardDefinition | null) => {
+    setHoveredCard(card);
+  }, []);
+
+  const handleInspectCard = useCallback((card: CardDefinition) => {
+    setInspectedCard((prev) => (prev?.id === card.id ? null : card));
   }, []);
 
   // Restart match handler
@@ -346,9 +363,42 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     dispatch({ type: 'END_TURN', player: 'player' });
   };
 
+  // Undo mana charge
+  const handleUndoChargeMana = () => {
+    dispatch({ type: 'UNDO_CHARGE_MANA', player: 'player' });
+  };
+
   const isPlayerTurn = state.activePlayer === 'player';
+
+  // Calculate attack targeting constraints
+  const selectedAttacker = selectedAttackerId
+    ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
+    : null;
+
+  const attackerCannotAttackPlayers = Boolean(
+    selectedAttacker &&
+    /this creature can't attack players/i.test(selectedAttacker.card.rulesText || '')
+  );
+
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
-  const canDirectAttack = selectedAttackerId !== null && oppUnbrokenShieldsCount === 0;
+
+  const canTargetShields = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount > 0
+  );
+
+  const canDirectAttack = Boolean(
+    selectedAttacker &&
+    !attackerCannotAttackPlayers &&
+    oppUnbrokenShieldsCount === 0
+  );
+
+  const canUndoMana = Boolean(
+    isPlayerTurn &&
+    state.phase === 'MANA_CHARGE' &&
+    state.players.player.manaChargedThisTurn
+  );
 
   // Active interaction states for player modals
   const isPlayerTriggerPending =
@@ -364,116 +414,143 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     state.pendingInteraction.defendingPlayer === 'player');
 
   return (
-    <div className="w-full h-full flex flex-row overflow-hidden bg-slate-950 text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status */}
+    <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
+      {/* Left Column: Card Inspector & Match Status (Expanded to fill gap to battle zone) */}
       <CardInspectorPane
-        className="w-64 lg:w-72 xl:w-80 shrink-0 h-full"
+        className="w-56 sm:w-64 xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
         phase={state.phase}
-        playerDeckName={selectedPlayerDeck.name}
-        opponentDeckName={selectedOpponentDeck.name}
       />
 
-      {/* Center Column: The Battle Arena (8 Rows, Zero Page Scroll) */}
-      <div className="flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-1.5 gap-0.5 sm:gap-1 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950">
-        {/* 1. Opponent Hand */}
-        <HandView
-          hand={state.players.opponent.hand}
-          owner="opponent"
-          manaZone={state.players.opponent.manaZone}
-          isPlayerTurn={isPlayerTurn}
-          phase={state.phase}
-          manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+      {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
+      <div
+        onClick={() => setInspectedCard(null)}
+        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar p-1 sm:p-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+      >
+        {/* Ephemeral Turn Switch Banner */}
+        {turnBanner && (
+          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
+            <div
+              className={`px-6 py-2.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2.5 ${
+                turnBanner.player === 'player'
+                  ? 'bg-amber-950/90 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40 animate-pulse'
+                  : 'bg-indigo-950/90 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40 animate-pulse'
+              }`}
+            >
+              <Swords className={`w-4 h-4 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
+              <span className="font-cinzel font-bold text-xs sm:text-sm tracking-widest uppercase">
+                TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+              </span>
+            </div>
+          </div>
+        )}
 
-        {/* 2. Opponent Mana Zone */}
-        <ManaZoneView
-          manaZone={state.players.opponent.manaZone}
-          owner="opponent"
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+        {/* ================= 1. OPPONENT TERRITORY ================= */}
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
+          {/* Opponent Hand */}
+          <HandView
+            hand={state.players.opponent.hand}
+            owner="opponent"
+            manaZone={state.players.opponent.manaZone}
+            isPlayerTurn={isPlayerTurn}
+            phase={state.phase}
+            manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
 
-        {/* 3. [Oppo Graveyard] | [Opponent Shields] | [Oppo Deck] */}
-        <ShieldsRow
-          owner="opponent"
-          shields={state.players.opponent.shields}
-          graveyard={state.players.opponent.graveyard}
-          deck={state.players.opponent.deck}
-          canTargetShields={selectedAttackerId !== null}
-          onSelectShield={handleSelectShieldTarget}
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+          {/* Opponent Flanked Zone: Graveyard (L) | Mana + Shields | Deck (R) */}
+          <ShieldsRow
+            owner="opponent"
+            shields={state.players.opponent.shields}
+            manaZone={state.players.opponent.manaZone}
+            graveyard={state.players.opponent.graveyard}
+            deck={state.players.opponent.deck}
+            canTargetShields={canTargetShields}
+            canDirectAttack={canDirectAttack}
+            onDirectAttack={handleDirectAttack}
+            onSelectShield={handleSelectShieldTarget}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
+        </div>
 
-        {/* 4. Opponent Battle Zone */}
-        <BattleZoneView
-          battleZone={state.players.opponent.battleZone}
-          owner="opponent"
-          turn={state.turn}
-          phase={state.phase}
-          activePlayer={state.activePlayer}
-          selectedAttackerId={selectedAttackerId}
-          onSelectTargetCreature={handleSelectCreatureTarget}
-          onInspectCard={setInspectedCard}
-          onHoverCard={setHoveredCard}
-          spellTargetMode={spellCandidate !== null}
-          validSpellTargetIds={spellCandidate?.validTargetIds}
-          onSelectSpellTarget={handleSelectSpellTarget}
-        />
+        {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
+        <div className="flex-1 min-h-0 w-full px-1.5 flex flex-col justify-between py-1 sm:py-1.5 relative my-0.5">
+          {/* Opponent Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.opponent.battleZone}
+              owner="opponent"
+              turn={state.turn}
+              phase={state.phase}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectTargetCreature={handleSelectCreatureTarget}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              spellTargetMode={spellCandidate !== null}
+              validSpellTargetIds={spellCandidate?.validTargetIds}
+              onSelectSpellTarget={handleSelectSpellTarget}
+            />
+          </div>
 
-        {/* 5. Player Battle Zone */}
-        <BattleZoneView
-          battleZone={state.players.player.battleZone}
-          owner="player"
-          turn={state.turn}
-          phase={state.phase}
-          activePlayer={state.activePlayer}
-          selectedAttackerId={selectedAttackerId}
-          onSelectAttacker={handleSelectAttacker}
-          onInspectCard={setInspectedCard}
-          onHoverCard={setHoveredCard}
-          evolutionSelectionMode={evolutionCandidate !== null}
-          validBaitIds={evolutionCandidate?.validBaitIds}
-          onSelectBait={handleSelectBait}
-        />
+          {/* Minimalist Center Midline Divider */}
+          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none">
+            <div className="w-4/5 h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
+          </div>
 
-        {/* 6. [Player Graveyard] | [Player Shields] | [Player Deck] */}
-        <ShieldsRow
-          owner="player"
-          shields={state.players.player.shields}
-          graveyard={state.players.player.graveyard}
-          deck={state.players.player.deck}
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+          {/* Player Field */}
+          <div className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <BattleZoneView
+              battleZone={state.players.player.battleZone}
+              owner="player"
+              turn={state.turn}
+              phase={state.phase}
+              activePlayer={state.activePlayer}
+              selectedAttackerId={selectedAttackerId}
+              onSelectAttacker={handleSelectAttacker}
+              onInspectCard={handleInspectCard}
+              onHoverCard={handleHoverCard}
+              evolutionSelectionMode={evolutionCandidate !== null}
+              validBaitIds={evolutionCandidate?.validBaitIds}
+              onSelectBait={handleSelectBait}
+            />
+          </div>
+        </div>
 
-        {/* 7. Player Mana Zone */}
-        <ManaZoneView
-          manaZone={state.players.player.manaZone}
-          owner="player"
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+        {/* ================= 3. PLAYER TERRITORY ================= */}
+        <div className="shrink-0 flex flex-col gap-1 w-full px-1.5">
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana | Deck (R) */}
+          <ShieldsRow
+            owner="player"
+            shields={state.players.player.shields}
+            manaZone={state.players.player.manaZone}
+            graveyard={state.players.player.graveyard}
+            deck={state.players.player.deck}
+            canUndoMana={canUndoMana}
+            onUndoMana={handleUndoChargeMana}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
 
-        {/* 8. Player Hand */}
-        <HandView
-          hand={state.players.player.hand}
-          owner="player"
-          manaZone={state.players.player.manaZone}
-          isPlayerTurn={isPlayerTurn}
-          phase={state.phase}
-          manaChargedThisTurn={state.players.player.manaChargedThisTurn}
-          onChargeMana={handleChargeMana}
-          onSummonCreature={handleSummonCreature}
-          onCastSpell={handleCastSpell}
-          onHoverCard={setHoveredCard}
-          onInspectCard={setInspectedCard}
-        />
+          {/* Player Hand */}
+          <HandView
+            hand={state.players.player.hand}
+            owner="player"
+            manaZone={state.players.player.manaZone}
+            isPlayerTurn={isPlayerTurn}
+            phase={state.phase}
+            manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+            onChargeMana={handleChargeMana}
+            onSummonCreature={handleSummonCreature}
+            onCastSpell={handleCastSpell}
+            onHoverCard={handleHoverCard}
+            onInspectCard={handleInspectCard}
+          />
+        </div>
       </div>
 
       {/* Right Column: Duel Log & Action Controls */}
@@ -489,11 +566,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         isPlayerTurn={isPlayerTurn}
         canDirectAttack={canDirectAttack}
         onDirectAttack={handleDirectAttack}
+        canUndoMana={canUndoMana}
+        onUndoMana={handleUndoChargeMana}
         onPassPhase={handlePassPhase}
         onEndTurn={handleEndTurn}
         onPlayOpponentMove={triggerAiStep}
-        onInspectCard={setInspectedCard}
-        onHoverCard={setHoveredCard}
+        onInspectCard={handleInspectCard}
+        onHoverCard={handleHoverCard}
       />
 
       {/* Modals & Overlays */}
@@ -540,14 +619,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         state={state}
         onRestart={handleRestart}
         onChangeDecks={onNavigateToBuilder}
-      />
-
-      <CardModal
-        card={inspectedCard}
-        deckCount={0}
-        onClose={() => setInspectedCard(null)}
-        onAdd={() => {}}
-        onRemove={() => {}}
       />
 
       {toastMessage && (
