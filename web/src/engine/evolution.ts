@@ -78,13 +78,23 @@ export function isSummoningSick(
     return false;
   }
 
-  if (creature.card.isSpeedAttacker) {
+  if (creature.card.isSpeedAttacker || /speed attacker/i.test(creature.card.rulesText || '')) {
     return false;
   }
 
-  if (friendlyBattleZone && isSurvivor(creature.card)) {
-    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
-    if (abilities.hasSpeedAttacker) {
+  if (friendlyBattleZone) {
+    if (isSurvivor(creature.card)) {
+      const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+      if (abilities.hasSpeedAttacker) {
+        return false;
+      }
+    }
+
+    // Burnwisp Lizard: Each of your creatures that has "silent skill" has "speed attacker"
+    const hasBurnwispLizard = friendlyBattleZone.some((c) =>
+      c.card.name.toLowerCase().includes('burnwisp lizard')
+    );
+    if (hasBurnwispLizard && /silent skill/i.test(creature.card.rulesText || '')) {
       return false;
     }
   }
@@ -180,11 +190,18 @@ export function summonCreature(
     ? [...(baitCreature.evolvedOn || []), baitCardInstance!]
     : undefined;
 
+  const hasMysticMagician = playerState.battleZone.some((c) =>
+    c.card.name.toLowerCase().includes('mystic magician')
+  );
+  const enterTapped =
+    (isEvo && baitCreature ? baitCreature.isTapped : false) ||
+    (hasMysticMagician && /silent skill/i.test(handCard.card.rulesText || ''));
+
   const newCreature: CreatureInstance = {
     instanceId: handCard.instanceId,
     card: handCard.card,
     owner: player,
-    isTapped: isEvo && baitCreature ? baitCreature.isTapped : false,
+    isTapped: enterTapped,
     summonedTurn: state.turn,
     powerModifier: 0,
     ...(evolvedOnStack ? { evolvedOn: evolvedOnStack } : {})

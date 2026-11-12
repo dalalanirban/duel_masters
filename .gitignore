@@ -48,3 +48,8 @@ dist/
 
 # Raw cached datasets
 data/raw_cards.json
+
+# Local reference engine & test outputs
+reference_engine/
+.playwright-mcp/
+

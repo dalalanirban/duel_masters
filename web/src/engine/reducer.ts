@@ -1,9 +1,11 @@
 import type { GameState, GameAction, PlayerId, AttackTarget } from './types.ts';
 import { chargeMana, undoChargeMana } from './mana.ts';
 import { summonCreature, isSummoningSick } from './evolution.ts';
-import { castSpell } from './spells.ts';
+import { castSpell, resolveSpellEffect } from './spells.ts';
+import { CARD_MAP } from '../data/cardLoader.ts';
 import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
 import { passToMainPhase, endTurn, startTurn } from './turn.ts';
+import { resolveSilentSkill } from './advancedMechanics.ts';
 
 /**
  * Checks whether any creature controlled by the active player in the battle zone
@@ -198,7 +200,43 @@ export function step(state: GameState, action: GameAction): GameState {
       }
 
       case 'SELECT_TARGETS': {
-        return state;
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'TARGET_SELECTION') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        if (player !== interaction.player) {
+          throw new Error(`Target selection is pending for ${interaction.player}, not ${player}.`);
+        }
+        const selectedIds = action.selectedIds || [];
+        for (const id of selectedIds) {
+          if (!interaction.validTargetIds.includes(id)) {
+            throw new Error(`Invalid target ${id} selected.`);
+          }
+        }
+        if (selectedIds.length < interaction.minTargets || selectedIds.length > interaction.maxTargets) {
+          throw new Error(
+            `Invalid number of targets: expected ${interaction.minTargets}-${interaction.maxTargets}, got ${selectedIds.length}.`
+          );
+        }
+
+        const stateWithoutPending: GameState = {
+          ...state,
+          pendingInteraction: null
+        };
+
+        if (interaction.actionType === 'SPELL_TARGET') {
+          const cardDef = CARD_MAP.get(interaction.sourceCardId);
+          if (cardDef) {
+            return resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
+          }
+        }
+
+        return stateWithoutPending;
+      }
+
+      case 'ACTIVATE_SILENT_SKILL': {
+        return resolveSilentSkill(state, action.creatureInstanceId, action.targets);
       }
 
       default: {
@@ -217,3 +255,5 @@ export function step(state: GameState, action: GameAction): GameState {
     };
   }
 }
+
+export { step as gameReducer };
