@@ -2,6 +2,7 @@ import React from 'react';
 import { Civilization, CardType } from '../../types/card';
 import { CardFilterOptions, SETS, ALL_RACES } from '../../data/cardLoader';
 import { CivilizationIcon } from '../card/CivilizationIcon';
+import { RaceFilterSelect } from './RaceFilterSelect';
 import {
   Search,
   X,
@@ -128,18 +129,31 @@ export const FilterBar: React.FC<Props> = ({
         </div>
 
         {/* Dropdowns, Count Badge, & Reset Button */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Total Cards Count Badge */}
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0">
+          {/* Integrated Count & Reset Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs text-slate-300">
             <span className="text-amber-400 font-bold">{totalMatches}</span>
             <span className="text-slate-500">cards</span>
+            {isFiltered && (
+              <>
+                <span className="text-slate-700">|</span>
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors font-sans font-semibold cursor-pointer"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reset
+                </button>
+              </>
+            )}
           </div>
 
           {/* Set / Expansion Selector */}
           <select
             value={filters.set || 'all'}
             onChange={e => onChange({ ...filters, set: e.target.value === 'all' ? undefined : e.target.value })}
-            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
+            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
           >
             <option value="all">All Sets (900)</option>
             {SETS.map(s => (
@@ -149,26 +163,18 @@ export const FilterBar: React.FC<Props> = ({
             ))}
           </select>
 
-          {/* Race Filter Dropdown */}
-          <select
-            value={filters.race || 'all'}
-            onChange={e => onChange({ ...filters, race: e.target.value === 'all' ? undefined : e.target.value })}
-            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer max-w-[150px] truncate hover:border-slate-600 transition-colors"
-            title="Filter cards by race"
-          >
-            <option value="all">All Races ({ALL_RACES.length})</option>
-            {ALL_RACES.map(r => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+          {/* Searchable Race Filter Dropdown with Text Input */}
+          <RaceFilterSelect
+            value={filters.race}
+            races={ALL_RACES}
+            onChange={race => onChange({ ...filters, race })}
+          />
 
           {/* Sort Dropdown */}
           <select
             value={filters.sortBy || 'id-asc'}
             onChange={e => onChange({ ...filters, sortBy: e.target.value as any })}
-            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
+            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
           >
             <option value="id-asc">Sort: ID (#1 to #110)</option>
             <option value="cost-asc">Sort: Cost (Low to High)</option>
@@ -176,17 +182,6 @@ export const FilterBar: React.FC<Props> = ({
             <option value="power-desc">Sort: Power (High to Low)</option>
             <option value="name-asc">Sort: Name (A to Z)</option>
           </select>
-
-          {/* Reset Filters Pill */}
-          {isFiltered && (
-            <button
-              onClick={onReset}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-amber-500/40 text-amber-300 hover:text-amber-200 transition-all cursor-pointer whitespace-nowrap shadow-xs"
-              title="Reset all filters"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
-            </button>
-          )}
         </div>
       </div>
 
