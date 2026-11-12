@@ -1,22 +1,86 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, ShieldAlert, Crosshair, ArrowRight, Clock, X } from 'lucide-react';
-import type { GameState, ShieldTriggerChoiceInteraction } from '../../engine/types';
+import { Zap, ShieldAlert, ArrowRight, Clock, X } from 'lucide-react';
+import type { GameState, ShieldTriggerChoiceInteraction, CreatureInstance, PlayerId } from '../../engine/types';
+import type { CardDefinition } from '../../types/card';
 import { CivilizationIcon } from '../card/CivilizationIcon';
+import { getCreatureEffectivePower } from '../../engine/combat';
 
 interface TriggerModalProps {
   isOpen: boolean;
   interaction: ShieldTriggerChoiceInteraction | null;
   state: GameState;
   onResolve: (shieldId: string, activate: boolean, targets?: string[]) => void;
+  onStartArenaTargetSelect: (shieldId: string, card: CardDefinition, validTargetIds: string[]) => void;
+}
+
+/**
+ * Helper to determine if a Shield Trigger card requires creature target selection on the battlefield.
+ */
+export function getTriggerTargetCandidates(
+  card: CardDefinition,
+  state: GameState,
+  defendingPlayer: PlayerId
+): CreatureInstance[] {
+  const opponent: PlayerId = defendingPlayer === 'player' ? 'opponent' : 'player';
+  const oppCreatures = state.players[opponent].battleZone;
+  const allCreatures = [
+    ...state.players.player.battleZone,
+    ...state.players.opponent.battleZone
+  ];
+
+  const rules = (card.rulesText || '').toLowerCase();
+  const name = card.name.toLowerCase();
+
+  // 1. Destroy 1 opponent creature (e.g. Terror Pit)
+  if (name.includes('terror pit') || (/destroy (?:one|1) of your opponent's creatures/i.test(rules) && !/power \d+ or less/i.test(rules))) {
+    return oppCreatures;
+  }
+
+  // 2. Put opponent creature into mana zone (e.g. Natural Snare)
+  if (name.includes('natural snare') || /put (?:it|that creature|one of your opponent's creatures) into (?:his|their) mana zone/i.test(rules)) {
+    return oppCreatures;
+  }
+
+  // 3. Return creature to hand (e.g. Spiral Gate, Aqua Surfer)
+  if (name.includes('spiral gate') || name.includes('aqua surfer') || /return (?:a|one|1) creature.*to (?:its|their) owner's hand/i.test(rules)) {
+    return allCreatures;
+  }
+
+  // 4. Power threshold destroy (e.g. Tornado Flame <= 4000, Crimson Hammer / Phantom Dragon <= 2000, Hurlosaur <= 1000)
+  const powerMatch = rules.match(/power (\d+) or less/i);
+  if (powerMatch || name.includes('tornado flame') || name.includes('phantom dragon') || name.includes('hurlosaur')) {
+    const maxPower = powerMatch
+      ? parseInt(powerMatch[1], 10)
+      : name.includes('tornado flame')
+      ? 4000
+      : name.includes('hurlosaur')
+      ? 1000
+      : 2000;
+    return oppCreatures.filter(
+      (c) => getCreatureEffectivePower(c, false, state.players[opponent], state.players[defendingPlayer]) <= maxPower
+    );
+  }
+
+  // 5. Blocker destroy (e.g. Critical Blade)
+  if (name.includes('critical blade') || (/destroy.*blocker/i.test(rules) && oppCreatures.length > 0)) {
+    return oppCreatures.filter((c) => c.card.isBlocker);
+  }
+
+  // 6. Tap 1 opponent creature (e.g. Solar Ray)
+  if (name.includes('solar ray') || /choose (?:one|1) of your opponent's creatures.*and tap it/i.test(rules)) {
+    return oppCreatures.filter((c) => !c.isTapped);
+  }
+
+  return [];
 }
 
 export const TriggerModal: React.FC<TriggerModalProps> = ({
   isOpen,
   interaction,
   state,
-  onResolve
+  onResolve,
+  onStartArenaTargetSelect
 }) => {
-  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const onResolveRef = useRef(onResolve);
   onResolveRef.current = onResolve;
@@ -30,8 +94,6 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
     if (!isOpen || !interaction || !currentShieldId) return;
 
     setTimeLeft(20);
-    setSelectedTargetId(null);
-
     const interval = setInterval(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
@@ -50,66 +112,36 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
 
   const card = currentTrigger.card;
   const isCreature = card.type.includes('Creature');
-  const isSpell = card.type.includes('Spell');
-
   const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
-
-  // Check if spell targets creatures in battlefield
-  // Friendly player is defending player (interaction.player)
   const defendingPlayer = interaction.player;
-  const attackingPlayer = defendingPlayer === 'player' ? 'opponent' : 'player';
-  const opponentCreatures = state.players[attackingPlayer].battleZone;
-  const allCreatures = [
-    ...state.players.player.battleZone,
-    ...state.players.opponent.battleZone
-  ];
 
-  // Simple heuristic for target candidates based on spell rules
-  const rulesLower = (card.rulesText || '').toLowerCase();
-  const nameLower = card.name.toLowerCase();
+  const candidateTargets = getTriggerTargetCandidates(card, state, defendingPlayer);
+  const needsTargetOnArena = candidateTargets.length > 0;
 
-  let candidateTargets = opponentCreatures;
-  const needsTarget =
-    isSpell &&
-    (nameLower.includes('terror pit') ||
-      nameLower.includes('spiral gate') ||
-      nameLower.includes('death smoke') ||
-      nameLower.includes('natural snare') ||
-      nameLower.includes('solar ray') ||
-      nameLower.includes('critical blade') ||
-      nameLower.includes('tornado flame') ||
-      rulesLower.includes('destroy 1 of your opponent') ||
-      rulesLower.includes('choose a creature in the battle zone'));
-
-  if (nameLower.includes('spiral gate') || rulesLower.includes('choose a creature in the battle zone')) {
-    candidateTargets = allCreatures;
-  } else if (nameLower.includes('death smoke')) {
-    candidateTargets = opponentCreatures.filter((c) => !c.isTapped);
-  } else if (nameLower.includes('critical blade')) {
-    candidateTargets = opponentCreatures.filter((c) => c.card.isBlocker);
-  } else if (nameLower.includes('tornado flame')) {
-    candidateTargets = opponentCreatures.filter(
-      (c) => (c.card.power || 0) + c.powerModifier <= 4000
-    );
-  }
-
-  const handleActivate = () => {
-    const targets = selectedTargetId ? [selectedTargetId] : undefined;
-    onResolve(currentTrigger.shieldId, true, targets);
-    setSelectedTargetId(null);
+  const handleUseTrigger = () => {
+    if (needsTargetOnArena) {
+      // Transition to Battle Arena target selection so user can see all tapped/untapped cards and battlefield
+      onStartArenaTargetSelect(currentTrigger.shieldId, card, candidateTargets.map((c) => c.instanceId));
+    } else {
+      // Resolves immediately for non-targeted triggers
+      onResolve(currentTrigger.shieldId, true);
+    }
   };
 
   const handleSkip = () => {
     onResolve(currentTrigger.shieldId, false);
-    setSelectedTargetId(null);
   };
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / 20) * 100));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+    >
       <div
-        className="relative max-w-xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-2xl p-6 shadow-2xl shadow-amber-500/20 flex flex-col gap-4 overflow-hidden"
+        className="relative max-w-lg w-full bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-5 shadow-2xl shadow-amber-500/20 flex flex-col gap-3.5 overflow-hidden backdrop-blur-md"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow corner element */}
@@ -122,9 +154,11 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
               <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
               Shield Trigger Window:
             </span>
-            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-              timeLeft <= 5 ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-slate-800 text-slate-300'
-            }`}>
+            <span
+              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                timeLeft <= 5 ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-slate-800 text-slate-300'
+              }`}
+            >
               {timeLeft}s remaining
             </span>
           </div>
@@ -139,28 +173,28 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
         </div>
 
         {/* Header Alert Banner */}
-        <div className="flex items-center gap-3 border-b border-amber-500/30 pb-3">
+        <div className="flex items-center gap-3 border-b border-amber-500/30 pb-2.5">
           <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 shadow-md shrink-0">
-            <ShieldAlert className="w-6 h-6 animate-pulse" />
+            <ShieldAlert className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-cinzel font-extrabold text-lg sm:text-xl text-amber-300 tracking-wider">
+              <h3 className="font-cinzel font-extrabold text-base sm:text-lg text-amber-300 tracking-wider">
                 SHIELD TRIGGER ACTIVATED!
               </h3>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] tracking-wider uppercase font-mono">
-                Free Cast
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[9.5px] tracking-wider uppercase font-mono">
+                Free Cast (0 Mana)
               </span>
             </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              A broken shield revealed a Shield Trigger! You can cast or summon it immediately for 0 mana.
+            <p className="text-[11.5px] text-slate-300 mt-0.5">
+              A broken shield revealed a Shield Trigger! You can cast or summon it immediately for no cost.
             </p>
           </div>
         </div>
 
         {/* Trigger Card Display */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-slate-950/70 rounded-xl p-4 border border-slate-800">
-          <div className="w-28 sm:w-32 aspect-[491/682] rounded-lg overflow-hidden shrink-0 border border-amber-400/80 shadow-lg">
+        <div className="flex gap-3.5 items-center bg-slate-950/80 rounded-xl p-3 border border-slate-800">
+          <div className="w-20 sm:w-24 aspect-[491/682] rounded-lg overflow-hidden shrink-0 border border-amber-400/80 shadow-lg">
             <img
               src={imageSrc}
               alt={card.name}
@@ -174,83 +208,43 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
             />
           </div>
 
-          <div className="flex-1 space-y-2 text-left">
-            <div className="flex items-center gap-2">
-              <CivilizationIcon civilization={card.civilizations[0]} className="w-4 h-4" />
-              <h4 className="font-cinzel font-bold text-base text-white">{card.name}</h4>
+          <div className="flex-1 space-y-1.5 text-left min-w-0">
+            <div className="flex items-center gap-1.5">
+              <CivilizationIcon civilization={card.civilizations[0]} className="w-3.5 h-3.5 shrink-0" />
+              <h4 className="font-cinzel font-bold text-sm text-white truncate">{card.name}</h4>
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs text-slate-400 font-mono">
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200">
+            <div className="flex flex-wrap gap-1.5 text-[10px] text-slate-400 font-mono">
+              <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-200">
                 {card.type}
               </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-300">
-                Cost: {card.manaCost} (0 now)
+              <span className="px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-bold">
+                Cost: 0 (Normal: {card.manaCost})
               </span>
               {card.power && (
-                <span className="px-2 py-0.5 rounded bg-slate-800 text-red-400">
+                <span className="px-1.5 py-0.2 rounded bg-slate-800 text-red-400 font-bold">
                   Power: {card.power}
                 </span>
               )}
             </div>
 
-            <p className="text-xs text-slate-300 italic bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+            <p className="text-[11px] text-slate-300 bg-slate-900/90 p-2 rounded-lg border border-slate-800/80 line-clamp-3">
               {card.rulesText || 'No effect text.'}
             </p>
           </div>
         </div>
 
-        {/* Target Selection if needed */}
-        {needsTarget && candidateTargets.length > 0 && (
-          <div className="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-              <span className="flex items-center gap-1.5">
-                <Crosshair className="w-3.5 h-3.5 text-amber-400" />
-                Select Target Creature:
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {selectedTargetId ? '1 target selected' : 'Choose 1 target below'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto">
-              {candidateTargets.map((creature) => {
-                const isSelected = selectedTargetId === creature.instanceId;
-                return (
-                  <button
-                    key={creature.instanceId}
-                    type="button"
-                    onClick={() =>
-                      setSelectedTargetId(isSelected ? null : creature.instanceId)
-                    }
-                    className={`p-2 rounded-lg border text-left flex items-center justify-between transition-colors ${
-                      isSelected
-                        ? 'border-amber-400 bg-amber-500/20 text-white'
-                        : 'border-slate-800 bg-slate-900 hover:border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <span className="text-xs truncate font-medium">{creature.card.name}</span>
-                    <span className="text-[10px] font-mono text-amber-400 ml-1">
-                      {creature.card.power}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Action Buttons */}
-        <div className="flex items-center justify-between border-t border-slate-800 pt-3">
-          <span className="text-[11px] text-slate-500">
-            Skipping will put this card directly into your hand.
+        <div className="flex items-center justify-between border-t border-slate-800 pt-2.5">
+          <span className="text-[10.5px] text-slate-400">
+            Skipping will put this card into your hand.
           </span>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleSkip}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
               <span>Skip (Keep in Hand)</span>
@@ -258,12 +252,17 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
 
             <button
               type="button"
-              disabled={needsTarget && candidateTargets.length > 0 && !selectedTargetId}
-              onClick={handleActivate}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black font-cinzel tracking-wider bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+              onClick={handleUseTrigger}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black font-cinzel tracking-wider bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 transition-all cursor-pointer"
             >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>{isCreature ? 'Summon for Free' : 'Cast Spell for Free'}</span>
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>
+                {needsTargetOnArena
+                  ? 'Yes, Choose Target on Arena'
+                  : isCreature
+                  ? 'Yes, Summon Creature'
+                  : 'Yes, Cast Spell'}
+              </span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

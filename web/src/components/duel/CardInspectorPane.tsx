@@ -9,6 +9,7 @@ import {
   Zap,
   Shield,
   Skull,
+  Swords,
   Layers,
   Eye,
   Info
@@ -87,6 +88,7 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
     : null;
 
   const sharedPowerBonus = survivorAbilities ? survivorAbilities.powerBonus : 0;
+  const sharedPowerAttackerBonus = survivorAbilities ? survivorAbilities.powerAttackerBonus : 0;
   const hasSharedBlocker = Boolean(survivorAbilities?.hasBlocker);
   const hasSharedSlayer = Boolean(survivorAbilities?.hasSlayer);
   const hasSharedSpeedAttacker = Boolean(survivorAbilities?.hasSpeedAttacker);
@@ -250,9 +252,6 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
                         (+{sharedPowerBonus})
                       </span>
                     )}
-                    {inspectedCard.powerAttackerBonus > 0 && (
-                      <span className="text-red-400 text-[8.5px] ml-0.5">+{inspectedCard.powerAttackerBonus}</span>
-                    )}
                   </span>
                 </div>
               ) : (
@@ -334,6 +333,16 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
                   title="Unblockable (Survivor ability: Spikestrike Ichthys)"
                 >
                   ⚡ Unblockable
+                </span>
+              )}
+
+              {(inspectedCard.powerAttackerBonus > 0 || (isSurvivor(inspectedCard) && sharedPowerAttackerBonus > 0)) && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/40"
+                  title="Power Attacker: Gives additional power only while attacking"
+                >
+                  <Swords className="w-2.5 h-2.5 text-orange-400" />
+                  <span>PA +{Math.max(inspectedCard.powerAttackerBonus || 0, sharedPowerAttackerBonus)} (While Attacking)</span>
                 </span>
               )}
 

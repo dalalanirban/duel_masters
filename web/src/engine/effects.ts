@@ -115,7 +115,10 @@ export function getSurvivorSharedAbilities(
   const smashHornCopies = friendlySurvivors.filter(
     (c) =>
       c.card.name.toLowerCase().includes('smash horn') ||
-      (/gets \+1000 power/i.test(c.card.rulesText || '') && /survivor/i.test(c.card.rulesText || ''))
+      (!/power attacker/i.test(c.card.rulesText || '') &&
+        !/while attacking/i.test(c.card.rulesText || '') &&
+        /gets \+1000 power/i.test(c.card.rulesText || '') &&
+        /survivor/i.test(c.card.rulesText || ''))
   ).length;
   const powerBonus = smashHornCopies * 1000;
 
@@ -308,7 +311,9 @@ export function calculateContinuousAuraPower(
     const survivorAbilities = getSurvivorSharedAbilities(fZone);
     powerBonus += survivorAbilities.powerBonus;
     if (isAttacking) {
-      powerAttackerBonus += survivorAbilities.powerAttackerBonus;
+      // Avoid double-counting printed powerAttackerBonus on Blazosaur Q itself
+      const ownPABonus = card.powerAttackerBonus || 0;
+      powerAttackerBonus += Math.max(0, survivorAbilities.powerAttackerBonus - ownPABonus);
     }
   }
 

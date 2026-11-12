@@ -804,5 +804,35 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       // Non-survivor remains tapped
       assert.strictEqual(bVorg.isTapped, true, 'Non-survivor Vorg should remain tapped');
     });
+
+    it('Survivor Blazosaur Q has Power Attacker +1000 ONLY while attacking and shares with all Survivors', () => {
+      const state = createTestState();
+      // Setup Blazosaur Q and Gallia Zohl in battle zone
+      const { nextState: s1, creature: cBlazo } = setupCreatureInBZ(state, 'player', blazosaur); // base 1000, PA +1000
+      const { nextState: s2, creature: cGallia } = setupCreatureInBZ(s1, 'player', galliaZohl); // base 2000
+
+      const pState = s2.players.player;
+
+      // When NOT attacking, Blazosaur Q is 1000 power (Power Attacker does NOT boost power while sitting in BZ!)
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, false, pState), 1000, 'Blazosaur Q must have 1000 power when not attacking');
+      // While attacking, Blazosaur Q gets +1000 power attacker = 2000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, true, pState), 2000, 'Blazosaur Q gets +1000 PA while attacking');
+
+      // Gallia Zohl receives shared Power Attacker +1000 from Blazosaur Q
+      // When not attacking: base 2000
+      assert.strictEqual(getCreatureEffectivePower(cGallia, false, pState), 2000, 'Gallia has base 2000 power when not attacking');
+      // While attacking: gets +1000 PA from Blazosaur Q = 3000
+      assert.strictEqual(getCreatureEffectivePower(cGallia, true, pState), 3000, 'Gallia gets +1000 PA from Blazosaur while attacking');
+
+      // Now add Smash Horn Q (+1000 static power buff)
+      const { nextState: s3, creature: cSmash } = setupCreatureInBZ(s2, 'player', smashHorn);
+      const pStateWithSmash = s3.players.player;
+
+      // With Smash Horn Q in battle zone:
+      // Blazosaur Q static power is now 1000 + 1000 = 2000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, false, pStateWithSmash), 2000, 'Blazosaur has 2000 static power with Smash Horn');
+      // Blazosaur Q while attacking is 1000 (base) + 1000 (Smash) + 1000 (PA) = 3000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, true, pStateWithSmash), 3000, 'Blazosaur has 3000 attacking power with Smash Horn + PA');
+    });
   });
 });
