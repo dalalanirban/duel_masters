@@ -96,7 +96,7 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
 
   return (
     <aside
-      className={`w-full h-full flex flex-col bg-[#080b11] border-r border-slate-800/60 text-slate-100 select-none overflow-hidden ${className}`}
+      className={`h-full flex flex-col bg-[#080b11] border-r border-slate-800/60 text-slate-100 select-none overflow-hidden ${className || 'w-72 shrink-0'}`}
       aria-label="Card Inspector & Match Status"
     >
       {/* Match Status Header */}

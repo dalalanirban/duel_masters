@@ -39,7 +39,7 @@ export const CardGrid: React.FC<Props> = ({
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 sm:gap-5 justify-items-center">
+    <div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 sm:gap-5 justify-items-center">
       {cards.map(card => (
         <DuelCard
           key={card.id}
