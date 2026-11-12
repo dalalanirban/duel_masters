@@ -7,6 +7,7 @@ import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
 import { isValidEvolutionBait, isEvolutionCreature } from '../../engine/evolution';
 import { PRESET_DECKS } from '../../data/presets';
+import { CARD_MAP } from '../../data/cardLoader';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
@@ -15,6 +16,7 @@ import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
+import { OptionalChoiceModal } from './OptionalChoiceModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -513,12 +515,43 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       state.pendingInteraction.type === 'BLOCKER_CHOICE') &&
     state.pendingInteraction.defendingPlayer === 'player');
 
+  const isOptionalChoicePending = Boolean(
+    state.pendingInteraction &&
+    state.pendingInteraction.type === 'OPTIONAL_CHOICE' &&
+    state.pendingInteraction.player === 'player'
+  );
+
+  const optionalChoiceData = isOptionalChoicePending
+    ? (state.pendingInteraction as any)
+    : null;
+
+  const optionalSourceCard = optionalChoiceData?.sourceCardId
+    ? CARD_MAP.get(optionalChoiceData.sourceCardId)
+    : null;
+
+  const handleAcceptOptionalChoice = () => {
+    dispatch({
+      type: 'RESOLVE_OPTIONAL_CHOICE',
+      player: 'player',
+      accept: true
+    });
+  };
+
+  const handleDeclineOptionalChoice = () => {
+    dispatch({
+      type: 'RESOLVE_OPTIONAL_CHOICE',
+      player: 'player',
+      accept: false
+    });
+  };
+
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
       {/* Left Column: Card Inspector & Match Status (Fixed 18rem width per design standard) */}
       <CardInspectorPane
         className="w-72 2xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
+        friendlyBattleZone={state.players.player.battleZone}
         turn={state.turn}
         activePlayer={state.activePlayer}
         phase={state.phase}
@@ -592,6 +625,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.opponent.battleZone}
+              opponentBattleZone={state.players.player.battleZone}
+              playerState={state.players.opponent}
+              opponentState={state.players.player}
               owner="opponent"
               turn={state.turn}
               phase={state.phase}
@@ -615,6 +651,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.player.battleZone}
+              opponentBattleZone={state.players.opponent.battleZone}
+              playerState={state.players.player}
+              opponentState={state.players.opponent}
               owner="player"
               turn={state.turn}
               phase={state.phase}
@@ -733,6 +772,32 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onRestart={handleRestart}
         onChangeDecks={onNavigateToBuilder}
       />
+
+      <OptionalChoiceModal
+        isOpen={isOptionalChoicePending}
+        abilityName={optionalChoiceData?.abilityName || 'Optional Ability'}
+        prompt={optionalChoiceData?.prompt || 'Would you like to activate this ability?'}
+        sourceCard={optionalSourceCard}
+        onAccept={handleAcceptOptionalChoice}
+        onDecline={handleDeclineOptionalChoice}
+      />
+
+      {state.pendingInteraction?.type === 'TARGET_SELECTION' &&
+        state.pendingInteraction.player === 'player' &&
+        state.pendingInteraction.minTargets === 0 && (
+          <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 bg-slate-900/95 border border-amber-500/60 rounded-xl px-4 py-2 shadow-2xl backdrop-blur-md">
+            <span className="text-xs text-amber-200 font-medium font-sans">
+              {state.pendingInteraction.prompt}
+            </span>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'SELECT_TARGETS', player: 'player', selectedIds: [] })}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-cinzel font-bold border border-slate-600 transition-colors cursor-pointer"
+            >
+              Skip Ability
+            </button>
+          </div>
+      )}
 
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-semibold text-xs shadow-2xl animate-fade-in pointer-events-none">

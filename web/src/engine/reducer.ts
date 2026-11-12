@@ -6,6 +6,7 @@ import { CARD_MAP } from '../data/cardLoader.ts';
 import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
 import { passToMainPhase, endTurn, startTurn } from './turn.ts';
 import { resolveSilentSkill } from './advancedMechanics.ts';
+import { drawCards, searchDeckForCard, isSurvivor } from './effects.ts';
 
 /**
  * Checks whether any creature controlled by the active player in the battle zone
@@ -230,8 +231,74 @@ export function step(state: GameState, action: GameAction): GameState {
           if (cardDef) {
             return resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
           }
+        } else if (interaction.actionType === 'EFFECT_TARGET') {
+          if (selectedIds.length === 0) {
+            return {
+              ...stateWithoutPending,
+              actionLog: [...stateWithoutPending.actionLog, `${player} skipped optional target selection.`]
+            };
+          }
+          const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
+          const oppBZ = stateWithoutPending.players[oppId].battleZone;
+          const targetId = selectedIds[0];
+          const targetCreature = oppBZ.find((c) => c.instanceId === targetId);
+          if (targetCreature) {
+            const updatedOppBZ = oppBZ.map((c) =>
+              c.instanceId === targetId ? { ...c, isTapped: true } : c
+            );
+            return {
+              ...stateWithoutPending,
+              players: {
+                ...stateWithoutPending.players,
+                [oppId]: {
+                  ...stateWithoutPending.players[oppId],
+                  battleZone: updatedOppBZ
+                }
+              },
+              actionLog: [
+                ...stateWithoutPending.actionLog,
+                `${player} tapped ${targetCreature.card.name} with creature ability.`
+              ]
+            };
+          }
         }
 
+        return stateWithoutPending;
+      }
+
+      case 'RESOLVE_OPTIONAL_CHOICE': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'OPTIONAL_CHOICE') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const stateWithoutPending: GameState = {
+          ...state,
+          pendingInteraction: null
+        };
+
+        if (!action.accept) {
+          return {
+            ...stateWithoutPending,
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} chose not to use optional ability (${interaction.abilityName}).`
+            ]
+          };
+        }
+
+        // Action accepted: execute effect
+        if (interaction.effectType === 'DRAW') {
+          const count = interaction.drawCount || 1;
+          return drawCards(stateWithoutPending, player, count);
+        } else if (interaction.effectType === 'SEARCH_DECK') {
+          const cardDef = CARD_MAP.get(interaction.sourceCardId);
+          if (cardDef?.name.toLowerCase().includes('forbos')) {
+            return searchDeckForCard(stateWithoutPending, player, (c) => c.type === 'Spell', 'hand');
+          } else {
+            return searchDeckForCard(stateWithoutPending, player, (c) => isSurvivor(c), 'hand');
+          }
+        }
         return stateWithoutPending;
       }
 

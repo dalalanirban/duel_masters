@@ -1,5 +1,6 @@
 import type { GameState, PlayerId, CreatureInstance } from './types';
 import { autoResolveAiSilentSkills } from './advancedMechanics.ts';
+import { isSurvivor, getSurvivorSharedAbilities } from './effects.ts';
 
 /**
  * Handles the start-of-turn procedure for the active player:
@@ -133,16 +134,30 @@ export function endTurn(state: GameState): GameState {
   const nextPlayer: PlayerId = activeId === 'player' ? 'opponent' : 'player';
   const nextTurn = activeId === 'opponent' ? state.turn + 1 : state.turn;
 
-  // 1. End-of-turn untap triggers for active player's creatures (e.g. Urth, Purifying Elemental)
+  // 1. End-of-turn untap triggers for active player's creatures (including Survivor Ballus, Dogfight Enforcer Q)
   const untapLogs: string[] = [];
+  const survivorAbilities = getSurvivorSharedAbilities(state.players[activeId].battleZone);
   const updatedActiveBZ = state.players[activeId].battleZone.map((creature) => {
     const rules = creature.card.rulesText || '';
-    if (
-      creature.isTapped &&
-      (/at the end of each of your turns.*untap this creature/i.test(rules) ||
-        creature.card.name.toLowerCase().includes('urth'))
-    ) {
-      untapLogs.push(`${creature.card.name} untapped at the end of the turn.`);
+    const nameLower = creature.card.name.toLowerCase();
+    const hasSurvivorUntap = isSurvivor(creature.card) && survivorAbilities.hasUntapAtEndTurn;
+
+    const hasUntapVigilance =
+      hasSurvivorUntap ||
+      nameLower.includes('urth') ||
+      nameLower.includes('frei') ||
+      nameLower.includes('ruby grass') ||
+      nameLower.includes('ballus') ||
+      nameLower.includes('betrale') ||
+      nameLower.includes('lukia lex') ||
+      nameLower.includes('nial') ||
+      /at the end of (?:each of )?your turns?,? (?:you may )?untap this creature/i.test(rules);
+
+    if (creature.isTapped && hasUntapVigilance) {
+      const source = hasSurvivorUntap && !nameLower.includes('ballus')
+        ? ' (Survivor ability: Ballus, Dogfight Enforcer Q)'
+        : '';
+      untapLogs.push(`${creature.card.name} untapped at the end of the turn${source}.`);
       return { ...creature, isTapped: false };
     }
     return creature;

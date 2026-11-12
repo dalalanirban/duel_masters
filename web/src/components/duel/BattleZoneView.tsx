@@ -8,13 +8,21 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import type { CreatureInstance, PlayerId, Phase } from '../../engine/types';
+import type { CreatureInstance, PlayerId, Phase, PlayerState } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
-import { getCreatureEffectivePower } from '../../engine/combat';
+import {
+  getCreatureEffectivePower,
+  hasCreatureBlocker,
+  hasCreatureSlayer,
+  hasCreatureSpeedAttacker
+} from '../../engine/combat';
 import { isSummoningSick } from '../../engine/evolution';
 
 interface BattleZoneViewProps {
   battleZone: CreatureInstance[];
+  opponentBattleZone?: CreatureInstance[];
+  playerState?: PlayerState;
+  opponentState?: PlayerState;
   owner: PlayerId;
   turn: number;
   phase: Phase;
@@ -36,6 +44,9 @@ interface BattleZoneViewProps {
 
 export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   battleZone,
+  opponentBattleZone,
+  playerState,
+  opponentState,
   owner,
   turn,
   phase,
@@ -78,12 +89,14 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
       {battleZone.map((creature) => {
         const card = creature.card;
         const isTapped = creature.isTapped;
-        const sick = isSummoningSick(creature, turn);
+        const sick = isSummoningSick(creature, turn, battleZone);
         const isAttacker = selectedAttackerId === creature.instanceId;
-        const effectivePower = getCreatureEffectivePower(creature, isAttacker);
-        const isBlocker = Boolean(card.isBlocker);
-        const isSlayer = Boolean(card.isSlayer);
-        const isSpeedAttacker = Boolean(card.isSpeedAttacker);
+        const friendlyState = playerState || ({ battleZone } as any);
+        const oppState = opponentState || ({ battleZone: opponentBattleZone || [] } as any);
+        const effectivePower = getCreatureEffectivePower(creature, isAttacker, friendlyState, oppState);
+        const isBlocker = hasCreatureBlocker(creature, battleZone);
+        const isSlayer = hasCreatureSlayer(creature, battleZone);
+        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone);
         const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
         const underlyingCount = creature.evolvedOn ? creature.evolvedOn.length : 0;
 

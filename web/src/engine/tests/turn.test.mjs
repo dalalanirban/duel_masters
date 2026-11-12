@@ -214,8 +214,8 @@ describe('Duel Masters Engine: Turn Lifecycle & Mana Rules (Task 2)', () => {
       assert.equal(canPayManaCost(fireManaZone, highCostFire), false);
     });
 
-    it('canPayManaCost succeeds when civilization is provided by a tapped card if enough other mana is untapped', () => {
-      // 1 tapped Water card + 2 untapped Fire cards = 2 available mana, both Water and Fire available civs
+    it('canPayManaCost rejects when civilization is only provided by a tapped card (must tap an untapped card of required civ)', () => {
+      // 1 tapped Water card + 2 untapped Fire cards = 2 available mana count, but 0 untapped Water cards
       const mixedManaZone = [
         { instanceId: 'm1', card: sampleWaterCreature, isTapped: true },
         { instanceId: 'm2', card: sampleFireCreature, isTapped: false },
@@ -225,9 +225,26 @@ describe('Duel Masters Engine: Turn Lifecycle & Mana Rules (Task 2)', () => {
       const lowCostWater = { ...sampleWaterCreature, manaCost: 2 };
       assert.equal(
         canPayManaCost(mixedManaZone, lowCostWater),
-        true,
-        'Water civ is in mana zone and 2 untapped mana cards available'
+        false,
+        'Cannot pay for Water card if the only Water card in mana zone is already tapped'
       );
+    });
+
+    it('payManaCost guarantees tapping the mana card matching the required civilization', () => {
+      // Nature card first (untapped), Fire card second (untapped)
+      const mixedManaZone = [
+        { instanceId: 'm1', card: { ...sampleFireCreature, civilizations: ['Nature'] }, isTapped: false },
+        { instanceId: 'm2', card: sampleFireCreature, isTapped: false }
+      ];
+
+      // Cost 1 Fire: MUST tap the Fire card (m2), NOT the Nature card (m1)
+      const cost1Fire = { ...sampleFireCreature, manaCost: 1 };
+      const result = payManaCost(mixedManaZone, cost1Fire);
+      assert.equal(result.success, true);
+      const m1 = result.updatedManaZone.find((m) => m.instanceId === 'm1');
+      const m2 = result.updatedManaZone.find((m) => m.instanceId === 'm2');
+      assert.equal(m1.isTapped, false, 'Nature card remains untapped');
+      assert.equal(m2.isTapped, true, 'Fire card was tapped to satisfy Fire civilization requirement');
     });
 
     it('payManaCost taps the required number of cards and preserves existing tapped cards', () => {

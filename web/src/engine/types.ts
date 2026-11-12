@@ -95,10 +95,23 @@ export interface TargetSelectionInteraction {
   prompt: string;
 }
 
+export interface OptionalChoiceInteraction {
+  type: 'OPTIONAL_CHOICE';
+  player: PlayerId;
+  sourceCardId: string;
+  sourceInstanceId?: string;
+  abilityName: string;
+  prompt: string;
+  effectType: 'DRAW' | 'TAP_OPPONENT_CREATURE' | 'SALVAGE_GRAVEYARD' | 'SEARCH_DECK' | 'UNTAP_CREATURE' | 'CUSTOM';
+  drawCount?: number;
+  validTargetIds?: string[];
+}
+
 export type PendingInteraction =
   | BlockerChoiceInteraction
   | ShieldTriggerChoiceInteraction
-  | TargetSelectionInteraction;
+  | TargetSelectionInteraction
+  | OptionalChoiceInteraction;
 
 export interface GameState {
   turn: number;
@@ -157,6 +170,12 @@ export type GameAction =
       targets?: string[];
     }
   | { type: 'SELECT_TARGETS'; player?: PlayerId; selectedIds: string[] }
+  | {
+      type: 'RESOLVE_OPTIONAL_CHOICE';
+      player?: PlayerId;
+      accept: boolean;
+      selectedTargetId?: string;
+    }
   | {
       type: 'ACTIVATE_SILENT_SKILL';
       player?: PlayerId;
