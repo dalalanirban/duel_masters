@@ -1,5 +1,5 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, Swords } from 'lucide-react';
+import { Sparkles, Swords, Shield, Zap, X } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
@@ -7,6 +7,7 @@ import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
 import { isValidEvolutionBait, isEvolutionCreature } from '../../engine/evolution';
 import { PRESET_DECKS } from '../../data/presets';
+import { CARD_MAP } from '../../data/cardLoader';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
@@ -15,6 +16,8 @@ import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
+import { OptionalChoiceModal } from './OptionalChoiceModal';
+import { DeckSearchModal } from './DeckSearchModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -100,6 +103,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     validTargetIds: string[];
   } | null>(null);
 
+  // Blocker Arena Selection mode (when user chooses to select a blocker on the battlefield)
+  const [blockerArenaSelection, setBlockerArenaSelection] = useState<boolean>(false);
+
+  // Shield Trigger Arena Target Selection mode (when user activates a targeted Shield Trigger)
+  const [triggerTargetSelection, setTriggerTargetSelection] = useState<{
+    shieldId: string;
+    card: CardDefinition;
+    validTargetIds: string[];
+  } | null>(null);
+
   // Multi-shield selection mode
   const [selectedShieldIndices, setSelectedShieldIndices] = useState<number[]>([]);
 
@@ -123,6 +136,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
+    setBlockerArenaSelection(false);
+    setTriggerTargetSelection(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
   }, [selectedPlayerDeck, selectedOpponentDeck]);
 
@@ -136,6 +151,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       setSelectedShieldIndices([]);
       setEvolutionCandidate(null);
       setSpellCandidate(null);
+      setBlockerArenaSelection(false);
+      setTriggerTargetSelection(null);
       dispatch({
         type: 'RESET_GAME',
         playerDeck: selectedPlayerDeck,
@@ -278,6 +295,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     } else if (nameLower.includes('death smoke')) {
       needsTarget = true;
       validCandidates = oppCreatures.filter((c) => !c.isTapped);
+    } else if (
+      nameLower.includes('comet missile') ||
+      /destroy.*opponent.*"blocker".*power 6000 or less/i.test(rulesLower)
+    ) {
+      needsTarget = true;
+      validCandidates = oppCreatures.filter(
+        (c) => c.card.isBlocker && (c.card.power || 0) + c.powerModifier <= 6000
+      );
     } else if (nameLower.includes('critical blade')) {
       needsTarget = true;
       validCandidates = oppCreatures.filter((c) => c.card.isBlocker);
@@ -513,12 +538,76 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       state.pendingInteraction.type === 'BLOCKER_CHOICE') &&
     state.pendingInteraction.defendingPlayer === 'player');
 
+  // Reset arena selection modes when interactions clear
+  useEffect(() => {
+    if (!isPlayerBlockerPending) {
+      setBlockerArenaSelection(false);
+    }
+  }, [isPlayerBlockerPending]);
+
+  useEffect(() => {
+    if (!isPlayerTriggerPending) {
+      setTriggerTargetSelection(null);
+    }
+  }, [isPlayerTriggerPending]);
+
+  const handleDeclareBlock = (blockerId: string | null) => {
+    dispatch({
+      type: 'DECLARE_BLOCK',
+      player: 'player',
+      blockerId
+    });
+    setBlockerArenaSelection(false);
+  };
+
+  const handleResolveShieldTrigger = (shieldId: string, activate: boolean, targets?: string[]) => {
+    dispatch({
+      type: 'RESOLVE_SHIELD_TRIGGER',
+      player: 'player',
+      shieldId,
+      activate,
+      targets
+    });
+    setTriggerTargetSelection(null);
+  };
+
+  const isOptionalChoicePending = Boolean(
+    state.pendingInteraction &&
+    state.pendingInteraction.type === 'OPTIONAL_CHOICE' &&
+    state.pendingInteraction.player === 'player'
+  );
+
+  const optionalChoiceData = isOptionalChoicePending
+    ? (state.pendingInteraction as any)
+    : null;
+
+  const optionalSourceCard = optionalChoiceData?.sourceCardId
+    ? CARD_MAP.get(optionalChoiceData.sourceCardId)
+    : null;
+
+  const handleAcceptOptionalChoice = () => {
+    dispatch({
+      type: 'RESOLVE_OPTIONAL_CHOICE',
+      player: 'player',
+      accept: true
+    });
+  };
+
+  const handleDeclineOptionalChoice = () => {
+    dispatch({
+      type: 'RESOLVE_OPTIONAL_CHOICE',
+      player: 'player',
+      accept: false
+    });
+  };
+
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
       {/* Left Column: Card Inspector & Match Status (Fixed 18rem width per design standard) */}
       <CardInspectorPane
         className="w-72 2xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
+        friendlyBattleZone={state.players.player.battleZone}
         turn={state.turn}
         activePlayer={state.activePlayer}
         phase={state.phase}
@@ -588,21 +677,78 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
         <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 relative my-0.5 px-0.5 sm:px-1">
+          {/* Action Banner: Blocker Arena Selection */}
+          {blockerArenaSelection && (
+            <div className="w-full flex items-center justify-between px-3 py-1.5 mb-1 rounded-lg bg-sky-950/90 border border-sky-500/60 shadow-lg text-xs animate-fade-in z-30">
+              <div className="flex items-center gap-2 min-w-0">
+                <Shield className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
+                <span className="font-cinzel font-bold text-sky-200 truncate">
+                  Click any highlighted Blocker in your Battle Zone to intercept!
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDeclareBlock(null)}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-2"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Pass / Do Not Block</span>
+              </button>
+            </div>
+          )}
+
+          {/* Action Banner: Shield Trigger Target Selection */}
+          {triggerTargetSelection && (
+            <div className="w-full flex items-center justify-between px-3 py-1.5 mb-1 rounded-lg bg-amber-950/90 border border-amber-500/60 shadow-lg text-xs animate-fade-in z-30">
+              <div className="flex items-center gap-2 min-w-0">
+                <Zap className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
+                <span className="font-cinzel font-bold text-amber-200 truncate">
+                  Shield Trigger: Click a target creature on the battlefield for <strong className="text-white">{triggerTargetSelection.card.name}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = triggerTargetSelection.shieldId;
+                  handleResolveShieldTrigger(id, false);
+                }}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-2"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel (Keep in Hand)</span>
+              </button>
+            </div>
+          )}
+
           {/* Opponent Field */}
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.opponent.battleZone}
+              opponentBattleZone={state.players.player.battleZone}
+              playerState={state.players.opponent}
+              opponentState={state.players.player}
               owner="opponent"
               turn={state.turn}
               phase={state.phase}
               activePlayer={state.activePlayer}
               selectedAttackerId={selectedAttackerId}
+              combatAttackerId={state.combatState?.attackerId}
               onSelectTargetCreature={handleSelectCreatureTarget}
               onInspectCard={handleInspectCard}
               onHoverCard={handleHoverCard}
-              spellTargetMode={spellCandidate !== null}
-              validSpellTargetIds={spellCandidate?.validTargetIds}
-              onSelectSpellTarget={handleSelectSpellTarget}
+              spellTargetMode={spellCandidate !== null || triggerTargetSelection !== null}
+              validSpellTargetIds={
+                triggerTargetSelection
+                  ? triggerTargetSelection.validTargetIds
+                  : spellCandidate?.validTargetIds
+              }
+              onSelectSpellTarget={(targetId) => {
+                if (triggerTargetSelection) {
+                  handleResolveShieldTrigger(triggerTargetSelection.shieldId, true, [targetId]);
+                } else {
+                  handleSelectSpellTarget(targetId);
+                }
+              }}
             />
           </div>
 
@@ -615,17 +761,45 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
               battleZone={state.players.player.battleZone}
+              opponentBattleZone={state.players.opponent.battleZone}
+              playerState={state.players.player}
+              opponentState={state.players.opponent}
               owner="player"
               turn={state.turn}
               phase={state.phase}
               activePlayer={state.activePlayer}
               selectedAttackerId={selectedAttackerId}
+              combatAttackerId={state.combatState?.attackerId}
               onSelectAttacker={handleSelectAttacker}
               onInspectCard={handleInspectCard}
               onHoverCard={handleHoverCard}
               evolutionSelectionMode={evolutionCandidate !== null}
               validBaitIds={evolutionCandidate?.validBaitIds}
               onSelectBait={handleSelectBait}
+              spellTargetMode={
+                (spellCandidate !== null && spellCandidate.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id))) ||
+                (triggerTargetSelection !== null && triggerTargetSelection.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id)))
+              }
+              validSpellTargetIds={
+                triggerTargetSelection
+                  ? triggerTargetSelection.validTargetIds
+                  : spellCandidate?.validTargetIds
+              }
+              onSelectSpellTarget={(targetId) => {
+                if (triggerTargetSelection) {
+                  handleResolveShieldTrigger(triggerTargetSelection.shieldId, true, [targetId]);
+                } else {
+                  handleSelectSpellTarget(targetId);
+                }
+              }}
+              blockerSelectionMode={blockerArenaSelection}
+              validBlockerIds={
+                state.pendingInteraction?.type === 'BLOCK_DECLARATION' ||
+                state.pendingInteraction?.type === 'BLOCKER_CHOICE'
+                  ? state.pendingInteraction.validBlockerIds
+                  : []
+              }
+              onSelectBlocker={(blockerId) => handleDeclareBlock(blockerId)}
             />
           </div>
         </div>
@@ -642,6 +816,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
+            onToggleManaTap={(cardInstanceId, forceTapped) =>
+              dispatch({ type: 'TOGGLE_MANA_TAP', player: 'player', cardInstanceId, forceTapped })
+            }
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
@@ -678,8 +855,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         isPlayerTurn={isPlayerTurn}
         canDirectAttack={canDirectAttack}
         onDirectAttack={handleDirectAttack}
-        canUndoMana={canUndoMana}
-        onUndoMana={handleUndoChargeMana}
         onPassPhase={handlePassPhase}
         onEndTurn={handleEndTurn}
         onPlayOpponentMove={triggerAiStep}
@@ -689,7 +864,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
       {/* Modals & Overlays */}
       <TriggerModal
-        isOpen={isPlayerTriggerPending}
+        isOpen={isPlayerTriggerPending && triggerTargetSelection === null}
         interaction={
           state.pendingInteraction?.type === 'SHIELD_TRIGGER_RESOLUTION' ||
           state.pendingInteraction?.type === 'SHIELD_TRIGGER_CHOICE'
@@ -697,19 +872,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             : null
         }
         state={state}
-        onResolve={(shieldId, activate, targets) => {
-          dispatch({
-            type: 'RESOLVE_SHIELD_TRIGGER',
-            player: 'player',
-            shieldId,
-            activate,
-            targets
-          });
+        onResolve={handleResolveShieldTrigger}
+        onStartArenaTargetSelect={(shieldId, card, validTargetIds) => {
+          setTriggerTargetSelection({ shieldId, card, validTargetIds });
         }}
       />
 
       <BlockerModal
-        isOpen={isPlayerBlockerPending}
+        isOpen={isPlayerBlockerPending && !blockerArenaSelection}
         interaction={
           state.pendingInteraction?.type === 'BLOCK_DECLARATION' ||
           state.pendingInteraction?.type === 'BLOCKER_CHOICE'
@@ -717,13 +887,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             : null
         }
         state={state}
-        onDeclareBlock={(blockerId) => {
-          dispatch({
-            type: 'DECLARE_BLOCK',
-            player: 'player',
-            blockerId
-          });
-        }}
+        onStartArenaSelect={() => setBlockerArenaSelection(true)}
+        onPassBlock={() => handleDeclareBlock(null)}
       />
 
       <GameOverModal
@@ -733,6 +898,42 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onRestart={handleRestart}
         onChangeDecks={onNavigateToBuilder}
       />
+
+      <OptionalChoiceModal
+        isOpen={isOptionalChoicePending}
+        abilityName={optionalChoiceData?.abilityName || 'Optional Ability'}
+        prompt={optionalChoiceData?.prompt || 'Would you like to activate this ability?'}
+        sourceCard={optionalSourceCard}
+        onAccept={handleAcceptOptionalChoice}
+        onDecline={handleDeclineOptionalChoice}
+      />
+
+      <DeckSearchModal
+        isOpen={state.pendingInteraction?.type === 'DECK_SEARCH' && state.pendingInteraction.player === 'player'}
+        interaction={state.pendingInteraction?.type === 'DECK_SEARCH' ? state.pendingInteraction : null}
+        deck={state.players.player.deck}
+        onSelectCard={(id) => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: id })}
+        onSkip={() => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: null })}
+        onHoverCard={handleHoverCard}
+        onInspectCard={handleInspectCard}
+      />
+
+      {state.pendingInteraction?.type === 'TARGET_SELECTION' &&
+        state.pendingInteraction.player === 'player' &&
+        state.pendingInteraction.minTargets === 0 && (
+          <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 bg-slate-900/95 border border-amber-500/60 rounded-xl px-4 py-2 shadow-2xl backdrop-blur-md">
+            <span className="text-xs text-amber-200 font-medium font-sans">
+              {state.pendingInteraction.prompt}
+            </span>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'SELECT_TARGETS', player: 'player', selectedIds: [] })}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-cinzel font-bold border border-slate-600 transition-colors cursor-pointer"
+            >
+              Skip Ability
+            </button>
+          </div>
+      )}
 
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-semibold text-xs shadow-2xl animate-fade-in pointer-events-none">

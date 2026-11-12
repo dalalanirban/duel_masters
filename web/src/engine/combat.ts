@@ -34,6 +34,7 @@ export {
   getSurvivorSharedAbilities,
   hasCreatureBlocker,
   hasCreatureSlayer,
+  hasCreatureSpeedAttacker,
   isCreatureUnblockable,
   getCreatureBreakerCount,
   calculateContinuousAuraPower

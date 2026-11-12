@@ -9,45 +9,119 @@ export function getAvailableManaCount(manaZone: ManaCardInstance[]): number {
 }
 
 /**
- * Returns the set of all civilizations represented in the mana zone
- * (both tapped and untapped cards provide their civilization).
+ * Returns the set of all civilizations represented in the mana zone.
+ * When untappedOnly is true, only considers currently untapped cards.
  */
-export function getAvailableCivilizations(manaZone: ManaCardInstance[]): Set<Civilization> {
+export function getAvailableCivilizations(
+  manaZone: ManaCardInstance[],
+  untappedOnly: boolean = false
+): Set<Civilization> {
   const civs = new Set<Civilization>();
   for (const cardInst of manaZone) {
-    for (const civ of cardInst.card.civilizations) {
-      civs.add(civ);
+    if (!untappedOnly || !cardInst.isTapped) {
+      for (const civ of cardInst.card.civilizations) {
+        civs.add(civ);
+      }
     }
   }
   return civs;
 }
 
 /**
+ * Finds the exact indices of untapped mana cards to tap in order to pay for a card.
+ * Official Duel Masters Rule:
+ * At least one of the cards tapped to pay for the card MUST match each of the
+ * card's civilizations.
+ * Returns the list of mana zone indices to tap, or null if requirements cannot be met.
+ */
+export function findManaCardsToTap(
+  manaZone: ManaCardInstance[],
+  card: CardDefinition
+): number[] | null {
+  const rawCost = card.manaCost ?? (card as any).cost ?? 0;
+  const cost = Math.max(0, rawCost);
+  const untapped = manaZone
+    .map((m, index) => ({ m, index }))
+    .filter((x) => !x.m.isTapped);
+
+  if (untapped.length < cost) {
+    return null;
+  }
+
+  if (cost === 0) {
+    return [];
+  }
+
+  const rawCivs = card.civilizations ?? ((card as any).civilization ? [(card as any).civilization] : []);
+  const requiredCivs = [...new Set(rawCivs)];
+
+  // Backtracking search to find a subset of untapped cards of size <= cost
+  // that covers all required civilizations.
+  function search(
+    civIndex: number,
+    selectedIndices: number[]
+  ): number[] | null {
+    if (civIndex === requiredCivs.length) {
+      return selectedIndices;
+    }
+
+    const currentCiv = requiredCivs[civIndex];
+    // If an already selected card covers this civilization, advance
+    const alreadyCovered = selectedIndices.some((idx) =>
+      manaZone[idx].card.civilizations.includes(currentCiv)
+    );
+    if (alreadyCovered) {
+      return search(civIndex + 1, selectedIndices);
+    }
+
+    // Try selecting an untapped card that provides currentCiv
+    for (const item of untapped) {
+      if (
+        !selectedIndices.includes(item.index) &&
+        item.m.card.civilizations.includes(currentCiv)
+      ) {
+        if (selectedIndices.length + 1 <= cost) {
+          const res = search(civIndex + 1, [...selectedIndices, item.index]);
+          if (res) return res;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  const civCardIndices = search(0, []);
+  if (!civCardIndices) {
+    return null;
+  }
+
+  // Fill remaining cost with other untapped cards
+  const result = [...civCardIndices];
+  for (const item of untapped) {
+    if (result.length >= cost) break;
+    if (!result.includes(item.index)) {
+      result.push(item.index);
+    }
+  }
+
+  return result.length === cost ? result : null;
+}
+
+/**
  * Validates whether the given card's mana cost can be paid using the mana zone:
  * 1. Untapped mana count >= card mana cost.
- * 2. Mana zone contains at least 1 card (tapped or untapped) matching each civilization required by the card.
+ * 2. At least one untapped mana card can be tapped for each of the card's required civilizations.
  */
 export function canPayManaCost(
   manaZone: ManaCardInstance[],
   card: CardDefinition
 ): boolean {
-  const cost = Math.max(0, card.manaCost);
-  if (getAvailableManaCount(manaZone) < cost) {
-    return false;
-  }
-
-  const availableCivs = getAvailableCivilizations(manaZone);
-  for (const reqCiv of card.civilizations) {
-    if (!availableCivs.has(reqCiv)) {
-      return false;
-    }
-  }
-
-  return true;
+  return findManaCardsToTap(manaZone, card) !== null;
 }
 
 /**
  * Taps the required number of untapped mana cards to pay for a card.
+ * Priority: Guaranteed to tap cards matching each required civilization of the card.
  * Returns an object with success status and the updated mana zone.
  * If payment is not possible, returns success: false and the original mana zone.
  */
@@ -55,14 +129,14 @@ export function payManaCost(
   manaZone: ManaCardInstance[],
   card: CardDefinition
 ): { success: boolean; updatedManaZone: ManaCardInstance[] } {
-  if (!canPayManaCost(manaZone, card)) {
+  const indicesToTap = findManaCardsToTap(manaZone, card);
+  if (!indicesToTap) {
     return { success: false, updatedManaZone: manaZone };
   }
 
-  let remainingToTap = Math.max(0, card.manaCost);
-  const updatedManaZone = manaZone.map((m) => {
-    if (remainingToTap > 0 && !m.isTapped) {
-      remainingToTap--;
+  const toTapSet = new Set(indicesToTap);
+  const updatedManaZone = manaZone.map((m, index) => {
+    if (toTapSet.has(index)) {
       return { ...m, isTapped: true };
     }
     return m;

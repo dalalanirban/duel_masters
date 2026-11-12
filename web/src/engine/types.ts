@@ -95,10 +95,33 @@ export interface TargetSelectionInteraction {
   prompt: string;
 }
 
+export interface OptionalChoiceInteraction {
+  type: 'OPTIONAL_CHOICE';
+  player: PlayerId;
+  sourceCardId: string;
+  sourceInstanceId?: string;
+  abilityName: string;
+  prompt: string;
+  effectType: 'DRAW' | 'TAP_OPPONENT_CREATURE' | 'SALVAGE_GRAVEYARD' | 'SEARCH_DECK' | 'UNTAP_CREATURE' | 'CUSTOM';
+  drawCount?: number;
+  validTargetIds?: string[];
+}
+
+export interface DeckSearchInteraction {
+  type: 'DECK_SEARCH';
+  player: PlayerId;
+  sourceCardName: string;
+  filterDescription: string;
+  validCardInstanceIds: string[];
+  destination: 'hand' | 'manaZone' | 'battleZone';
+}
+
 export type PendingInteraction =
   | BlockerChoiceInteraction
   | ShieldTriggerChoiceInteraction
-  | TargetSelectionInteraction;
+  | TargetSelectionInteraction
+  | OptionalChoiceInteraction
+  | DeckSearchInteraction;
 
 export interface GameState {
   turn: number;
@@ -158,6 +181,12 @@ export type GameAction =
     }
   | { type: 'SELECT_TARGETS'; player?: PlayerId; selectedIds: string[] }
   | {
+      type: 'RESOLVE_OPTIONAL_CHOICE';
+      player?: PlayerId;
+      accept: boolean;
+      selectedTargetId?: string;
+    }
+  | {
       type: 'ACTIVATE_SILENT_SKILL';
       player?: PlayerId;
       creatureInstanceId: string;
@@ -172,6 +201,17 @@ export type GameAction =
       type: 'NEXT_PHASE';
       player?: PlayerId;
       targetPhase?: Phase | 'END_TURN';
+    }
+  | {
+      type: 'RESOLVE_DECK_SEARCH';
+      player?: PlayerId;
+      selectedCardInstanceId: string | null;
+    }
+  | {
+      type: 'TOGGLE_MANA_TAP';
+      player?: PlayerId;
+      cardInstanceId: string;
+      forceTapped?: boolean;
     }
   | { type: 'END_TURN'; player?: PlayerId }
   | { type: 'START_TURN'; player?: PlayerId };

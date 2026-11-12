@@ -6,15 +6,24 @@ import {
   Crosshair,
   Skull,
   Layers,
-  Sparkles
+  Sparkles,
+  Swords
 } from 'lucide-react';
-import type { CreatureInstance, PlayerId, Phase } from '../../engine/types';
+import type { CreatureInstance, PlayerId, Phase, PlayerState } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
-import { getCreatureEffectivePower } from '../../engine/combat';
+import {
+  getCreatureEffectivePower,
+  hasCreatureBlocker,
+  hasCreatureSlayer,
+  hasCreatureSpeedAttacker
+} from '../../engine/combat';
 import { isSummoningSick } from '../../engine/evolution';
 
 interface BattleZoneViewProps {
   battleZone: CreatureInstance[];
+  opponentBattleZone?: CreatureInstance[];
+  playerState?: PlayerState;
+  opponentState?: PlayerState;
   owner: PlayerId;
   turn: number;
   phase: Phase;
@@ -28,14 +37,23 @@ interface BattleZoneViewProps {
   evolutionSelectionMode?: boolean;
   validBaitIds?: string[];
   onSelectBait?: (creatureId: string) => void;
-  // Spell targeting mode
+  // Spell / Trigger targeting mode
   spellTargetMode?: boolean;
   validSpellTargetIds?: string[];
   onSelectSpellTarget?: (creatureId: string) => void;
+  // Blocker selection mode
+  blockerSelectionMode?: boolean;
+  validBlockerIds?: string[];
+  onSelectBlocker?: (creatureId: string) => void;
+  // Combat attacker ID (e.g. state.combatState.attackerId)
+  combatAttackerId?: string | null;
 }
 
 export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   battleZone,
+  opponentBattleZone,
+  playerState,
+  opponentState,
   owner,
   turn,
   phase,
@@ -50,7 +68,11 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   onSelectBait,
   spellTargetMode = false,
   validSpellTargetIds = [],
-  onSelectSpellTarget
+  onSelectSpellTarget,
+  blockerSelectionMode = false,
+  validBlockerIds = [],
+  onSelectBlocker,
+  combatAttackerId = null
 }) => {
   const isOpponent = owner === 'opponent';
   const isPlayerTurn = activePlayer === 'player';
@@ -78,12 +100,14 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
       {battleZone.map((creature) => {
         const card = creature.card;
         const isTapped = creature.isTapped;
-        const sick = isSummoningSick(creature, turn);
-        const isAttacker = selectedAttackerId === creature.instanceId;
-        const effectivePower = getCreatureEffectivePower(creature, isAttacker);
-        const isBlocker = Boolean(card.isBlocker);
-        const isSlayer = Boolean(card.isSlayer);
-        const isSpeedAttacker = Boolean(card.isSpeedAttacker);
+        const sick = isSummoningSick(creature, turn, battleZone);
+        const isAttacker = selectedAttackerId === creature.instanceId || combatAttackerId === creature.instanceId;
+        const friendlyState = playerState || ({ battleZone } as any);
+        const oppState = opponentState || ({ battleZone: opponentBattleZone || [] } as any);
+        const effectivePower = getCreatureEffectivePower(creature, isAttacker, friendlyState, oppState);
+        const isBlocker = hasCreatureBlocker(creature, battleZone);
+        const isSlayer = hasCreatureSlayer(creature, battleZone);
+        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone);
         const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
         const underlyingCount = creature.evolvedOn ? creature.evolvedOn.length : 0;
 
@@ -108,13 +132,20 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
           !isOpponent &&
           validBaitIds.includes(creature.instanceId);
 
-        // Spell target eligibility
+        // Spell / Trigger target eligibility
         const isSpellTargetCandidate =
           spellTargetMode &&
           validSpellTargetIds.includes(creature.instanceId);
 
+        // Blocker candidate eligibility
+        const isBlockerCandidate =
+          blockerSelectionMode &&
+          !isOpponent &&
+          validBlockerIds.includes(creature.instanceId);
+
         // Disabled/untargetable during specific targeting modes
         const isActionDisabled =
+          (blockerSelectionMode && !isBlockerCandidate) ||
           (spellTargetMode && !isSpellTargetCandidate) ||
           (evolutionSelectionMode && !isOpponent && !isBaitCandidate) ||
           (selectedAttackerId && isOpponent && !canBeAttacked);
@@ -123,6 +154,11 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
 
         const handleClick = (e: React.MouseEvent) => {
           e.stopPropagation();
+
+          if (blockerSelectionMode && isBlockerCandidate && onSelectBlocker) {
+            onSelectBlocker(creature.instanceId);
+            return;
+          }
 
           if (isSpellTargetCandidate && onSelectSpellTarget) {
             onSelectSpellTarget(creature.instanceId);
@@ -160,6 +196,8 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
             } ${
               isAttacker
                 ? 'ring-2 ring-amber-400 shadow-amber-500/50 z-20 animate-pulse'
+                : isBlockerCandidate
+                ? 'ring-2 ring-sky-400 shadow-sky-500/60 z-20 animate-pulse cursor-pointer hover:scale-105 hover:brightness-125'
                 : canBeAttacked
                 ? 'ring-2 ring-red-500 shadow-red-500/50 z-20 animate-pulse cursor-crosshair hover:brightness-110'
                 : isActionDisabled
@@ -239,8 +277,9 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                   <span>Zzz</span>
                 </div>
               ) : isAttacker ? (
-                <div className="px-1 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black font-cinzel tracking-wider animate-pulse">
-                  ATK
+                <div className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black font-cinzel tracking-wider animate-pulse flex items-center gap-0.5">
+                  <Swords className="w-2.5 h-2.5" />
+                  <span>ATK</span>
                 </div>
               ) : canAttack ? (
                 <div className="px-1.5 py-0.2 rounded-full bg-emerald-500/90 text-slate-950 text-[8px] font-bold font-mono">
@@ -272,6 +311,16 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 <Sparkles className="w-4 h-4 text-purple-300 animate-pulse mb-0.5" />
                 <span className="text-[8.5px] font-black text-purple-200 uppercase tracking-wider font-cinzel">
                   Spell Target
+                </span>
+              </div>
+            )}
+
+            {/* Blocker Candidate Overlay */}
+            {isBlockerCandidate && (
+              <div className="absolute inset-0 bg-sky-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-1 text-center z-10 pointer-events-none">
+                <Shield className="w-5 h-5 text-sky-400 animate-bounce mb-0.5" />
+                <span className="text-[9px] font-black text-sky-200 uppercase tracking-wider font-cinzel">
+                  Block
                 </span>
               </div>
             )}

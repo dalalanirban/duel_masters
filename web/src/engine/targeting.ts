@@ -1,9 +1,11 @@
 import type {
   GameState,
-  PlayerId
+  PlayerId,
+  PlayerState
 } from './types.ts';
 import type { CardDefinition } from '../types/card.ts';
 import { getCreatureEffectivePower } from './combat.ts';
+import { hasCreatureBlocker } from './effects.ts';
 
 export interface TargetRequirement {
   requiresTarget: boolean;
@@ -18,19 +20,72 @@ export interface TargetRequirement {
  */
 export function getSpellTargetRequirement(
   card: CardDefinition,
-  state: GameState,
-  caster: PlayerId
+  stateOrCasterState: GameState | PlayerState,
+  casterOrOpponentState: PlayerId | PlayerState
 ): TargetRequirement {
-  const opponent: PlayerId = caster === 'player' ? 'opponent' : 'player';
-  const casterState = state.players[caster];
-  const opponentState = state.players[opponent];
+  let casterState: PlayerState;
+  let opponentState: PlayerState;
+
+  if ('players' in (stateOrCasterState as GameState)) {
+    const state = stateOrCasterState as GameState;
+    const caster = casterOrOpponentState as PlayerId;
+    const opponent: PlayerId = caster === 'player' ? 'opponent' : 'player';
+    casterState = state.players[caster];
+    opponentState = state.players[opponent];
+  } else {
+    casterState = stateOrCasterState as PlayerState;
+    opponentState = casterOrOpponentState as PlayerState;
+  }
+
   const rules = card.rulesText || '';
   const nameLower = card.name.toLowerCase();
 
-  // 1. Destroy 1 opponent creature without power restriction (e.g. Terror Pit)
+  // 1a. Comet Missile: Destroy 1 opponent creature that has "blocker" and power 6000 or less
+  if (
+    nameLower.includes('comet missile') ||
+    (/destroy (?:one|1) of your opponent's creatures that has "blocker" and power 6000 or less/i.test(rules))
+  ) {
+    const valid = opponentState.battleZone
+      .filter(
+        (c) =>
+          hasCreatureBlocker(c, opponentState.battleZone) &&
+          getCreatureEffectivePower(c, false, opponentState, casterState) <= 6000
+      )
+      .map((c) => c.instanceId);
+
+    return {
+      requiresTarget: valid.length > 0,
+      minTargets: valid.length > 0 ? 1 : 0,
+      maxTargets: 1,
+      validTargetIds: valid,
+      prompt: "Choose 1 opponent creature with Blocker and power 6000 or less to destroy."
+    };
+  }
+
+  // 1b. Critical Blade: Destroy 1 opponent creature that has "blocker"
+  if (
+    nameLower.includes('critical blade') ||
+    (/destroy (?:one|1) of your opponent's creatures that has "blocker"/i.test(rules) && !/power/i.test(rules))
+  ) {
+    const valid = opponentState.battleZone
+      .filter((c) => hasCreatureBlocker(c, opponentState.battleZone))
+      .map((c) => c.instanceId);
+
+    return {
+      requiresTarget: valid.length > 0,
+      minTargets: valid.length > 0 ? 1 : 0,
+      maxTargets: 1,
+      validTargetIds: valid,
+      prompt: "Choose 1 opponent creature with Blocker to destroy."
+    };
+  }
+
+  // 1c. Destroy 1 opponent creature without power restriction (e.g. Terror Pit)
   if (
     nameLower.includes('terror pit') ||
-    (/destroy (?:one|1) of your opponent's creatures/i.test(rules) && !/power \d+ or less/i.test(rules))
+    (/destroy (?:one|1) of your opponent's creatures/i.test(rules) &&
+      !/power \d+ or less/i.test(rules) &&
+      !/"blocker"/i.test(rules))
   ) {
     const valid = opponentState.battleZone.map((c) => c.instanceId);
     return {

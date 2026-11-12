@@ -6,6 +6,7 @@ import { CARD_MAP } from '../data/cardLoader.ts';
 import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
 import { passToMainPhase, endTurn, startTurn } from './turn.ts';
 import { resolveSilentSkill } from './advancedMechanics.ts';
+import { drawCards, searchDeckForCard, isSurvivor } from './effects.ts';
 
 /**
  * Checks whether any creature controlled by the active player in the battle zone
@@ -230,9 +231,192 @@ export function step(state: GameState, action: GameAction): GameState {
           if (cardDef) {
             return resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
           }
+        } else if (interaction.actionType === 'EFFECT_TARGET') {
+          if (selectedIds.length === 0) {
+            return {
+              ...stateWithoutPending,
+              actionLog: [...stateWithoutPending.actionLog, `${player} skipped optional target selection.`]
+            };
+          }
+          const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
+          const oppBZ = stateWithoutPending.players[oppId].battleZone;
+          const targetId = selectedIds[0];
+          const targetCreature = oppBZ.find((c) => c.instanceId === targetId);
+          if (targetCreature) {
+            const updatedOppBZ = oppBZ.map((c) =>
+              c.instanceId === targetId ? { ...c, isTapped: true } : c
+            );
+            return {
+              ...stateWithoutPending,
+              players: {
+                ...stateWithoutPending.players,
+                [oppId]: {
+                  ...stateWithoutPending.players[oppId],
+                  battleZone: updatedOppBZ
+                }
+              },
+              actionLog: [
+                ...stateWithoutPending.actionLog,
+                `${player} tapped ${targetCreature.card.name} with creature ability.`
+              ]
+            };
+          }
         }
 
         return stateWithoutPending;
+      }
+
+      case 'RESOLVE_OPTIONAL_CHOICE': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'OPTIONAL_CHOICE') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const stateWithoutPending: GameState = {
+          ...state,
+          pendingInteraction: null
+        };
+
+        if (!action.accept) {
+          return {
+            ...stateWithoutPending,
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} chose not to use optional ability (${interaction.abilityName}).`
+            ]
+          };
+        }
+
+        // Action accepted: execute effect
+        if (interaction.effectType === 'DRAW') {
+          const count = interaction.drawCount || 1;
+          return drawCards(stateWithoutPending, player, count);
+        } else if (interaction.effectType === 'SEARCH_DECK') {
+          const cardDef = CARD_MAP.get(interaction.sourceCardId);
+          if (cardDef?.name.toLowerCase().includes('forbos')) {
+            return searchDeckForCard(stateWithoutPending, player, (c) => c.type === 'Spell', 'hand');
+          } else {
+            return searchDeckForCard(stateWithoutPending, player, (c) => isSurvivor(c), 'hand');
+          }
+        }
+        return stateWithoutPending;
+      }
+
+      case 'RESOLVE_DECK_SEARCH': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'DECK_SEARCH') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const pState = state.players[player];
+        const stateWithoutPending: GameState = {
+          ...state,
+          pendingInteraction: null
+        };
+
+        if (!action.selectedCardInstanceId) {
+          return {
+            ...stateWithoutPending,
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} searched deck (${interaction.sourceCardName}) but chose not to take a card.`
+            ]
+          };
+        }
+
+        const cardIndex = pState.deck.findIndex((c) => c.instanceId === action.selectedCardInstanceId);
+        if (cardIndex === -1) {
+          return stateWithoutPending;
+        }
+
+        const chosenCard = pState.deck[cardIndex];
+        const nextDeck = pState.deck.filter((_, idx) => idx !== cardIndex);
+
+        // Shuffle deck after searching
+        const shuffledDeck = [...nextDeck];
+        for (let i = shuffledDeck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+        }
+
+        const dest = interaction.destination;
+        let updatedPlayer: typeof pState;
+        if (dest === 'manaZone') {
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            manaZone: [
+              ...pState.manaZone,
+              {
+                instanceId: chosenCard.instanceId,
+                card: chosenCard.card,
+                isTapped: false
+              }
+            ]
+          };
+        } else if (dest === 'battleZone') {
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            battleZone: [
+              ...pState.battleZone,
+              {
+                instanceId: chosenCard.instanceId,
+                card: chosenCard.card,
+                owner: player,
+                isTapped: false,
+                powerModifier: 0,
+                summonedTurn: state.turn
+              }
+            ]
+          };
+        } else {
+          // Default: hand
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            hand: [...pState.hand, chosenCard]
+          };
+        }
+
+        return {
+          ...stateWithoutPending,
+          players: {
+            ...stateWithoutPending.players,
+            [player]: updatedPlayer
+          },
+          actionLog: [
+            ...stateWithoutPending.actionLog,
+            `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into ${dest}.`
+          ]
+        };
+      }
+
+      case 'TOGGLE_MANA_TAP': {
+        const player = action.player || 'player';
+        const pState = state.players[player];
+        const manaCard = pState.manaZone.find((m) => m.instanceId === action.cardInstanceId);
+        if (!manaCard) return state;
+
+        const nextTapped = action.forceTapped !== undefined ? action.forceTapped : !manaCard.isTapped;
+        const nextManaZone = pState.manaZone.map((m) =>
+          m.instanceId === action.cardInstanceId ? { ...m, isTapped: nextTapped } : m
+        );
+
+        return {
+          ...state,
+          players: {
+            ...state.players,
+            [player]: {
+              ...pState,
+              manaZone: nextManaZone
+            }
+          },
+          actionLog: [
+            ...state.actionLog,
+            `${player} ${nextTapped ? 'tapped' : 'untapped'} ${manaCard.card.name} in mana zone.`
+          ]
+        };
       }
 
       case 'ACTIVATE_SILENT_SKILL': {

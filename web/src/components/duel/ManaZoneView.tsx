@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Sparkles, Undo2 } from 'lucide-react';
 import type { ManaCardInstance, PlayerId } from '../../engine/types';
 import type { CardDefinition, Civilization } from '../../types/card';
@@ -9,6 +9,7 @@ export interface ManaZoneViewProps {
   owner: PlayerId;
   onInspectCard?: (card: CardDefinition) => void;
   onHoverCard?: (card: CardDefinition | null) => void;
+  onToggleManaTap?: (cardInstanceId: string, forceTapped?: boolean) => void;
   canUndoMana?: boolean;
   onUndoMana?: () => void;
   compact?: boolean;
@@ -20,6 +21,7 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
   owner,
   onInspectCard,
   onHoverCard,
+  onToggleManaTap,
   canUndoMana = false,
   onUndoMana,
   className = ''
@@ -28,6 +30,22 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
   const untappedMana = manaZone.filter((m) => !m.isTapped);
   const untappedCount = untappedMana.length;
   const totalCount = manaZone.length;
+
+  const isDraggingRef = useRef(false);
+  const targetTapRef = useRef<boolean>(true);
+
+  // Global mouseup/pointerup listener for drag-to-tap gesture
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      isDraggingRef.current = false;
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('mouseup', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('mouseup', handleGlobalPointerUp);
+    };
+  }, []);
 
   const allCivilizations = Array.from(
     new Set(manaZone.flatMap((m) => m.card.civilizations))
@@ -73,7 +91,7 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
             : card.imageUrl;
 
           const rotationStyle = isPlayer
-            ? (isTapped ? 'rotate-90 scale-90 opacity-50 border-slate-700' : 'rotate-180 hover:scale-108 border-amber-400/70 shadow-xs')
+            ? (isTapped ? 'rotate-90 scale-90 opacity-55 border-slate-700' : 'rotate-180 hover:scale-108 border-amber-400/80 shadow-md ring-1 ring-amber-400/20')
             : (isTapped ? 'rotate-90 scale-90 opacity-50 border-slate-700' : 'border-slate-700 hover:scale-108 shadow-xs');
 
           return (
@@ -81,11 +99,35 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
               key={manaCard.instanceId}
               onMouseEnter={() => onHoverCard?.(card)}
               onMouseLeave={() => onHoverCard?.(null)}
-              onClick={() => onInspectCard?.(card)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onInspectCard?.(card);
+              }}
+              onPointerDown={() => {
+                if (isOpponent || !onToggleManaTap) {
+                  onInspectCard?.(card);
+                  return;
+                }
+                isDraggingRef.current = true;
+                const nextState = !manaCard.isTapped;
+                targetTapRef.current = nextState;
+                onToggleManaTap(manaCard.instanceId, nextState);
+              }}
+              onPointerEnter={() => {
+                onHoverCard?.(card);
+                if (isOpponent || !onToggleManaTap || !isDraggingRef.current) return;
+                onToggleManaTap(manaCard.instanceId, targetTapRef.current);
+              }}
               className={`relative shrink-0 ${cardDimensions} rounded-xs sm:rounded-sm overflow-hidden border transition-transform duration-150 cursor-pointer ${rotationStyle}`}
-              title={`${card.name} (${card.civilizations.join('/')}) - ${
-                isTapped ? 'Tapped' : 'Ready'
-              }`}
+              title={
+                isPlayer
+                  ? `${card.name} (${card.civilizations.join('/')}) - ${
+                      isTapped ? 'Tapped (Click to untap)' : 'Ready (Click or drag to tap)'
+                    }`
+                  : `${card.name} (${card.civilizations.join('/')}) - ${
+                      isTapped ? 'Tapped' : 'Ready'
+                    }`
+              }
             >
               <img
                 src={imageSrc}
@@ -101,6 +143,15 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
               <div className="absolute top-0.5 left-0.5 p-0.5 rounded bg-slate-950/85 border border-slate-800/70 shadow-xs z-10">
                 <CivilizationIcon civilization={card.civilizations[0]} className="w-2.5 h-2.5" />
               </div>
+
+              {/* Tap Indicator Pill for Player Mana */}
+              {isPlayer && isTapped && (
+                <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
+                  <span className="text-[8px] font-mono font-bold text-slate-300 px-1 py-0.2 rounded bg-slate-900/80 border border-slate-700/60">
+                    TAP
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

@@ -5,6 +5,7 @@ import {
   getSurvivorSharedAbilities,
   hasCreatureBlocker,
   hasCreatureSlayer,
+  hasCreatureSpeedAttacker,
   isCreatureUnblockable,
   getCreatureBreakerCount,
   calculateContinuousAuraPower,
@@ -23,6 +24,7 @@ import {
 import { isSummoningSick } from '../evolution.ts';
 import { initializeGame } from '../state.ts';
 import { step } from '../reducer.ts';
+import { canPayManaCost, payManaCost } from '../mana.ts';
 import { CARD_LIST } from '../../data/cardLoader.ts';
 
 function findCard(name) {
@@ -379,12 +381,30 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       // Forbos searches spell
       const { nextState: s1, creature: cForbos } = setupCreatureInBZ(state, 'player', forbos);
       const sAfterForbos = triggerCIP(s1, 'player', cForbos);
-      assert.ok(sAfterForbos.players.player.hand.some((c) => c.card.name === terrorPit.name));
+      let sForbosResolved = sAfterForbos;
+      if (sAfterForbos.pendingInteraction?.type === 'DECK_SEARCH') {
+        const pitCard = sAfterForbos.players.player.deck.find((c) => c.card.name === terrorPit.name);
+        sForbosResolved = step(sAfterForbos, {
+          type: 'RESOLVE_DECK_SEARCH',
+          player: 'player',
+          selectedCardInstanceId: pitCard?.instanceId || null
+        });
+      }
+      assert.ok(sForbosResolved.players.player.hand.some((c) => c.card.name === terrorPit.name));
 
       // Factory Shell searches survivor
-      const { nextState: s2, creature: cFactory } = setupCreatureInBZ(sAfterForbos, 'player', factoryShell);
+      const { nextState: s2, creature: cFactory } = setupCreatureInBZ(sForbosResolved, 'player', factoryShell);
       const sAfterFactory = triggerCIP(s2, 'player', cFactory);
-      assert.ok(sAfterFactory.players.player.hand.some((c) => c.card.name === smashHorn.name));
+      let sFactoryResolved = sAfterFactory;
+      if (sAfterFactory.pendingInteraction?.type === 'DECK_SEARCH') {
+        const smashCard = sAfterFactory.players.player.deck.find((c) => c.card.name === smashHorn.name);
+        sFactoryResolved = step(sAfterFactory, {
+          type: 'RESOLVE_DECK_SEARCH',
+          player: 'player',
+          selectedCardInstanceId: smashCard?.instanceId || null
+        });
+      }
+      assert.ok(sFactoryResolved.players.player.hand.some((c) => c.card.name === smashHorn.name));
     });
   });
 
@@ -392,7 +412,7 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
   // 3. SURVIVOR ATTACK TRIGGERS
   // =========================================================================
   describe('3. Survivor Attack Triggers', () => {
-    it('Split-Head Hydroturtle Q grants card draw on attack to friendly Survivors', () => {
+    it('Split-Head Hydroturtle Q grants card draw on attack to friendly Survivors as optional choice', () => {
       let state = createTestState();
       state = {
         ...state,
@@ -408,8 +428,19 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
 
       // Smash Horn attacks shield
       const sAfterAttack = triggerAttack(s2, 'player', cSmash, { type: 'shield', index: 0 });
-      // Split-Head Hydroturtle Survivor ability draws 1 card for Smash Horn's attack
-      assert.strictEqual(sAfterAttack.players.player.hand.length, 1);
+      // Split-Head Hydroturtle Survivor ability opens OPTIONAL_CHOICE interaction
+      assert.strictEqual(sAfterAttack.pendingInteraction?.type, 'OPTIONAL_CHOICE');
+      assert.strictEqual(sAfterAttack.pendingInteraction?.effectType, 'DRAW');
+
+      // If user accepts: draws 1 card
+      const sAccepted = step(sAfterAttack, { type: 'RESOLVE_OPTIONAL_CHOICE', accept: true });
+      assert.strictEqual(sAccepted.players.player.hand.length, 1);
+      assert.strictEqual(sAccepted.pendingInteraction, null);
+
+      // If user declines: draws 0 cards
+      const sDeclined = step(sAfterAttack, { type: 'RESOLVE_OPTIONAL_CHOICE', accept: false });
+      assert.strictEqual(sDeclined.players.player.hand.length, 0);
+      assert.strictEqual(sDeclined.pendingInteraction, null);
     });
 
     it('Skullsweeper Q forces opponent to discard a card when friendly Survivor attacks', () => {
@@ -458,6 +489,29 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       assert.strictEqual(endBallus.isTapped, false); // Ballus untaps
       assert.strictEqual(endSmash.isTapped, false); // Smash Horn untaps because of Ballus!
       assert.strictEqual(endVorg.isTapped, true); // Non-survivor Vorg remains tapped
+    });
+
+    it('Ballus, Dogfight Enforcer Q untaps all friendly Survivors through reducer END_TURN action', () => {
+      const state = createTestState();
+      // Setup active turn = player, phase = MAIN
+      const { nextState: s1, creature: cBallus } = setupCreatureInBZ(state, 'player', ballus, { isTapped: true });
+      const { nextState: s2, creature: cSmash } = setupCreatureInBZ(s1, 'player', smashHorn, { isTapped: true });
+      const { nextState: s3, creature: cVorg } = setupCreatureInBZ(s2, 'player', vorg, { isTapped: true });
+      const activeState = { ...s3, activePlayer: 'player', phase: 'MAIN' };
+
+      // Dispatch END_TURN through master reducer
+      const nextState = step(activeState, { type: 'END_TURN', player: 'player' });
+
+      // After END_TURN, player's battle zone has transitioned
+      const bz = nextState.players.player.battleZone;
+      const endBallus = bz.find((c) => c.instanceId === cBallus.instanceId);
+      const endSmash = bz.find((c) => c.instanceId === cSmash.instanceId);
+      const endVorg = bz.find((c) => c.instanceId === cVorg.instanceId);
+
+      assert.strictEqual(endBallus.isTapped, false, 'Ballus itself untaps');
+      assert.strictEqual(endSmash.isTapped, false, 'Smash Horn untaps via Ballus Survivor ability!');
+      assert.strictEqual(endVorg.isTapped, true, 'Non-survivor Vorg remains tapped');
+      assert.ok(nextState.actionLog.some((log) => log.includes('Smash Horn Q untapped at the end of the turn (Survivor ability: Ballus, Dogfight Enforcer Q)')));
     });
   });
 
@@ -674,6 +728,129 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       assert.strictEqual(getCreatureEffectivePower(cVorg, false, pState), 2000);
       // Attacking while Techno Totem is tapped -> +1500 power attacker = 3500
       assert.strictEqual(getCreatureEffectivePower(cVorg, true, pState), 3500);
+    });
+  });
+
+  // =========================================================================
+  // 7. USER FEEDBACK REGRESSIONS AUDIT
+  // =========================================================================
+  describe('7. User Feedback Regressions: Survivor Sharing, Mana Civ Tapping & Optional Choices', () => {
+    it('Mana rule: cannot summon Fire card if Fire mana is tapped, even with surplus other mana', () => {
+      const manaZone = [
+        { instanceId: 'm-fire', card: vorg, isTapped: true }, // Fire card tapped
+        { instanceId: 'm-nat1', card: bronzeArm, isTapped: false },
+        { instanceId: 'm-nat2', card: bronzeArm, isTapped: false },
+        { instanceId: 'm-nat3', card: bronzeArm, isTapped: false },
+        { instanceId: 'm-nat4', card: bronzeArm, isTapped: false },
+        { instanceId: 'm-nat5', card: bronzeArm, isTapped: false }
+      ];
+
+      // Vorg requires 2 Fire mana. We have 5 untapped Nature, but 0 untapped Fire.
+      assert.strictEqual(canPayManaCost(manaZone, vorg), false);
+
+      // Untap the Fire card: now we have 1 untapped Fire and 5 untapped Nature (total 6 untapped, >= 2 cost)
+      manaZone[0].isTapped = false;
+      assert.strictEqual(canPayManaCost(manaZone, vorg), true);
+
+      // payManaCost MUST tap the Fire card first!
+      const payment = payManaCost(manaZone, vorg);
+      assert.strictEqual(payment.success, true);
+      const paidFire = payment.updatedManaZone.find((m) => m.instanceId === 'm-fire');
+      assert.strictEqual(paidFire.isTapped, true, 'Fire card in mana must be tapped to pay for Fire spell/creature');
+    });
+
+    it('Survivor sharing: Smash Horn Q + Gallia Zohl + Gigaling + Rumblesaur + Spikestrike share all abilities', () => {
+      const state = createTestState();
+      const { nextState: s1, creature: cSmash } = setupCreatureInBZ(state, 'player', smashHorn); // +1000 power
+      const { nextState: s2, creature: cGallia } = setupCreatureInBZ(s1, 'player', galliaZohl); // Blocker
+      const { nextState: s3, creature: cGigaling } = setupCreatureInBZ(s2, 'player', gigaling); // Slayer
+      const { nextState: s4, creature: cRumble } = setupCreatureInBZ(s3, 'player', rumblesaur); // Speed Attacker
+      const { nextState: s5, creature: cSpike } = setupCreatureInBZ(s4, 'player', spikestrike); // Unblockable
+
+      const bz = s5.players.player.battleZone;
+      const pState = s5.players.player;
+
+      // Every Survivor gets +1000 power from Smash Horn Q
+      // Gallia base 2000 -> 3000
+      assert.strictEqual(getCreatureEffectivePower(cGallia, false, pState), 3000);
+      // Gigaling base 2000 -> 3000
+      assert.strictEqual(getCreatureEffectivePower(cGigaling, false, pState), 3000);
+      // Spikestrike base 3000 -> 4000
+      assert.strictEqual(getCreatureEffectivePower(cSpike, false, pState), 4000);
+      // Smash Horn itself gets +1000 = 3000
+      assert.strictEqual(getCreatureEffectivePower(cSmash, false, pState), 3000);
+
+      // Every Survivor has Blocker from Gallia Zohl
+      assert.strictEqual(hasCreatureBlocker(cSmash, bz), true);
+      assert.strictEqual(hasCreatureBlocker(cGigaling, bz), true);
+      assert.strictEqual(hasCreatureBlocker(cSpike, bz), true);
+
+      // Every Survivor has Slayer from Gigaling Q
+      assert.strictEqual(hasCreatureSlayer(cSmash, bz), true);
+      assert.strictEqual(hasCreatureSlayer(cGallia, bz), true);
+      assert.strictEqual(hasCreatureSlayer(cSpike, bz), true);
+
+      // Every Survivor has Speed Attacker from Rumblesaur Q
+      assert.strictEqual(hasCreatureSpeedAttacker(cSmash, bz), true);
+      assert.strictEqual(isSummoningSick(cSmash, s5.turn, bz), false);
+      assert.strictEqual(isSummoningSick(cGallia, s5.turn, bz), false);
+
+      // Every Survivor is unblockable from Spikestrike Ichthys Q
+      assert.strictEqual(isCreatureUnblockable(cSmash, { type: 'player' }, [], bz), true);
+      assert.strictEqual(isCreatureUnblockable(cGallia, { type: 'player' }, [], bz), true);
+    });
+
+    it('Survivor Ballus, Dogfight Enforcer Q untaps all friendly tapped Survivors at end of turn', () => {
+      let state = createTestState();
+      // Setup Ballus and Smash Horn both tapped
+      const { nextState: s1, creature: cBallus } = setupCreatureInBZ(state, 'player', ballus, { isTapped: true });
+      const { nextState: s2, creature: cSmash } = setupCreatureInBZ(s1, 'player', smashHorn, { isTapped: true });
+      // Non-survivor Vorg tapped
+      const { nextState: s3, creature: cVorg } = setupCreatureInBZ(s2, 'player', vorg, { isTapped: true });
+
+      // Active player ends turn
+      const nextState = step(s3, { type: 'END_TURN' });
+
+      const bz = nextState.players.player.battleZone;
+      const bBallus = bz.find((c) => c.instanceId === cBallus.instanceId);
+      const bSmash = bz.find((c) => c.instanceId === cSmash.instanceId);
+      const bVorg = bz.find((c) => c.instanceId === cVorg.instanceId);
+
+      // Both Survivors untap
+      assert.strictEqual(bBallus.isTapped, false, 'Ballus should be untapped');
+      assert.strictEqual(bSmash.isTapped, false, 'Smash Horn should be untapped by Ballus ability');
+      // Non-survivor remains tapped
+      assert.strictEqual(bVorg.isTapped, true, 'Non-survivor Vorg should remain tapped');
+    });
+
+    it('Survivor Blazosaur Q has Power Attacker +1000 ONLY while attacking and shares with all Survivors', () => {
+      const state = createTestState();
+      // Setup Blazosaur Q and Gallia Zohl in battle zone
+      const { nextState: s1, creature: cBlazo } = setupCreatureInBZ(state, 'player', blazosaur); // base 1000, PA +1000
+      const { nextState: s2, creature: cGallia } = setupCreatureInBZ(s1, 'player', galliaZohl); // base 2000
+
+      const pState = s2.players.player;
+
+      // When NOT attacking, Blazosaur Q is 1000 power (Power Attacker does NOT boost power while sitting in BZ!)
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, false, pState), 1000, 'Blazosaur Q must have 1000 power when not attacking');
+      // While attacking, Blazosaur Q gets +1000 power attacker = 2000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, true, pState), 2000, 'Blazosaur Q gets +1000 PA while attacking');
+
+      // Gallia Zohl receives shared Power Attacker +1000 from Blazosaur Q
+      // When not attacking: base 2000
+      assert.strictEqual(getCreatureEffectivePower(cGallia, false, pState), 2000, 'Gallia has base 2000 power when not attacking');
+      // While attacking: gets +1000 PA from Blazosaur Q = 3000
+      assert.strictEqual(getCreatureEffectivePower(cGallia, true, pState), 3000, 'Gallia gets +1000 PA from Blazosaur while attacking');
+
+      // Now add Smash Horn Q (+1000 static power buff)
+      const { nextState: s3, creature: cSmash } = setupCreatureInBZ(s2, 'player', smashHorn);
+      const pStateWithSmash = s3.players.player;
+
+      // With Smash Horn Q in battle zone:
+      // Blazosaur Q static power is now 1000 + 1000 = 2000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, false, pStateWithSmash), 2000, 'Blazosaur has 2000 static power with Smash Horn');
+      // Blazosaur Q while attacking is 1000 (base) + 1000 (Smash) + 1000 (PA) = 3000
+      assert.strictEqual(getCreatureEffectivePower(cBlazo, true, pStateWithSmash), 3000, 'Blazosaur has 3000 attacking power with Smash Horn + PA');
     });
   });
 });

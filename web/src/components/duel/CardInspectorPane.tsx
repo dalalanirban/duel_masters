@@ -1,5 +1,7 @@
 import React from 'react';
 import type { CardDefinition, Civilization, Deck } from '../../types/card';
+import type { CreatureInstance } from '../../engine/types';
+import { isSurvivor, getSurvivorSharedAbilities } from '../../engine/effects';
 import { CivilizationIcon } from '../card/CivilizationIcon';
 import {
   User,
@@ -7,6 +9,7 @@ import {
   Zap,
   Shield,
   Skull,
+  Swords,
   Layers,
   Eye,
   Info
@@ -14,6 +17,7 @@ import {
 
 export interface CardInspectorPaneProps {
   inspectedCard: CardDefinition | null;
+  friendlyBattleZone?: CreatureInstance[];
   turn: number;
   activePlayer: 'player' | 'opponent';
   phase: string;
@@ -63,6 +67,7 @@ const getPhaseBadgeInfo = (phase: string) => {
 
 export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   inspectedCard,
+  friendlyBattleZone = [],
   turn,
   activePlayer,
   phase,
@@ -77,6 +82,19 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   const isEvolution = Boolean(
     inspectedCard?.isEvolution || inspectedCard?.type === 'Evolution Creature'
   );
+
+  const survivorAbilities = friendlyBattleZone && inspectedCard && isSurvivor(inspectedCard)
+    ? getSurvivorSharedAbilities(friendlyBattleZone)
+    : null;
+
+  const sharedPowerBonus = survivorAbilities ? survivorAbilities.powerBonus : 0;
+  const sharedPowerAttackerBonus = survivorAbilities ? survivorAbilities.powerAttackerBonus : 0;
+  const hasSharedBlocker = Boolean(survivorAbilities?.hasBlocker);
+  const hasSharedSlayer = Boolean(survivorAbilities?.hasSlayer);
+  const hasSharedSpeedAttacker = Boolean(survivorAbilities?.hasSpeedAttacker);
+  const hasSharedUntap = Boolean(survivorAbilities?.hasUntapAtEndTurn);
+  const hasSharedUnblockable = Boolean(survivorAbilities?.isUnblockable);
+  const sharedBreakerCount = survivorAbilities?.minBreakerCount || 1;
 
   const imageSrc = inspectedCard
     ? (inspectedCard.imageAssetPath ? `/${inspectedCard.imageAssetPath}` : inspectedCard.imageUrl)
@@ -96,7 +114,7 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
 
   return (
     <aside
-      className={`w-full h-full flex flex-col bg-[#080b11] border-r border-slate-800/60 text-slate-100 select-none overflow-hidden ${className}`}
+      className={`h-full flex flex-col bg-[#080b11] border-r border-slate-800/60 text-slate-100 select-none overflow-hidden ${className || 'w-72 shrink-0'}`}
       aria-label="Card Inspector & Match Status"
     >
       {/* Match Status Header */}
@@ -228,9 +246,11 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
                 <div className="flex items-center gap-1 font-semibold text-slate-300">
                   <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">PWR:</span>
                   <span className="text-amber-300 font-bold">
-                    {inspectedCard.power}
-                    {inspectedCard.powerAttackerBonus > 0 && (
-                      <span className="text-red-400 text-[8.5px] ml-0.5">+{inspectedCard.powerAttackerBonus}</span>
+                    {inspectedCard.power + sharedPowerBonus}
+                    {sharedPowerBonus > 0 && (
+                      <span className="text-emerald-400 text-[8.5px] ml-0.5 font-bold" title="Survivor Power Buff">
+                        (+{sharedPowerBonus})
+                      </span>
                     )}
                   </span>
                 </div>
@@ -271,21 +291,58 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
                 </span>
               )}
 
-              {inspectedCard.isBlocker && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/40">
+              {(inspectedCard.isBlocker || hasSharedBlocker) && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/40"
+                  title={hasSharedBlocker && !inspectedCard.isBlocker ? 'Shared via Survivor Link' : undefined}
+                >
                   <Shield className="w-2.5 h-2.5 text-sky-400" /> Blocker
                 </span>
               )}
 
-              {inspectedCard.isSlayer && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/40">
+              {(inspectedCard.isSlayer || hasSharedSlayer) && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/40"
+                  title={hasSharedSlayer && !inspectedCard.isSlayer ? 'Shared via Survivor Link' : undefined}
+                >
                   <Skull className="w-2.5 h-2.5 text-purple-400" /> Slayer
                 </span>
               )}
 
-              {inspectedCard.isSpeedAttacker && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-red-500/15 text-red-300 border border-red-500/40">
+              {(inspectedCard.isSpeedAttacker || hasSharedSpeedAttacker) && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-red-500/15 text-red-300 border border-red-500/40"
+                  title={hasSharedSpeedAttacker && !inspectedCard.isSpeedAttacker ? 'Shared via Survivor Link' : undefined}
+                >
                   <Zap className="w-2.5 h-2.5 text-red-400" /> Speed Atk
+                </span>
+              )}
+
+              {hasSharedUntap && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/40"
+                  title="Untaps at end of turn (Survivor ability: Ballus)"
+                >
+                  🔄 End Untap
+                </span>
+              )}
+
+              {hasSharedUnblockable && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
+                  title="Unblockable (Survivor ability: Spikestrike Ichthys)"
+                >
+                  ⚡ Unblockable
+                </span>
+              )}
+
+              {(inspectedCard.powerAttackerBonus > 0 || (isSurvivor(inspectedCard) && sharedPowerAttackerBonus > 0)) && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/40"
+                  title="Power Attacker: Gives additional power only while attacking"
+                >
+                  <Swords className="w-2.5 h-2.5 text-orange-400" />
+                  <span>PA +{Math.max(inspectedCard.powerAttackerBonus || 0, sharedPowerAttackerBonus)} (While Attacking)</span>
                 </span>
               )}
 
@@ -295,9 +352,9 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
                 </span>
               )}
 
-              {inspectedCard.breakerCount >= 2 && (
+              {(inspectedCard.breakerCount >= 2 || sharedBreakerCount >= 2) && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/40">
-                  ⚔ {inspectedCard.breakerCount === 2 ? 'Double' : 'Triple'} Breaker
+                  ⚔ {Math.max(inspectedCard.breakerCount || 1, sharedBreakerCount) === 2 ? 'Double' : 'Triple'} Breaker
                 </span>
               )}
 

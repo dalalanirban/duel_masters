@@ -115,7 +115,10 @@ export function getSurvivorSharedAbilities(
   const smashHornCopies = friendlySurvivors.filter(
     (c) =>
       c.card.name.toLowerCase().includes('smash horn') ||
-      (/gets \+1000 power/i.test(c.card.rulesText || '') && /survivor/i.test(c.card.rulesText || ''))
+      (!/power attacker/i.test(c.card.rulesText || '') &&
+        !/while attacking/i.test(c.card.rulesText || '') &&
+        /gets \+1000 power/i.test(c.card.rulesText || '') &&
+        /survivor/i.test(c.card.rulesText || ''))
   ).length;
   const powerBonus = smashHornCopies * 1000;
 
@@ -203,6 +206,40 @@ export function hasCreatureSlayer(
 }
 
 /**
+ * Checks whether a creature has Speed Attacker, taking Survivor shared abilities and auras into account.
+ */
+export function hasCreatureSpeedAttacker(
+  creature: CreatureInstance,
+  friendlyBattleZone: CreatureInstance[] = []
+): boolean {
+  if (creature.card.isSpeedAttacker || /speed attacker/i.test(creature.card.rulesText || '')) {
+    return true;
+  }
+  if (isSurvivor(creature.card)) {
+    const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
+    if (abilities.hasSpeedAttacker) {
+      return true;
+    }
+  }
+  // Burnwisp Lizard: Each of your creatures that has "silent skill" has "speed attacker"
+  const hasBurnwispLizard = friendlyBattleZone.some((c) =>
+    c.card.name.toLowerCase().includes('burnwisp lizard')
+  );
+  if (hasBurnwispLizard && /silent skill/i.test(creature.card.rulesText || '')) {
+    return true;
+  }
+  // Magmadragon Jagalzor Turbo Rush: Each of your other creatures gets "speed attacker"
+  const hasJagalzor = friendlyBattleZone.some((c) =>
+    c.instanceId !== creature.instanceId &&
+    c.card.name.toLowerCase().includes('magmadragon jagalzor')
+  );
+  if (hasJagalzor) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Calculates breaker count for a creature:
  * - Minimum of card.breakerCount or 1.
  * - If Survivor and Bladerush Skyterror Q in battle zone, at least 2.
@@ -274,7 +311,9 @@ export function calculateContinuousAuraPower(
     const survivorAbilities = getSurvivorSharedAbilities(fZone);
     powerBonus += survivorAbilities.powerBonus;
     if (isAttacking) {
-      powerAttackerBonus += survivorAbilities.powerAttackerBonus;
+      // Avoid double-counting printed powerAttackerBonus on Blazosaur Q itself
+      const ownPABonus = card.powerAttackerBonus || 0;
+      powerAttackerBonus += Math.max(0, survivorAbilities.powerAttackerBonus - ownPABonus);
     }
   }
 
@@ -1346,7 +1385,26 @@ export function triggerCIP(
         (isSurvivor(c.card) && /take a spell from your deck/i.test(c.card.rulesText || ''))
     );
     if (hasForbos) {
-      survivorState = searchDeckForCard(survivorState, player, (c) => c.type === 'Spell', 'hand');
+      if (player === 'player') {
+        const matchingIds = survivorState.players.player.deck
+          .filter((ci) => ci.card.type === 'Spell')
+          .map((ci) => ci.instanceId);
+        if (matchingIds.length > 0) {
+          survivorState = {
+            ...survivorState,
+            pendingInteraction: {
+              type: 'DECK_SEARCH',
+              player: 'player',
+              sourceCardName: 'Forbos, Sanctum Guardian Q',
+              filterDescription: 'Spell',
+              validCardInstanceIds: matchingIds,
+              destination: 'hand'
+            }
+          };
+        }
+      } else {
+        survivorState = searchDeckForCard(survivorState, player, (c) => c.type === 'Spell', 'hand');
+      }
     }
 
     // Grave Worm Q: salvage a Survivor from graveyard to hand
@@ -1366,7 +1424,26 @@ export function triggerCIP(
         (isSurvivor(c.card) && /take a survivor from your deck/i.test(c.card.rulesText || ''))
     );
     if (hasFactoryShell) {
-      survivorState = searchDeckForCard(survivorState, player, (c) => isSurvivor(c), 'hand');
+      if (player === 'player') {
+        const matchingIds = survivorState.players.player.deck
+          .filter((ci) => isSurvivor(ci.card))
+          .map((ci) => ci.instanceId);
+        if (matchingIds.length > 0) {
+          survivorState = {
+            ...survivorState,
+            pendingInteraction: {
+              type: 'DECK_SEARCH',
+              player: 'player',
+              sourceCardName: 'Factory Shell Q',
+              filterDescription: 'Survivor',
+              validCardInstanceIds: matchingIds,
+              destination: 'hand'
+            }
+          };
+        }
+      } else {
+        survivorState = searchDeckForCard(survivorState, player, (c) => isSurvivor(c), 'hand');
+      }
     }
 
     if (
@@ -1980,7 +2057,22 @@ export function triggerAttack(
         nameLower.includes('hypersquid walter') ||
         (nameLower.includes('galiac') && /draw/i.test(rules));
       if (!alreadyDrawn) {
-        nextState = drawCards(nextState, player, 1);
+        if (player === 'player' && nextState.players[player].deck.length > 0) {
+          nextState = {
+            ...nextState,
+            pendingInteraction: {
+              type: 'OPTIONAL_CHOICE',
+              player: 'player',
+              sourceCardId: attacker.card.id,
+              abilityName: 'Split-Head Hydroturtle Q',
+              prompt: 'Whenever this creature attacks, you may draw a card. Do you want to draw a card?',
+              effectType: 'DRAW',
+              drawCount: 1
+            }
+          };
+        } else {
+          nextState = drawCards(nextState, player, 1);
+        }
       }
     }
 

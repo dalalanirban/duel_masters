@@ -122,6 +122,16 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       };
     }
 
+    // Optional choice interaction
+    if (interaction.type === 'OPTIONAL_CHOICE' && interaction.player === aiPlayer) {
+      const safeToDraw = interaction.effectType !== 'DRAW' || aiState.deck.length > 2;
+      return {
+        type: 'RESOLVE_OPTIONAL_CHOICE',
+        player: aiPlayer,
+        accept: safeToDraw
+      };
+    }
+
     return null;
   }
 

@@ -10,7 +10,7 @@ import type {
 } from './types';
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { getCreatureEffectivePower } from './combat.ts';
-import { triggerDestroyed, isSurvivor, triggerCIP } from './effects.ts';
+import { triggerDestroyed, isSurvivor, triggerCIP, hasCreatureBlocker } from './effects.ts';
 import { findSaverInBattleZone, isMadnessDiscardReplacement } from './replacements.ts';
 
 /**
@@ -735,6 +735,7 @@ export function resolveSpellEffect(
   targets?: string[]
 ): GameState {
   const opponent: PlayerId = player === 'player' ? 'opponent' : 'player';
+  const casterState = state.players[player];
   const opponentState = state.players[opponent];
   const cardName = card.name.toLowerCase().trim();
   const rules = card.rulesText || '';
@@ -817,10 +818,36 @@ export function resolveSpellEffect(
     return destroyCreature(state, targetId);
   }
 
-  // 4. Critical Blade: Destroy 1 opponent blocker
+  // 4a. Comet Missile: Destroy 1 opponent creature that has "blocker" and power 6000 or less
+  if (
+    cardName === 'comet missile' ||
+    /destroy (?:1|one) of your opponent's creatures that has "blocker" and power 6000 or less/i.test(rules)
+  ) {
+    if (opponentState.battleZone.length === 0) {
+      return state;
+    }
+    const targetId = targets?.[0];
+    if (!targetId) {
+      throw new Error(`Spell Comet Missile requires a target creature.`);
+    }
+    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
+    if (!targetCreature) {
+      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
+    }
+    if (!hasCreatureBlocker(targetCreature, opponentState.battleZone)) {
+      throw new Error(`Comet Missile can only target a creature with Blocker.`);
+    }
+    const effPower = getCreatureEffectivePower(targetCreature, false, opponentState, casterState);
+    if (effPower > 6000) {
+      throw new Error(`Comet Missile can only target a creature with power 6000 or less.`);
+    }
+    return destroyCreature(state, targetId);
+  }
+
+  // 4b. Critical Blade: Destroy 1 opponent blocker
   if (
     cardName === 'critical blade' ||
-    /destroy (?:1|one) of your opponent's creatures that has "blocker"/i.test(rules)
+    (/destroy (?:1|one) of your opponent's creatures that has "blocker"/i.test(rules) && !/power \d+ or less/i.test(rules))
   ) {
     if (opponentState.battleZone.length === 0) {
       return state;
@@ -833,7 +860,7 @@ export function resolveSpellEffect(
     if (!targetCreature) {
       throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
     }
-    if (!targetCreature.card.isBlocker) {
+    if (!hasCreatureBlocker(targetCreature, opponentState.battleZone)) {
       throw new Error(`Critical Blade can only target a creature with Blocker.`);
     }
     return destroyCreature(state, targetId);
