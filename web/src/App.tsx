@@ -177,7 +177,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Right Column: Sticky Deck Builder Sidebar */}
-            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
+            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-16 shrink-0 h-[calc(100vh-5rem)]">
               <DeckPanel
                 items={activeDeck.items}
                 deckId={activeDeck.id}
