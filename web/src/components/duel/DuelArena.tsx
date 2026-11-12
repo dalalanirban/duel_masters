@@ -17,6 +17,7 @@ import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
 import { OptionalChoiceModal } from './OptionalChoiceModal';
+import { DeckSearchModal } from './DeckSearchModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -294,6 +295,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     } else if (nameLower.includes('death smoke')) {
       needsTarget = true;
       validCandidates = oppCreatures.filter((c) => !c.isTapped);
+    } else if (
+      nameLower.includes('comet missile') ||
+      /destroy.*opponent.*"blocker".*power 6000 or less/i.test(rulesLower)
+    ) {
+      needsTarget = true;
+      validCandidates = oppCreatures.filter(
+        (c) => c.card.isBlocker && (c.card.power || 0) + c.powerModifier <= 6000
+      );
     } else if (nameLower.includes('critical blade')) {
       needsTarget = true;
       validCandidates = oppCreatures.filter((c) => c.card.isBlocker);
@@ -807,6 +816,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
+            onToggleManaTap={(cardInstanceId, forceTapped) =>
+              dispatch({ type: 'TOGGLE_MANA_TAP', player: 'player', cardInstanceId, forceTapped })
+            }
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
@@ -843,8 +855,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         isPlayerTurn={isPlayerTurn}
         canDirectAttack={canDirectAttack}
         onDirectAttack={handleDirectAttack}
-        canUndoMana={canUndoMana}
-        onUndoMana={handleUndoChargeMana}
         onPassPhase={handlePassPhase}
         onEndTurn={handleEndTurn}
         onPlayOpponentMove={triggerAiStep}
@@ -896,6 +906,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         sourceCard={optionalSourceCard}
         onAccept={handleAcceptOptionalChoice}
         onDecline={handleDeclineOptionalChoice}
+      />
+
+      <DeckSearchModal
+        isOpen={state.pendingInteraction?.type === 'DECK_SEARCH' && state.pendingInteraction.player === 'player'}
+        interaction={state.pendingInteraction?.type === 'DECK_SEARCH' ? state.pendingInteraction : null}
+        deck={state.players.player.deck}
+        onSelectCard={(id) => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: id })}
+        onSkip={() => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: null })}
+        onHoverCard={handleHoverCard}
+        onInspectCard={handleInspectCard}
       />
 
       {state.pendingInteraction?.type === 'TARGET_SELECTION' &&

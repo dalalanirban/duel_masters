@@ -18,6 +18,7 @@ export interface ShieldsRowProps {
   onDirectAttack?: () => void;
   canUndoMana?: boolean;
   onUndoMana?: () => void;
+  onToggleManaTap?: (cardInstanceId: string, forceTapped?: boolean) => void;
   selectedTarget?: AttackTarget | null;
   selectedShieldIndices?: number[];
   requiredSelectionCount?: number;
@@ -40,6 +41,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
   onDirectAttack,
   canUndoMana = false,
   onUndoMana,
+  onToggleManaTap,
   selectedTarget = null,
   selectedShieldIndices = [],
   requiredSelectionCount = 1,
@@ -155,6 +157,7 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
                 owner="player"
                 canUndoMana={canUndoMana}
                 onUndoMana={onUndoMana}
+                onToggleManaTap={onToggleManaTap}
                 onHoverCard={onHoverCard}
                 onInspectCard={onInspectCard}
               />

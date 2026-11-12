@@ -1385,7 +1385,26 @@ export function triggerCIP(
         (isSurvivor(c.card) && /take a spell from your deck/i.test(c.card.rulesText || ''))
     );
     if (hasForbos) {
-      survivorState = searchDeckForCard(survivorState, player, (c) => c.type === 'Spell', 'hand');
+      if (player === 'player') {
+        const matchingIds = survivorState.players.player.deck
+          .filter((ci) => ci.card.type === 'Spell')
+          .map((ci) => ci.instanceId);
+        if (matchingIds.length > 0) {
+          survivorState = {
+            ...survivorState,
+            pendingInteraction: {
+              type: 'DECK_SEARCH',
+              player: 'player',
+              sourceCardName: 'Forbos, Sanctum Guardian Q',
+              filterDescription: 'Spell',
+              validCardInstanceIds: matchingIds,
+              destination: 'hand'
+            }
+          };
+        }
+      } else {
+        survivorState = searchDeckForCard(survivorState, player, (c) => c.type === 'Spell', 'hand');
+      }
     }
 
     // Grave Worm Q: salvage a Survivor from graveyard to hand
@@ -1405,7 +1424,26 @@ export function triggerCIP(
         (isSurvivor(c.card) && /take a survivor from your deck/i.test(c.card.rulesText || ''))
     );
     if (hasFactoryShell) {
-      survivorState = searchDeckForCard(survivorState, player, (c) => isSurvivor(c), 'hand');
+      if (player === 'player') {
+        const matchingIds = survivorState.players.player.deck
+          .filter((ci) => isSurvivor(ci.card))
+          .map((ci) => ci.instanceId);
+        if (matchingIds.length > 0) {
+          survivorState = {
+            ...survivorState,
+            pendingInteraction: {
+              type: 'DECK_SEARCH',
+              player: 'player',
+              sourceCardName: 'Factory Shell Q',
+              filterDescription: 'Survivor',
+              validCardInstanceIds: matchingIds,
+              destination: 'hand'
+            }
+          };
+        }
+      } else {
+        survivorState = searchDeckForCard(survivorState, player, (c) => isSurvivor(c), 'hand');
+      }
     }
 
     if (

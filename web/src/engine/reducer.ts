@@ -302,6 +302,123 @@ export function step(state: GameState, action: GameAction): GameState {
         return stateWithoutPending;
       }
 
+      case 'RESOLVE_DECK_SEARCH': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'DECK_SEARCH') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const pState = state.players[player];
+        const stateWithoutPending: GameState = {
+          ...state,
+          pendingInteraction: null
+        };
+
+        if (!action.selectedCardInstanceId) {
+          return {
+            ...stateWithoutPending,
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} searched deck (${interaction.sourceCardName}) but chose not to take a card.`
+            ]
+          };
+        }
+
+        const cardIndex = pState.deck.findIndex((c) => c.instanceId === action.selectedCardInstanceId);
+        if (cardIndex === -1) {
+          return stateWithoutPending;
+        }
+
+        const chosenCard = pState.deck[cardIndex];
+        const nextDeck = pState.deck.filter((_, idx) => idx !== cardIndex);
+
+        // Shuffle deck after searching
+        const shuffledDeck = [...nextDeck];
+        for (let i = shuffledDeck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+        }
+
+        const dest = interaction.destination;
+        let updatedPlayer: typeof pState;
+        if (dest === 'manaZone') {
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            manaZone: [
+              ...pState.manaZone,
+              {
+                instanceId: chosenCard.instanceId,
+                card: chosenCard.card,
+                isTapped: false
+              }
+            ]
+          };
+        } else if (dest === 'battleZone') {
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            battleZone: [
+              ...pState.battleZone,
+              {
+                instanceId: chosenCard.instanceId,
+                card: chosenCard.card,
+                owner: player,
+                isTapped: false,
+                powerModifier: 0,
+                summonedTurn: state.turn
+              }
+            ]
+          };
+        } else {
+          // Default: hand
+          updatedPlayer = {
+            ...pState,
+            deck: shuffledDeck,
+            hand: [...pState.hand, chosenCard]
+          };
+        }
+
+        return {
+          ...stateWithoutPending,
+          players: {
+            ...stateWithoutPending.players,
+            [player]: updatedPlayer
+          },
+          actionLog: [
+            ...stateWithoutPending.actionLog,
+            `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into ${dest}.`
+          ]
+        };
+      }
+
+      case 'TOGGLE_MANA_TAP': {
+        const player = action.player || 'player';
+        const pState = state.players[player];
+        const manaCard = pState.manaZone.find((m) => m.instanceId === action.cardInstanceId);
+        if (!manaCard) return state;
+
+        const nextTapped = action.forceTapped !== undefined ? action.forceTapped : !manaCard.isTapped;
+        const nextManaZone = pState.manaZone.map((m) =>
+          m.instanceId === action.cardInstanceId ? { ...m, isTapped: nextTapped } : m
+        );
+
+        return {
+          ...state,
+          players: {
+            ...state.players,
+            [player]: {
+              ...pState,
+              manaZone: nextManaZone
+            }
+          },
+          actionLog: [
+            ...state.actionLog,
+            `${player} ${nextTapped ? 'tapped' : 'untapped'} ${manaCard.card.name} in mana zone.`
+          ]
+        };
+      }
+
       case 'ACTIVATE_SILENT_SKILL': {
         return resolveSilentSkill(state, action.creatureInstanceId, action.targets);
       }

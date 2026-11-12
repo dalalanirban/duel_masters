@@ -381,12 +381,30 @@ describe('Survivor Mechanics & Continuous Auras Engine', () => {
       // Forbos searches spell
       const { nextState: s1, creature: cForbos } = setupCreatureInBZ(state, 'player', forbos);
       const sAfterForbos = triggerCIP(s1, 'player', cForbos);
-      assert.ok(sAfterForbos.players.player.hand.some((c) => c.card.name === terrorPit.name));
+      let sForbosResolved = sAfterForbos;
+      if (sAfterForbos.pendingInteraction?.type === 'DECK_SEARCH') {
+        const pitCard = sAfterForbos.players.player.deck.find((c) => c.card.name === terrorPit.name);
+        sForbosResolved = step(sAfterForbos, {
+          type: 'RESOLVE_DECK_SEARCH',
+          player: 'player',
+          selectedCardInstanceId: pitCard?.instanceId || null
+        });
+      }
+      assert.ok(sForbosResolved.players.player.hand.some((c) => c.card.name === terrorPit.name));
 
       // Factory Shell searches survivor
-      const { nextState: s2, creature: cFactory } = setupCreatureInBZ(sAfterForbos, 'player', factoryShell);
+      const { nextState: s2, creature: cFactory } = setupCreatureInBZ(sForbosResolved, 'player', factoryShell);
       const sAfterFactory = triggerCIP(s2, 'player', cFactory);
-      assert.ok(sAfterFactory.players.player.hand.some((c) => c.card.name === smashHorn.name));
+      let sFactoryResolved = sAfterFactory;
+      if (sAfterFactory.pendingInteraction?.type === 'DECK_SEARCH') {
+        const smashCard = sAfterFactory.players.player.deck.find((c) => c.card.name === smashHorn.name);
+        sFactoryResolved = step(sAfterFactory, {
+          type: 'RESOLVE_DECK_SEARCH',
+          player: 'player',
+          selectedCardInstanceId: smashCard?.instanceId || null
+        });
+      }
+      assert.ok(sFactoryResolved.players.player.hand.some((c) => c.card.name === smashHorn.name));
     });
   });
 
