@@ -515,9 +515,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   return (
     <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status (Expanded to fill up to the battle zone) */}
+      {/* Left Column: Card Inspector & Match Status (Fixed 18rem width per design standard) */}
       <CardInspectorPane
-        className="w-80 lg:w-88 xl:w-96 2xl:w-[24.5rem] shrink-0 h-full"
+        className="w-72 2xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         turn={state.turn}
         activePlayer={state.activePlayer}
