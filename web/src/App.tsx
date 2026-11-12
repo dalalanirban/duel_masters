@@ -212,6 +212,7 @@ export const App: React.FC = () => {
         ) : (
           <DuelArena
             activeDeck={activeDeck}
+            savedDecks={savedDecks}
             onNavigateToBuilder={() => setActiveTab('explorer')}
           />
         )}
