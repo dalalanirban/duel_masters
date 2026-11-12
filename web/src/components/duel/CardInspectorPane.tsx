@@ -172,10 +172,22 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
 
       {/* Card Inspector Body */}
       {inspectedCard ? (
-        <section className="flex-1 min-h-0 flex flex-col p-2 space-y-2 overflow-hidden">
-          {/* Clean Compact Card Artwork Preview */}
-          <div className="flex justify-center items-center shrink-0">
-            <div className="relative aspect-[491/682] h-32 sm:h-34 max-w-[105px] rounded-md overflow-hidden shadow-xl border border-slate-700/60 bg-slate-950">
+        <section className="flex-1 min-h-0 flex flex-col p-2 space-y-1.5 overflow-hidden">
+          {/* Proportional Card Artwork Preview: Expands to match pane width, shrinks proportionally if details need space */}
+          <div
+            style={{ containerType: 'size' }}
+            className="flex-1 min-h-[80px] w-full flex items-center justify-center overflow-hidden"
+          >
+            <div
+              style={{
+                width: 'min(100cqw, calc(100cqh * (491 / 682)), 255px)',
+                aspectRatio: '491 / 682',
+                maxHeight: '100%',
+                maxWidth: '255px',
+                height: 'auto',
+              }}
+              className="relative rounded-md overflow-hidden shadow-xl border border-slate-700/60 bg-slate-950 flex items-center justify-center transition-all duration-150"
+            >
               <img
                 src={imageSrc || ''}
                 alt={inspectedCard.name}
@@ -307,8 +319,8 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
             )}
           </div>
 
-          {/* Rules & Abilities Text (Takes remaining flex space) */}
-          <div className="flex-1 min-h-0 flex flex-col p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-200">
+          {/* Rules & Abilities Text (Takes required height up to max-h, ensuring no overflow) */}
+          <div className="shrink-0 max-h-[50%] flex flex-col p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-200">
             <div className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1 shrink-0">
               <Info className="w-2.5 h-2.5 text-amber-400" /> Abilities & Effects
             </div>

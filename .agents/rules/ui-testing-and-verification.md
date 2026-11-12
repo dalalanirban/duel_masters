@@ -34,11 +34,12 @@ Before submitting or requesting review for ANY UI change:
 
 - [ ] **Panel Width Constraint**:
   - The left Card Inspector Pane must strictly maintain `18rem` (`w-72 2xl:w-72`). Never inflate or allow media queries (like `2xl:w-[26rem]` or `2xl:w-[24.5rem]`) to widen it.
-- [ ] **Vertical Space Budget & Abilities Visibility**:
-  - The "Abilities & Effects" container in `CardInspectorPane` MUST have prominent vertical breathing room.
-  - Card artwork preview must be compact (height ~130–140px, e.g. `h-32 sm:h-34 aspect-[491/682] max-w-[105px]`).
-  - Card stats (Cost, Power, Type, Civilization, Keywords, Race) must be consolidated into a sleek inline/two-line bar taking ≤ 55px total.
-  - Standard cards (including cards with substantial rules text like *King Depthcon*) must display all abilities cleanly without requiring initial vertical scroll on standard 900px desktop viewports.
+- [ ] **Vertical Space Budget & Proportional Card Scaling**:
+  - Do NOT forcefully shrink card artwork preview down into a small thumbnail if space permits.
+  - Card artwork preview must be able to expand up to the full inner width of the details pane (e.g. `255px`).
+  - Use responsive container-query proportional scaling (`width: min(100cqw, calc(100cqh * (491 / 682)), 255px); aspect-ratio: 491 / 682;`) so that when card abilities/details increase or the viewport height is shorter, the card shrinks dynamically and proportionally to accommodate all details without overflow.
+  - Card stats (Cost, Power, Type, Civilization, Keywords, Race) must remain consolidated into a sleek inline/two-line bar taking ≤ 50px total.
+  - Abilities & Effects must display all abilities cleanly without requiring initial vertical scroll on standard 900px desktop viewports.
 - [ ] **Arena Layout Symmetry & Zones**:
   - Battle Zone occupies primary flex space between opponent and player zones.
   - Deck and Graveyard occupy parallel slots at left/right flanks of shield and mana areas.
