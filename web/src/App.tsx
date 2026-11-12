@@ -63,37 +63,27 @@ export const App: React.FC = () => {
       {/* Top Navigation Bar */}
       <header
         className={`sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 ${
-          activeTab === 'duel' ? 'h-12 shrink-0 py-1 px-3 md:px-4' : 'px-4 md:px-8 py-3'
+          activeTab === 'duel' ? 'h-12 shrink-0 py-1 px-3 md:px-4' : 'px-4 md:px-8 py-2.5'
         }`}
       >
         <div className="max-w-[1700px] mx-auto flex items-center justify-between h-full">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <div
               className={`flex items-center justify-center ${
-                activeTab === 'duel' ? 'w-7 h-7 rounded-lg text-base' : 'w-10 h-10 rounded-xl text-xl'
+                activeTab === 'duel' ? 'w-7 h-7 rounded-lg text-base' : 'w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-lg'
               } bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black shrink-0`}
             >
-              <Swords className={activeTab === 'duel' ? 'w-4 h-4 fill-current' : 'w-5 h-5 fill-current'} />
+              <Swords className={activeTab === 'duel' ? 'w-4 h-4 fill-current' : 'w-4.5 h-4.5 fill-current'} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <h1
-                  className={`font-cinzel font-extrabold ${
-                    activeTab === 'duel' ? 'text-sm md:text-base' : 'text-xl md:text-2xl'
-                  } tracking-wider text-white`}
-                >
-                  DUEL MASTERS
-                </h1>
-                <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 hidden xs:inline">
-                  DM-01 Base Set
-                </span>
-              </div>
-              {activeTab !== 'duel' && (
-                <p className="text-[11px] text-slate-400">
-                  Interactive Card Database & 40-Card Deck Builder (120 Cards)
-                </p>
-              )}
+            <div className="flex items-center gap-2">
+              <h1
+                className={`font-cinzel font-extrabold ${
+                  activeTab === 'duel' ? 'text-sm md:text-base' : 'text-lg sm:text-xl'
+                } tracking-wider text-white`}
+              >
+                DUEL MASTERS
+              </h1>
             </div>
           </div>
 
@@ -187,7 +177,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Right Column: Sticky Deck Builder Sidebar */}
-            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-20 shrink-0 h-[calc(100vh-6rem)]">
+            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-16 shrink-0 h-[calc(100vh-5rem)]">
               <DeckPanel
                 items={activeDeck.items}
                 deckId={activeDeck.id}
@@ -212,6 +202,7 @@ export const App: React.FC = () => {
         ) : (
           <DuelArena
             activeDeck={activeDeck}
+            savedDecks={savedDecks}
             onNavigateToBuilder={() => setActiveTab('explorer')}
           />
         )}

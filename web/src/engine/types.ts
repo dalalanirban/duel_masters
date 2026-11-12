@@ -53,6 +53,7 @@ export interface PlayerState {
   battleZone: CreatureInstance[];
   graveyard: CardInstance[];
   manaChargedThisTurn: boolean;
+  shieldsBrokenThisTurn?: string[];
 }
 
 export type CombatStage =
@@ -156,6 +157,12 @@ export type GameAction =
       targets?: string[];
     }
   | { type: 'SELECT_TARGETS'; player?: PlayerId; selectedIds: string[] }
+  | {
+      type: 'ACTIVATE_SILENT_SKILL';
+      player?: PlayerId;
+      creatureInstanceId: string;
+      targets?: string[];
+    }
   | {
       type: 'PASS_PHASE';
       player?: PlayerId;

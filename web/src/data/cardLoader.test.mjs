@@ -4,6 +4,7 @@ import {
   CARD_LIST,
   CARD_MAP,
   SETS,
+  ALL_RACES,
   getCardById,
   filterCards
 } from './cardLoader.ts';
@@ -152,6 +153,48 @@ describe('Card Loader & Filtering System', () => {
       const results = filterCards({ keywords: ['speed-attacker'] });
       assert.ok(results.length > 0);
       assert.ok(results.every(c => c.isSpeedAttacker));
+    });
+  });
+
+  describe('Race Filtering', () => {
+    it('exports sorted ALL_RACES list containing expected iconic races', () => {
+      assert.ok(ALL_RACES.length > 50, 'Expected at least 50 unique races');
+      assert.ok(ALL_RACES.includes('Angel Command'));
+      assert.ok(ALL_RACES.includes('Armored Dragon'));
+      assert.ok(ALL_RACES.includes('Demon Command'));
+      assert.ok(ALL_RACES.includes('Liquid People'));
+      assert.ok(ALL_RACES.includes('Survivor'));
+      // Verify sorted order
+      const copy = [...ALL_RACES].sort((a, b) => a.localeCompare(b));
+      assert.deepEqual(ALL_RACES, copy);
+    });
+
+    it('filters cards by race "Angel Command"', () => {
+      const angelCommands = filterCards({ race: 'Angel Command' });
+      assert.ok(angelCommands.length > 0);
+      assert.ok(angelCommands.every(c => c.races.includes('Angel Command')));
+    });
+
+    it('filters cards by race case-insensitively', () => {
+      const dragons = filterCards({ race: 'armored dragon' });
+      assert.ok(dragons.length > 0);
+      assert.ok(dragons.every(c => c.races.some(r => r.toLowerCase() === 'armored dragon')));
+    });
+
+    it('returns all cards when race is "all" or empty string', () => {
+      const allCards = filterCards({ race: 'all' });
+      assert.equal(allCards.length, 900);
+      const allCardsEmpty = filterCards({ race: '' });
+      assert.equal(allCardsEmpty.length, 900);
+    });
+
+    it('combines race and civilization filters correctly', () => {
+      const fireArmoredDragons = filterCards({
+        race: 'Armored Dragon',
+        civilizations: ['Fire']
+      });
+      assert.ok(fireArmoredDragons.length > 0);
+      assert.ok(fireArmoredDragons.every(c => c.races.includes('Armored Dragon') && c.civilizations.includes('Fire')));
     });
   });
 

@@ -26,6 +26,7 @@ import {
   getCreatureBreakerCount,
   calculateContinuousAuraPower
 } from './effects.ts';
+import { hasShieldBurnReplacement } from './replacements.ts';
 
 export {
   checkStealth,
@@ -565,6 +566,37 @@ export function resolveCombat(state: GameState): GameState {
       owner: defendingId
     }));
 
+    const currentBroken = state.players[activeId].shieldsBrokenThisTurn || [];
+    const updatedBroken = currentBroken.includes(attacker.instanceId)
+      ? currentBroken
+      : [...currentBroken, attacker.instanceId];
+
+    // Check Shield Burn replacement (e.g. Death Phoenix puts shields to graveyard instead of hand)
+    if (hasShieldBurnReplacement(attacker)) {
+      return {
+        ...state,
+        combatState: null,
+        players: {
+          ...state.players,
+          [activeId]: {
+            ...state.players[activeId],
+            shieldsBrokenThisTurn: updatedBroken
+          },
+          [defendingId]: {
+            ...defendingPlayer,
+            shields: nextShields,
+            graveyard: [...defendingPlayer.graveyard, ...brokenCards]
+          }
+        },
+        actionLog: [
+          ...state.actionLog,
+          `${attacker.card.name} burned ${shieldsToBreak.length} shield(s) into the graveyard: ${shieldsToBreak
+            .map((s) => s.card.name)
+            .join(', ')}.`
+        ]
+      };
+    }
+
     const nextHand = [...defendingPlayer.hand, ...brokenCards];
 
     const stateWithBrokenShields: GameState = {
@@ -572,6 +604,10 @@ export function resolveCombat(state: GameState): GameState {
       combatState: null,
       players: {
         ...state.players,
+        [activeId]: {
+          ...state.players[activeId],
+          shieldsBrokenThisTurn: updatedBroken
+        },
         [defendingId]: {
           ...defendingPlayer,
           shields: nextShields,

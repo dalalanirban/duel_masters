@@ -111,6 +111,17 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       }
     }
 
+    // Interactive target selection
+    if (interaction.type === 'TARGET_SELECTION' && interaction.player === aiPlayer) {
+      const needed = Math.min(interaction.minTargets || 1, interaction.validTargetIds.length);
+      const selected = interaction.validTargetIds.slice(0, needed);
+      return {
+        type: 'SELECT_TARGETS',
+        player: aiPlayer,
+        selectedIds: selected
+      };
+    }
+
     return null;
   }
 

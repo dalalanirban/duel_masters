@@ -1,4 +1,5 @@
 import type { GameState, PlayerId, CreatureInstance } from './types';
+import { autoResolveAiSilentSkills } from './advancedMechanics.ts';
 
 /**
  * Handles the start-of-turn procedure for the active player:
@@ -17,29 +18,41 @@ export function startTurn(state: GameState): GameState {
 
   const activeId = state.activePlayer;
   const opponentId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-  const activePlayer = state.players[activeId];
 
-  // 1. Untap step: Untap active player's mana zone and battle zone creatures
-  const untappedManaZone = activePlayer.manaZone.map((card) => ({
+  // 0. Auto-resolve Silent Skills for AI or automated turns
+  let preState = state;
+  if (activeId === 'opponent') {
+    preState = autoResolveAiSilentSkills(preState, activeId);
+  }
+  const curActivePlayer = preState.players[activeId];
+
+  // 1. Untap step: Untap active player's mana zone and battle zone creatures (except those kept tapped for Silent Skill)
+  const untappedManaZone = curActivePlayer.manaZone.map((card) => ({
     ...card,
     isTapped: false
   }));
 
-  const untappedBattleZone = activePlayer.battleZone.map((creature) => ({
-    ...creature,
-    isTapped: false
-  }));
+  const untappedBattleZone = curActivePlayer.battleZone.map((creature) => {
+    // If creature already used Silent Skill this turn, keep it tapped
+    if (activeId === 'opponent' && creature.isTapped && /silent skill/i.test(creature.card.rulesText || '')) {
+      return creature;
+    }
+    return {
+      ...creature,
+      isTapped: false
+    };
+  });
 
   let newPlayerState = {
-    ...activePlayer,
+    ...curActivePlayer,
     manaZone: untappedManaZone,
     battleZone: untappedBattleZone,
     manaChargedThisTurn: false
   };
 
   const actionLogs = [
-    ...state.actionLog,
-    `Turn ${state.turn}: Start of ${activeId}'s turn. Untapped cards in mana and battle zones.`
+    ...preState.actionLog,
+    `Turn ${preState.turn}: Start of ${activeId}'s turn. Untapped cards in mana and battle zones.`
   ];
 
   // 2. Draw step
@@ -147,11 +160,13 @@ export function endTurn(state: GameState): GameState {
     ...state.players,
     [activeId]: {
       ...state.players[activeId],
-      battleZone: resetBZ(updatedActiveBZ)
+      battleZone: resetBZ(updatedActiveBZ),
+      shieldsBrokenThisTurn: []
     },
     [nextPlayer]: {
       ...state.players[nextPlayer],
-      battleZone: resetBZ(state.players[nextPlayer].battleZone)
+      battleZone: resetBZ(state.players[nextPlayer].battleZone),
+      shieldsBrokenThisTurn: []
     }
   };
 

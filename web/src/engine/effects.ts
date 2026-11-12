@@ -10,8 +10,32 @@ import type {
   PlayerState
 } from './types.ts';
 import { destroyCreature } from './spells.ts';
+import {
+  isWaveStriker,
+  isWaveStrikerConditionMet,
+  getWaveStrikerPowerBonus,
+  getWaveStrikerPowerAttackerBonus,
+  hasWaveStrikerBlocker,
+  getWaveStrikerBreakerCount,
+  hasWaveStrikerUntappedAttack,
+  isWaveStrikerUnblockable,
+  resolveWaveStrikerCIP,
+  isTurboRushActive,
+  getTurboRushPowerBonus,
+  getTurboRushPowerAttackerBonus,
+  resolveTurboRushOnAttack
+} from './advancedMechanics.ts';
 
-export { destroyCreature };
+export {
+  destroyCreature,
+  isWaveStriker,
+  isWaveStrikerConditionMet,
+  getWaveStrikerPowerBonus,
+  hasWaveStrikerBlocker,
+  getWaveStrikerBreakerCount,
+  isTurboRushActive,
+  getTurboRushPowerBonus
+};
 
 /**
  * Checks whether a card definition is a Survivor.
@@ -153,6 +177,9 @@ export function hasCreatureBlocker(
       return true;
     }
   }
+  if (hasWaveStrikerBlocker(creature, friendlyBattleZone)) {
+    return true;
+  }
   return false;
 }
 
@@ -183,13 +210,16 @@ export function hasCreatureSlayer(
  */
 export function getCreatureBreakerCount(
   creature: CreatureInstance,
-  friendlyBattleZone: CreatureInstance[] = []
+  friendlyBattleZone: CreatureInstance[] = [],
+  opponentBattleZone: CreatureInstance[] = []
 ): number {
   let count = Math.max(1, creature.card.breakerCount || 1);
   if (isSurvivor(creature.card) && friendlyBattleZone.length > 0) {
     const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
     count = Math.max(count, abilities.minBreakerCount);
   }
+  const wsBreakers = getWaveStrikerBreakerCount(creature, friendlyBattleZone, opponentBattleZone);
+  count = Math.max(count, wsBreakers);
   if (
     creature.card.name.toLowerCase().includes('q-tronic gargantua') &&
     friendlyBattleZone.length > 0
@@ -353,20 +383,6 @@ export function calculateContinuousAuraPower(
     powerAttackerBonus += legacyShellCount * 3000;
   }
 
-  // 11. Wave Striker power aura: Merlee, the Oracle (+1000 to all friendly if 3+ wave strikers in battle zone)
-  const isWaveStrikerCreature = (c: CreatureInstance) =>
-    Boolean(
-      (c.card as any).isWaveStriker ||
-      /wave striker/i.test(c.card.rulesText || '') ||
-      (c.card.races && c.card.races.some((r: string) => /wave striker/i.test(r)))
-    );
-  const totalWaveStrikers = allCreatures.filter(isWaveStrikerCreature).length;
-  if (totalWaveStrikers >= 3) {
-    const merleeCount = fZone.filter((c) =>
-      c.card.name.toLowerCase().includes('merlee')
-    ).length;
-    powerBonus += merleeCount * 1000;
-  }
 
   // 12. Multi-civ evolution auras (+2000 to respective races)
   // Agira, the Warlord Crawler: +2000 to other Gladiators & Earth Eaters
@@ -418,6 +434,26 @@ export function calculateContinuousAuraPower(
         c.card.name.toLowerCase().includes('techno totem')
     ).length;
     powerAttackerBonus += technoTotemCount * 1500;
+  }
+
+  // 14. Wave Striker continuous power bonuses
+  powerBonus += getWaveStrikerPowerBonus(creature, fZone, oZone);
+  if (isAttacking) {
+    powerAttackerBonus += getWaveStrikerPowerAttackerBonus(creature, isAttacking, fZone, oZone);
+  }
+
+  // 15. Turbo Rush continuous power bonuses
+  if (playerState) {
+    const dummyState: any = {
+      players: {
+        player: playerState,
+        opponent: opponentState || { shieldsBrokenThisTurn: [] }
+      }
+    };
+    powerBonus += getTurboRushPowerBonus(dummyState, creature.owner, creature);
+    if (isAttacking) {
+      powerAttackerBonus += getTurboRushPowerAttackerBonus(dummyState, creature.owner, creature, isAttacking);
+    }
   }
 
   return { powerBonus, powerAttackerBonus };
@@ -882,7 +918,7 @@ export function drawCards(
   player: PlayerId,
   count: number
 ): GameState {
-  if (state.winner !== null || count <= 0) {
+  if (Boolean(state.winner) || count <= 0) {
     return state;
   }
 
@@ -1344,6 +1380,14 @@ export function triggerCIP(
     }
   }
 
+  // 0b. Wave Striker Come-Into-Play Abilities
+  if (isWaveStriker(card)) {
+    const wsCIPState = resolveWaveStrikerCIP(state, player, creature, targets);
+    if (wsCIPState) {
+      return wsCIPState;
+    }
+  }
+
   // 1. Bouncing Creature CIP Effect
   // Aqua Surfer, Aqua Sniper, Corile, Unicorn Fish, or matching rules text
   const bounceMatch = rules.match(
@@ -1799,6 +1843,16 @@ export function isCreatureUnblockable(
     }
   }
 
+  // Wave Striker: Ninja Pumpkin
+  if (isWaveStrikerUnblockable(attacker, undefined, friendlyBattleZone)) {
+    return true;
+  }
+
+  // Turbo Rush: Illusion Fish
+  if (attacker.card.name.toLowerCase().includes('illusion fish')) {
+    return true;
+  }
+
   return false;
 }
 
@@ -1833,6 +1887,16 @@ export function canCreatureAttackUntapped(
 
   // General fallback
   if (/can attack untapped/i.test(rules)) {
+    return true;
+  }
+
+  // Wave Striker: Sapian Tark
+  if (hasWaveStrikerUntappedAttack(attacker)) {
+    return true;
+  }
+
+  // Turbo Rush: Missile Soldier Ultimo
+  if (attacker.card.name.toLowerCase().includes('ultimo')) {
     return true;
   }
 
@@ -2110,6 +2174,9 @@ export function triggerAttack(
       };
     }
   }
+
+  // 9. Turbo Rush On-Attack Triggers (Gigaclaws, Slaphappy Soldier Galback, Vikorakys)
+  nextState = resolveTurboRushOnAttack(nextState, player, attacker);
 
   return nextState;
 }

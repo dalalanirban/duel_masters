@@ -1,8 +1,22 @@
 import React from 'react';
 import { Civilization, CardType } from '../../types/card';
-import { CardFilterOptions, SETS } from '../../data/cardLoader';
+import { CardFilterOptions, SETS, ALL_RACES } from '../../data/cardLoader';
 import { CivilizationIcon } from '../card/CivilizationIcon';
-import { Search, X, Zap, Shield, Swords, RotateCcw, Sparkles, Users, BatteryCharging, Combine } from 'lucide-react';
+import { RaceFilterSelect } from './RaceFilterSelect';
+import {
+  Search,
+  X,
+  Zap,
+  Shield,
+  RotateCcw,
+  Sparkles,
+  Users,
+  BatteryCharging,
+  Combine,
+  Skull,
+  Flame,
+  Swords
+} from 'lucide-react';
 
 interface Props {
   filters: CardFilterOptions;
@@ -13,26 +27,26 @@ interface Props {
 
 const CIVILIZATIONS: Civilization[] = ['Light', 'Water', 'Darkness', 'Fire', 'Nature'];
 
-const CIV_BTN_COLORS: Record<Civilization, { active: string; border: string }> = {
+const CIV_BTN_COLORS: Record<Civilization, { active: string; inactive: string }> = {
   Light: {
-    active: 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.4)]',
-    border: 'border-amber-500/40 hover:bg-amber-950/30 text-amber-200'
+    active: 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.35)]',
+    inactive: 'border-slate-800 bg-slate-950/70 hover:border-amber-500/50 hover:bg-amber-950/20 text-slate-300'
   },
   Water: {
-    active: 'bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.4)]',
-    border: 'border-sky-500/40 hover:bg-sky-950/30 text-sky-200'
+    active: 'bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.35)]',
+    inactive: 'border-slate-800 bg-slate-950/70 hover:border-sky-500/50 hover:bg-sky-950/20 text-slate-300'
   },
   Darkness: {
-    active: 'bg-purple-600 text-white font-bold border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]',
-    border: 'border-purple-500/40 hover:bg-purple-950/30 text-purple-200'
+    active: 'bg-purple-600 text-white font-bold border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.35)]',
+    inactive: 'border-slate-800 bg-slate-950/70 hover:border-purple-500/50 hover:bg-purple-950/20 text-slate-300'
   },
   Fire: {
-    active: 'bg-red-600 text-white font-bold border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.4)]',
-    border: 'border-red-500/40 hover:bg-red-950/30 text-red-200'
+    active: 'bg-red-600 text-white font-bold border-red-400 shadow-[0_0_12px_rgba(239,68,68,0.35)]',
+    inactive: 'border-slate-800 bg-slate-950/70 hover:border-red-500/50 hover:bg-red-950/20 text-slate-300'
   },
   Nature: {
-    active: 'bg-emerald-600 text-white font-bold border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]',
-    border: 'border-emerald-500/40 hover:bg-emerald-950/30 text-emerald-200'
+    active: 'bg-emerald-600 text-white font-bold border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]',
+    inactive: 'border-slate-800 bg-slate-950/70 hover:border-emerald-500/50 hover:bg-emerald-950/20 text-slate-300'
   }
 };
 
@@ -80,6 +94,7 @@ export const FilterBar: React.FC<Props> = ({
   const isFiltered =
     Boolean(filters.searchQuery) ||
     Boolean(filters.set && filters.set !== 'all') ||
+    Boolean(filters.race && filters.race !== 'all') ||
     Boolean(filters.civilizations && filters.civilizations.length > 0) ||
     Boolean(filters.cardTypes && filters.cardTypes.length > 0) ||
     Boolean(filters.keywords && filters.keywords.length > 0) ||
@@ -90,99 +105,114 @@ export const FilterBar: React.FC<Props> = ({
     Boolean(filters.isPowerAttacker);
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-4">
-      {/* Row 1: Search, Set Selector, & Sort */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        {/* Search Bar */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3.5">
+      {/* Row 1: Search & Toolbar Controls */}
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-lg">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={filters.searchQuery || ''}
             onChange={e => onChange({ ...filters, searchQuery: e.target.value })}
-            placeholder="Search by name, race (e.g. Dragon, Angel Command), or rules text..."
-            className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+            placeholder="Search by name, race, or rules text..."
+            className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950/80 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400/90 focus:ring-1 focus:ring-amber-400/30 transition-all"
           />
           {filters.searchQuery && (
             <button
               onClick={() => onChange({ ...filters, searchQuery: '' })}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-800 text-slate-400"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Set Selector, Sort Dropdown & Matches count */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-xs text-slate-400 whitespace-nowrap">
-            Showing <strong className="text-amber-400 font-bold">{totalMatches}</strong> cards
+        {/* Dropdowns, Count Badge, & Reset Button */}
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0">
+          {/* Integrated Count & Reset Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs text-slate-300">
+            <span className="text-amber-400 font-bold">{totalMatches}</span>
+            <span className="text-slate-500">cards</span>
+            {isFiltered && (
+              <>
+                <span className="text-slate-700">|</span>
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors font-sans font-semibold cursor-pointer"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reset
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Set / Expansion Dropdown */}
+          {/* Set / Expansion Selector */}
           <select
             value={filters.set || 'all'}
             onChange={e => onChange({ ...filters, set: e.target.value === 'all' ? undefined : e.target.value })}
-            className="text-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
           >
-            <option value="all">All Sets (900 cards)</option>
+            <option value="all">All Sets (900)</option>
             {SETS.map(s => (
               <option key={s.id} value={s.code}>
-                {s.code}: {s.name} ({s.cardCount} cards)
+                {s.code}: {s.name} ({s.cardCount})
               </option>
             ))}
           </select>
 
+          {/* Searchable Race Filter Dropdown with Text Input */}
+          <RaceFilterSelect
+            value={filters.race}
+            races={ALL_RACES}
+            onChange={race => onChange({ ...filters, race })}
+          />
+
+          {/* Sort Dropdown */}
           <select
             value={filters.sortBy || 'id-asc'}
             onChange={e => onChange({ ...filters, sortBy: e.target.value as any })}
-            className="text-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+            className="text-xs bg-slate-950/90 border border-slate-700/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors"
           >
-            <option value="id-asc">Sort: Collector ID (#1 to #110)</option>
-            <option value="cost-asc">Sort: Mana Cost (Low to High)</option>
-            <option value="cost-desc">Sort: Mana Cost (High to Low)</option>
+            <option value="id-asc">Sort: ID (#1 to #110)</option>
+            <option value="cost-asc">Sort: Cost (Low to High)</option>
+            <option value="cost-desc">Sort: Cost (High to Low)</option>
             <option value="power-desc">Sort: Power (High to Low)</option>
             <option value="name-asc">Sort: Name (A to Z)</option>
           </select>
-
-          {isFiltered && (
-            <button
-              onClick={onReset}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 transition-colors whitespace-nowrap"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Row 2: Civilization Filter Buttons */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">
-          Civilizations:
-        </span>
-        {CIVILIZATIONS.map(civ => {
-          const isActive = (filters.civilizations || []).includes(civ);
-          const style = CIV_BTN_COLORS[civ];
-          return (
-            <button
-              key={civ}
-              onClick={() => toggleCiv(civ)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
-                isActive ? style.active : `bg-slate-950/60 ${style.border}`
-              }`}
-            >
-              <CivilizationIcon civilization={civ} className="w-3.5 h-3.5" />
-              <span>{civ}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Row 2: Civilizations, Card Types, and Mechanics */}
+      <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-800/80">
+        {/* Civilizations */}
+        <div className="flex items-center gap-1.5">
+          {CIVILIZATIONS.map(civ => {
+            const isActive = (filters.civilizations || []).includes(civ);
+            const style = CIV_BTN_COLORS[civ];
+            return (
+              <button
+                key={civ}
+                onClick={() => toggleCiv(civ)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                  isActive ? style.active : style.inactive
+                }`}
+                title={`Filter by ${civ}`}
+              >
+                <CivilizationIcon civilization={civ} className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{civ}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Row 3: Card Type & Keywords */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-        {/* Card Types */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        {/* Separator */}
+        <div className="hidden sm:block h-5 w-px bg-slate-800/80" />
+
+        {/* Card Types Toggle */}
+        <div className="flex items-center gap-0.5 bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
           {(['All', 'Creature', 'Spell'] as const).map(type => {
             const current = (filters.cardTypes || [])[0];
             const isActive = (type === 'All' && !current) || current === type;
@@ -190,40 +220,42 @@ export const FilterBar: React.FC<Props> = ({
               <button
                 key={type}
                 onClick={() => setCardType(type)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    ? 'bg-amber-500 text-slate-950 shadow-xs'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {type === 'All' ? 'All Types' : `${type}s`}
+                {type === 'All' ? 'All' : `${type}s`}
               </button>
             );
           })}
         </div>
 
-        {/* Combat & Mechanic Keyword Badges */}
+        {/* Separator */}
+        <div className="hidden md:block h-5 w-px bg-slate-800/80" />
+
+        {/* Keywords & Mechanics */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* Mechanic Badges */}
           <button
             type="button"
             onClick={() => toggleKeyword('evolution')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               isKeywordActive('evolution')
-                ? 'bg-yellow-500/20 border-yellow-400 text-yellow-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Sparkles className="w-3 h-3 text-yellow-400" /> Evolution
+            <Sparkles className="w-3 h-3 text-amber-400" /> Evolution
           </button>
 
           <button
             type="button"
             onClick={() => toggleKeyword('survivor')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               isKeywordActive('survivor')
-                ? 'bg-teal-500/20 border-teal-400 text-teal-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-teal-500/20 border-teal-400 text-teal-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
             <Users className="w-3 h-3 text-teal-400" /> Survivor
@@ -232,10 +264,10 @@ export const FilterBar: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => toggleKeyword('charger')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               isKeywordActive('charger')
-                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
             <BatteryCharging className="w-3 h-3 text-cyan-400" /> Charger
@@ -244,35 +276,34 @@ export const FilterBar: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => toggleKeyword('multi-civ')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               isKeywordActive('multi-civ')
-                ? 'bg-gradient-to-r from-amber-500/20 to-sky-500/20 border-amber-400 text-amber-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-amber-500/20 to-sky-500/20 border-amber-400 text-amber-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
             <Combine className="w-3 h-3 text-amber-400" /> Multi-Civ
           </button>
 
-          {/* Combat Keyword Badges */}
           <button
             type="button"
             onClick={() => toggleLegacyKeyword('isShieldTrigger')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               filters.isShieldTrigger
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Zap className="w-3 h-3 text-amber-400" /> Shield Trigger
+            <Zap className="w-3 h-3 text-amber-400" /> Trigger
           </button>
 
           <button
             type="button"
             onClick={() => toggleLegacyKeyword('isBlocker')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               filters.isBlocker
-                ? 'bg-sky-500/20 border-sky-400 text-sky-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-sky-500/20 border-sky-400 text-sky-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
             <Shield className="w-3 h-3 text-sky-400" /> Blocker
@@ -281,22 +312,22 @@ export const FilterBar: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => toggleLegacyKeyword('isSlayer')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               filters.isSlayer
-                ? 'bg-purple-500/20 border-purple-400 text-purple-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-purple-500/20 border-purple-400 text-purple-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>☠</span> Slayer
+            <Skull className="w-3 h-3 text-purple-400" /> Slayer
           </button>
 
           <button
             type="button"
             onClick={() => toggleLegacyKeyword('isDoubleBreaker')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               filters.isDoubleBreaker
-                ? 'bg-red-500/20 border-red-400 text-red-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-red-500/20 border-red-400 text-red-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
             <Swords className="w-3 h-3 text-red-400" /> 2x Breaker
@@ -305,13 +336,13 @@ export const FilterBar: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => toggleLegacyKeyword('isPowerAttacker')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border font-medium transition-all cursor-pointer ${
               filters.isPowerAttacker
-                ? 'bg-orange-500/20 border-orange-400 text-orange-300 font-bold shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-orange-500/20 border-orange-400 text-orange-300 font-bold shadow-xs'
+                : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>⚡</span> Power Attacker
+            <Flame className="w-3 h-3 text-orange-400" /> Power Attacker
           </button>
         </div>
       </div>

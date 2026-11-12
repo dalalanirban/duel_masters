@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CardDefinition, Civilization } from '../../types/card';
+import type { CardDefinition, Civilization, Deck } from '../../types/card';
 import { CivilizationIcon } from '../card/CivilizationIcon';
 import {
   User,
@@ -17,6 +17,9 @@ export interface CardInspectorPaneProps {
   turn: number;
   activePlayer: 'player' | 'opponent';
   phase: string;
+  opponentDeck?: Deck;
+  availableOpponentDecks?: Deck[];
+  onSelectOpponentDeck?: (deckId: string) => void;
   playerDeckName?: string;
   opponentDeckName?: string;
   className?: string;
@@ -63,6 +66,9 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   turn,
   activePlayer,
   phase,
+  opponentDeck,
+  availableOpponentDecks = [],
+  onSelectOpponentDeck,
   className = ''
 }) => {
   const isPlayerTurn = activePlayer === 'player';
@@ -94,7 +100,8 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
       aria-label="Card Inspector & Match Status"
     >
       {/* Match Status Header */}
-      <section className="shrink-0 bg-slate-950/80 border-b border-slate-800/80 p-2">
+      <section className="shrink-0 bg-slate-950/80 border-b border-slate-800/80 p-1.5 space-y-1">
+        {/* Turn, Active Player, and Phase Status */}
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           {/* Turn Badge */}
           <span
@@ -139,194 +146,219 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
             {phaseInfo.label}
           </span>
         </div>
+
+        {/* AI Battle Deck Selector */}
+        {availableOpponentDecks.length > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/90 border border-slate-800/80 text-[11px] shadow-xs">
+            <div className="flex items-center gap-1 text-slate-400 shrink-0 font-medium font-sans">
+              <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="text-[9.5px] uppercase font-bold tracking-wider text-slate-400 font-cinzel">AI Deck:</span>
+            </div>
+            <select
+              value={opponentDeck?.id || availableOpponentDecks[0]?.id || ''}
+              onChange={(e) => onSelectOpponentDeck?.(e.target.value)}
+              className="flex-1 min-w-0 bg-slate-950 text-indigo-200 border border-indigo-500/30 rounded px-1.5 py-0.5 text-[10.5px] font-sans font-medium focus:outline-hidden focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/50 cursor-pointer transition-colors truncate"
+              title="Select AI opponent battle deck"
+            >
+              {availableOpponentDecks.map((d) => (
+                <option key={d.id} value={d.id} className="bg-slate-950 text-slate-200 py-1">
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </section>
 
       {/* Card Inspector Body */}
       {inspectedCard ? (
-        <section className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {/* Scrollable Gameplay-Only Card Details */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-2.5 custom-scrollbar">
-            {/* Clean Card Artwork Preview */}
-            <div className="flex justify-center items-center pt-0.5">
-              <div className="relative w-full aspect-[491/682] max-w-[175px] sm:max-w-[200px] xl:max-w-[220px] 2xl:max-w-[230px] rounded-lg overflow-hidden shadow-2xl border border-slate-700/60 bg-slate-950">
-                <img
-                  src={imageSrc || ''}
-                  alt={inspectedCard.name}
-                  loading="lazy"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (inspectedCard.imageUrl && target.src !== inspectedCard.imageUrl) {
-                      target.src = inspectedCard.imageUrl;
-                    }
-                  }}
-                />
+        <section className="flex-1 min-h-0 flex flex-col p-2 space-y-1.5 overflow-hidden">
+          {/* Proportional Card Artwork Preview: Expands to match pane width, shrinks proportionally if details need space */}
+          <div
+            style={{ containerType: 'size' }}
+            className="flex-1 min-h-[80px] w-full flex items-center justify-center overflow-hidden"
+          >
+            <div
+              style={{
+                width: 'min(100cqw, calc(100cqh * (491 / 682)), 255px)',
+                aspectRatio: '491 / 682',
+                maxHeight: '100%',
+                maxWidth: '255px',
+                height: 'auto',
+              }}
+              className="relative rounded-md overflow-hidden shadow-xl border border-slate-700/60 bg-slate-950 flex items-center justify-center transition-all duration-150"
+            >
+              <img
+                src={imageSrc || ''}
+                alt={inspectedCard.name}
+                loading="lazy"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (inspectedCard.imageUrl && target.src !== inspectedCard.imageUrl) {
+                    target.src = inspectedCard.imageUrl;
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Card Name */}
+          <div className="text-center px-1 shrink-0">
+            <h3
+              className="text-xs sm:text-[13px] font-cinzel font-black text-white tracking-wide leading-tight truncate"
+              title={inspectedCard.name}
+            >
+              {inspectedCard.name}
+            </h3>
+          </div>
+
+          {/* Consolidated Stats & Attributes Bar */}
+          <div className="shrink-0 bg-slate-900/70 border border-slate-800/80 rounded-lg p-1.5 space-y-1 text-[10px]">
+            {/* Primary Tactical Stats: Cost | Power | Type */}
+            <div className="flex items-center justify-between gap-1 text-[10.5px] font-mono border-b border-slate-800/60 pb-1">
+              {/* Cost */}
+              <div className="flex items-center gap-1 font-semibold text-slate-300">
+                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">Cost:</span>
+                <span className="text-amber-400 font-bold">{inspectedCard.manaCost}</span>
               </div>
+
+              {/* Power (if creature) */}
+              {inspectedCard.power !== null ? (
+                <div className="flex items-center gap-1 font-semibold text-slate-300">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">PWR:</span>
+                  <span className="text-amber-300 font-bold">
+                    {inspectedCard.power}
+                    {inspectedCard.powerAttackerBonus > 0 && (
+                      <span className="text-red-400 text-[8.5px] ml-0.5">+{inspectedCard.powerAttackerBonus}</span>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-slate-500 text-[9.5px]">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">Type:</span>
+                  <span className="text-slate-300 font-medium font-sans">Spell</span>
+                </div>
+              )}
+
+              {/* Type (if creature) */}
+              {inspectedCard.power !== null && (
+                <div className="flex items-center gap-1 text-slate-300 truncate max-w-[75px]" title={inspectedCard.type}>
+                  <span className="text-[9.5px] font-medium font-sans text-slate-400 truncate">
+                    {inspectedCard.type.replace(' Creature', '')}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Card Name */}
-            <div className="text-center px-1">
-              <h3 className="text-xs sm:text-sm font-cinzel font-black text-white tracking-wide leading-tight break-words">
-                {inspectedCard.name}
-              </h3>
-            </div>
-
-            {/* Quick Tactical Stats: Cost | Type | Power */}
-            <div className="grid grid-cols-3 gap-1 text-center font-mono">
-              <div className="bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80 flex flex-col justify-center">
-                <span className="text-[8px] uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                  Cost
-                </span>
-                <span className="text-xs font-bold text-amber-400 tabular-nums">
-                  {inspectedCard.manaCost}
-                </span>
-              </div>
-
-              <div className="bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80 flex flex-col justify-center min-w-0">
-                <span className="text-[8px] uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                  Type
-                </span>
-                <span
-                  className="text-[9px] font-semibold text-slate-200 truncate"
-                  title={inspectedCard.type}
-                >
-                  {inspectedCard.type.replace(' Creature', '')}
-                </span>
-              </div>
-
-              <div className="bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80 flex flex-col justify-center">
-                <span className="text-[8px] uppercase tracking-wider text-slate-500 font-semibold font-sans">
-                  Power
-                </span>
-                <span className="text-xs font-bold text-amber-300 tabular-nums">
-                  {inspectedCard.power !== null ? (
-                    <>
-                      {inspectedCard.power}
-                      {inspectedCard.powerAttackerBonus > 0 && (
-                        <span className="text-red-400 text-[8px] ml-0.5">
-                          +{inspectedCard.powerAttackerBonus}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-slate-600">—</span>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {/* Civilizations & Key Keywords */}
-            <div className="flex flex-wrap gap-1 justify-center items-center">
+            {/* Badges Strip: Civilizations, Keywords & Race */}
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              {/* Civilizations */}
               {inspectedCard.civilizations.map((civ) => (
                 <span
                   key={civ}
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border ${getCivilizationBadgeStyle(
-                    civ
-                  )}`}
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-medium border ${getCivilizationBadgeStyle(civ)}`}
                 >
                   <CivilizationIcon civilization={civ} className="w-2.5 h-2.5" />
                   <span>{civ}</span>
                 </span>
               ))}
 
+              {/* Keywords */}
               {inspectedCard.isShieldTrigger && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40">
                   <Zap className="w-2.5 h-2.5 text-amber-400" /> Trigger
                 </span>
               )}
 
               {inspectedCard.isBlocker && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/40">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/40">
                   <Shield className="w-2.5 h-2.5 text-sky-400" /> Blocker
                 </span>
               )}
 
               {inspectedCard.isSlayer && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/40">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/40">
                   <Skull className="w-2.5 h-2.5 text-purple-400" /> Slayer
                 </span>
               )}
 
               {inspectedCard.isSpeedAttacker && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-500/15 text-red-300 border border-red-500/40">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-red-500/15 text-red-300 border border-red-500/40">
                   <Zap className="w-2.5 h-2.5 text-red-400" /> Speed Atk
                 </span>
               )}
 
               {isEvolution && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
                   <Layers className="w-2.5 h-2.5 text-amber-400" /> Evolution
                 </span>
               )}
 
               {inspectedCard.breakerCount >= 2 && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/40">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/40">
                   ⚔ {inspectedCard.breakerCount === 2 ? 'Double' : 'Triple'} Breaker
                 </span>
               )}
-            </div>
 
-            {/* Race (if creature) */}
-            {inspectedCard.races && inspectedCard.races.length > 0 && (
-              <div className="bg-slate-900/40 px-2 py-1 rounded-md border border-slate-800/60 text-center text-[10px]">
-                <span className="text-slate-400 font-sans mr-1">Race:</span>
-                <span className="text-amber-200 font-medium font-cinzel">
+              {/* Compact Race Pill */}
+              {inspectedCard.races && inspectedCard.races.length > 0 && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 rounded text-[9px] bg-slate-800/80 text-amber-200/90 border border-slate-700/60 font-cinzel font-medium">
+                  <span className="text-[8px] text-slate-400 font-sans mr-0.5">Race:</span>
                   {inspectedCard.races.join(' / ')}
                 </span>
-              </div>
-            )}
-
-            {/* Evolution Requirement Callout */}
-            {isEvolution && evoRequirement && (
-              <div className="p-1.5 rounded-lg bg-amber-950/30 border border-amber-500/30 text-[10px] text-amber-200">
-                <div className="text-[8px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">
-                  Evolution Bait
-                </div>
-                <div className="leading-snug">{evoRequirement}</div>
-              </div>
-            )}
-
-            {/* Rules & Abilities Text */}
-            <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-200 space-y-1">
-              <div className="text-[8px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1">
-                <Info className="w-2.5 h-2.5 text-amber-400" /> Abilities & Effects
-              </div>
-
-              {inspectedCard.rulesText ? (
-                <div className="space-y-1.5 text-[10px] sm:text-[11px] text-slate-200 leading-relaxed font-sans break-words">
-                  {inspectedCard.rulesText
-                    .split('\n')
-                    .map((l) => l.trim())
-                    .filter(Boolean)
-                    .map((line, idx) => {
-                      const isBullet =
-                        line.startsWith('■') ||
-                        line.startsWith('•') ||
-                        line.startsWith('-');
-                      const cleanLine = isBullet
-                        ? line.replace(/^[■•\-]\s*/, '')
-                        : line;
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-start gap-1.5 ${
-                            isBullet ? 'pl-0.5' : ''
-                          }`}
-                        >
-                          <span className="text-amber-400 text-[10px] shrink-0 select-none mt-0.5">
-                            ◆
-                          </span>
-                          <span className="flex-1 break-words">{cleanLine}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <p className="text-[10px] text-slate-500 italic">
-                  No abilities (Vanilla creature).
-                </p>
               )}
             </div>
+
+            {/* Evolution Bait (compact) */}
+            {isEvolution && evoRequirement && (
+              <div className="pt-0.5 text-[9.5px] text-amber-300 flex items-center gap-1 border-t border-slate-800/60">
+                <span className="text-[8px] font-bold uppercase tracking-wider text-amber-400 shrink-0">Bait:</span>
+                <span className="truncate">{evoRequirement}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Rules & Abilities Text (Takes required height up to max-h, ensuring no overflow) */}
+          <div className="shrink-0 max-h-[50%] flex flex-col p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-200">
+            <div className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1 shrink-0">
+              <Info className="w-2.5 h-2.5 text-amber-400" /> Abilities & Effects
+            </div>
+
+            {inspectedCard.rulesText ? (
+              <div className="overflow-y-auto pr-0.5 space-y-1.5 text-[10px] sm:text-[11px] text-slate-200 leading-relaxed font-sans break-words custom-scrollbar">
+                {inspectedCard.rulesText
+                  .split('\n')
+                  .map((l) => l.trim())
+                  .filter(Boolean)
+                  .map((line, idx) => {
+                    const isBullet =
+                      line.startsWith('■') ||
+                      line.startsWith('•') ||
+                      line.startsWith('-');
+                    const cleanLine = isBullet
+                      ? line.replace(/^[■•\-]\s*/, '')
+                      : line;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-start gap-1.5 ${
+                          isBullet ? 'pl-0.5' : ''
+                        }`}
+                      >
+                        <span className="text-amber-400 text-[10px] shrink-0 select-none mt-0.5">
+                          ◆
+                        </span>
+                        <span className="flex-1 break-words">{cleanLine}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-500 italic">
+                No abilities (Vanilla creature).
+              </p>
+            )}
           </div>
         </section>
       ) : (

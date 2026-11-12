@@ -11,9 +11,11 @@ import type {
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { getCreatureEffectivePower } from './combat.ts';
 import { triggerDestroyed, isSurvivor, triggerCIP } from './effects.ts';
+import { findSaverInBattleZone, isMadnessDiscardReplacement } from './replacements.ts';
 
 /**
- * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard.
+ * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard,
+ * triggering any Madness replacements ("put into battle zone instead") during opponent's turn.
  */
 export function discardRandomHandCards(
   state: GameState,
@@ -25,17 +27,38 @@ export function discardRandomHandCards(
     return state;
   }
 
+  const isOpponentTurn = state.activePlayer !== targetPlayer;
   const handCopy = [...pState.hand];
   const discarded: CardInstance[] = [];
+  const madnessSummons: CreatureInstance[] = [];
   const actualCount = Math.min(count, handCopy.length);
 
   for (let i = 0; i < actualCount; i++) {
     const randomIndex = Math.floor(Math.random() * handCopy.length);
     const [card] = handCopy.splice(randomIndex, 1);
-    discarded.push(card);
+
+    if (isMadnessDiscardReplacement(card.card, isOpponentTurn)) {
+      madnessSummons.push({
+        instanceId: card.instanceId,
+        card: card.card,
+        owner: targetPlayer,
+        isTapped: false,
+        summonedTurn: state.turn,
+        powerModifier: 0
+      });
+    } else {
+      discarded.push(card);
+    }
   }
 
-  const discardedNames = discarded.map((c) => c.card.name).join(', ');
+  const logEntries: string[] = [];
+  if (discarded.length > 0) {
+    logEntries.push(`${targetPlayer} discarded ${discarded.map((c) => c.card.name).join(', ')} at random from hand.`);
+  }
+  if (madnessSummons.length > 0) {
+    logEntries.push(`${targetPlayer} put ${madnessSummons.map((c) => c.card.name).join(', ')} into the battle zone via Madness discard replacement!`);
+  }
+
   return {
     ...state,
     players: {
@@ -43,12 +66,13 @@ export function discardRandomHandCards(
       [targetPlayer]: {
         ...pState,
         hand: handCopy,
+        battleZone: [...pState.battleZone, ...madnessSummons],
         graveyard: [...pState.graveyard, ...discarded]
       }
     },
     actionLog: [
       ...state.actionLog,
-      `${targetPlayer} discarded ${discardedNames} at random from hand.`
+      ...logEntries
     ]
   };
 }
@@ -105,11 +129,36 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
   const rules = creature.card.rulesText || '';
   const nameLower = creature.card.name.toLowerCase();
 
+  // 0. Saver sacrifice replacement:
+  // "When one of your [Race] would be destroyed, you may destroy this creature instead."
+  const saver = findSaverInBattleZone(ownerState.battleZone, creature);
+  if (saver) {
+    const stateWithSaverSacrificed = destroyCreature(state, saver.instanceId);
+    return {
+      ...stateWithSaverSacrificed,
+      actionLog: [
+        ...stateWithSaverSacrificed.actionLog,
+        `${saver.card.name} sacrificed itself as a Saver to protect ${creature.card.name}!`
+      ]
+    };
+  }
+
   // 1. Return to hand replacement effect
   const bounceMatch =
     /when(?:ever)? this creature (?:would be|is) destroyed.*(?:return (?:it|this creature) to (?:your|its owner's) hand|put (?:it|this creature) into (?:your|its owner's) hand) instead/i.test(rules);
+  const hasMysticMagicianAura =
+    /silent skill/i.test(rules) &&
+    ownerState.battleZone.some((c) => c.card.name.toLowerCase().includes('mystic magician'));
+  const allWSCount = [...state.players.player.battleZone, ...state.players.opponent.battleZone].filter(
+    (c) => /wave striker/i.test(c.card.rulesText || '')
+  ).length;
+  const isRevivalSoldierActive = nameLower.includes('revival soldier') && allWSCount >= 3;
+
+  const isWaveStrikerGated = /wave striker/i.test(rules);
   const isBounceReplacement =
-    bounceMatch ||
+    (bounceMatch && (!isWaveStrikerGated || allWSCount >= 3)) ||
+    hasMysticMagicianAura ||
+    isRevivalSoldierActive ||
     nameLower.includes('aqua soldier') ||
     nameLower.includes('chilias') ||
     nameLower.includes('aqua knight') ||
@@ -117,8 +166,7 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
     nameLower.includes('aqua agent') ||
     nameLower.includes('aqua ranger') ||
     nameLower.includes('crystal jouster') ||
-    nameLower.includes('aqua skydiver') ||
-    nameLower.includes('revival soldier');
+    nameLower.includes('aqua skydiver');
 
   if (isBounceReplacement) {
     const cardsToHand: CardInstance[] = [
