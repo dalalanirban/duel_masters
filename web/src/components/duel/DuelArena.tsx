@@ -18,6 +18,7 @@ import { GameOverModal } from './GameOverModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
+  savedDecks?: Deck[];
   onNavigateToBuilder?: () => void;
 }
 
@@ -32,8 +33,25 @@ const arenaReducer = (currentState: GameState, action: ArenaAction): GameState =
 
 export const DuelArena: React.FC<DuelArenaProps> = ({
   activeDeck,
+  savedDecks,
   onNavigateToBuilder
 }) => {
+  // Available opponent decks (presets + custom saved decks)
+  const availableOpponentDecks = useMemo(() => {
+    const list: Deck[] = [...PRESET_DECKS];
+    if (savedDecks) {
+      for (const deck of savedDecks) {
+        if (!list.some((d) => d.id === deck.id)) {
+          const totalCards = deck.items.reduce((sum, item) => sum + item.count, 0);
+          if (totalCards >= 10) {
+            list.push(deck);
+          }
+        }
+      }
+    }
+    return list;
+  }, [savedDecks]);
+
   // Select which deck player and opponent use
   const defaultPlayerDeck = useMemo(() => {
     // If active deck has at least 10 cards, use it; otherwise fallback to Shobu Beatdown
@@ -42,7 +60,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   }, [activeDeck]);
 
   const [selectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
-  const [selectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
+  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
 
   // Game state reducer
   const [state, dispatch] = useReducer(
@@ -107,6 +125,26 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSpellCandidate(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
   }, [selectedPlayerDeck, selectedOpponentDeck]);
+
+  // AI Battle Deck selection handler
+  const handleSelectOpponentDeck = useCallback(
+    (deckId: string) => {
+      const chosen = availableOpponentDecks.find((d) => d.id === deckId);
+      if (!chosen) return;
+      setSelectedOpponentDeck(chosen);
+      setSelectedAttackerId(null);
+      setSelectedShieldIndices([]);
+      setEvolutionCandidate(null);
+      setSpellCandidate(null);
+      dispatch({
+        type: 'RESET_GAME',
+        playerDeck: selectedPlayerDeck,
+        opponentDeck: chosen
+      });
+      showToast(`AI Battle Deck set to: ${chosen.name}. Match restarted.`);
+    },
+    [availableOpponentDecks, selectedPlayerDeck]
+  );
 
 
   // AI Step Trigger
@@ -484,6 +522,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         turn={state.turn}
         activePlayer={state.activePlayer}
         phase={state.phase}
+        opponentDeck={selectedOpponentDeck}
+        availableOpponentDecks={availableOpponentDecks}
+        onSelectOpponentDeck={handleSelectOpponentDeck}
       />
 
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}

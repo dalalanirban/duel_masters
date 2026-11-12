@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CardDefinition, Civilization } from '../../types/card';
+import type { CardDefinition, Civilization, Deck } from '../../types/card';
 import { CivilizationIcon } from '../card/CivilizationIcon';
 import {
   User,
@@ -17,6 +17,9 @@ export interface CardInspectorPaneProps {
   turn: number;
   activePlayer: 'player' | 'opponent';
   phase: string;
+  opponentDeck?: Deck;
+  availableOpponentDecks?: Deck[];
+  onSelectOpponentDeck?: (deckId: string) => void;
   playerDeckName?: string;
   opponentDeckName?: string;
   className?: string;
@@ -63,6 +66,9 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   turn,
   activePlayer,
   phase,
+  opponentDeck,
+  availableOpponentDecks = [],
+  onSelectOpponentDeck,
   className = ''
 }) => {
   const isPlayerTurn = activePlayer === 'player';
@@ -94,7 +100,8 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
       aria-label="Card Inspector & Match Status"
     >
       {/* Match Status Header */}
-      <section className="shrink-0 bg-slate-950/80 border-b border-slate-800/80 p-2">
+      <section className="shrink-0 bg-slate-950/80 border-b border-slate-800/80 p-2 space-y-1.5">
+        {/* Turn, Active Player, and Phase Status */}
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           {/* Turn Badge */}
           <span
@@ -139,6 +146,28 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
             {phaseInfo.label}
           </span>
         </div>
+
+        {/* AI Battle Deck Selector */}
+        {availableOpponentDecks.length > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/90 border border-slate-800/80 text-[11px] shadow-xs">
+            <div className="flex items-center gap-1 text-slate-400 shrink-0 font-medium font-sans">
+              <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="text-[9.5px] uppercase font-bold tracking-wider text-slate-400 font-cinzel">AI Deck:</span>
+            </div>
+            <select
+              value={opponentDeck?.id || availableOpponentDecks[0]?.id || ''}
+              onChange={(e) => onSelectOpponentDeck?.(e.target.value)}
+              className="flex-1 min-w-0 bg-slate-950 text-indigo-200 border border-indigo-500/30 rounded px-1.5 py-0.5 text-[10.5px] font-sans font-medium focus:outline-hidden focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/50 cursor-pointer transition-colors truncate"
+              title="Select AI opponent battle deck"
+            >
+              {availableOpponentDecks.map((d) => (
+                <option key={d.id} value={d.id} className="bg-slate-950 text-slate-200 py-1">
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </section>
 
       {/* Card Inspector Body */}

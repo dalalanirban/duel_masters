@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { CARD_LIST } from '../../data/cardLoader.ts';
+import { PRESET_DECKS } from '../../data/presets.ts';
+import { initializeGame } from '../../engine/index.ts';
 
 describe('Battle Zone Spell & Combat Targeting (Task 1 & SS Comments)', () => {
   const deathSmoke = CARD_LIST.find((c) => c.name.toLowerCase() === 'death smoke') || {
@@ -124,5 +126,27 @@ describe('Battle Zone Spell & Combat Targeting (Task 1 & SS Comments)', () => {
     assert.ok(fullClassName.includes('rotate-90'), 'Preserves tapped orientation');
     assert.ok(fullClassName.includes('opacity-35 grayscale'), 'Dims invalid target');
     assert.ok(fullClassName.includes('cursor-not-allowed'), 'Disables cursor');
+  });
+
+  it('Supports switching AI battle deck across all available presets', () => {
+    assert.equal(PRESET_DECKS.length >= 3, true, 'At least 3 preset decks available');
+    const [shobu, kokujo, hakuoh] = PRESET_DECKS;
+
+    // Initialize with Kokujo deck
+    const gameStateKokujo = initializeGame(shobu, kokujo, 'player');
+    assert.equal(gameStateKokujo.players.opponent.deck.length + gameStateKokujo.players.opponent.hand.length + gameStateKokujo.players.opponent.shields.length, 40);
+
+    // Re-initialize with Hakuoh deck
+    const gameStateHakuoh = initializeGame(shobu, hakuoh, 'player');
+    assert.equal(gameStateHakuoh.players.opponent.deck.length + gameStateHakuoh.players.opponent.hand.length + gameStateHakuoh.players.opponent.shields.length, 40);
+
+    // Verify Hakuoh deck contains Light cards like Holy Awe
+    const allHakuohCards = [
+      ...gameStateHakuoh.players.opponent.deck,
+      ...gameStateHakuoh.players.opponent.hand,
+      ...gameStateHakuoh.players.opponent.shields.map((s) => s.card)
+    ];
+    const hasLight = allHakuohCards.some((c) => c.card?.civilizations?.includes('Light'));
+    assert.equal(hasLight, true, 'Hakuoh deck contains Light cards');
   });
 });
