@@ -1,25 +1,25 @@
 # UI Feature Testing & Design Verification Standard
 
-> **MANDATORY FOR ALL UI TASKS**: Whenever building, refactoring, or polishing any UI feature, you must strictly follow this verification standard before marking the task complete.
+> **MANDATORY FOR ALL UI TASKS**: Whenever building, refactoring, or polishing any UI feature, you must proactively apply the installed design standards (`design-taste-frontend`, `game-ui-ux`, `web-design-guidelines`, and root `DESIGN.md`) by default. NEVER wait for the user to point out design slop, outdated copy, or layout flaws.
 
-## 1. Automated Visual Verification via Playwright
-- Always launch and use browser automation (`playwright` or `chrome-devtools-mcp`) to navigate to the running application.
-- Take high-resolution screenshots of the live UI across relevant game states (empty arena, cards in hand, mana charged, creatures summoned, attack targeting, card hover, modal open).
-- Visually inspect the rendered output, element bounding boxes, font rendering, text truncation, and spacing. Never assume code edits look right without seeing the actual rendered pixels.
-
-## 2. Design Standards & Anti-Slop Enforcement
-- **Anti-Slop (`design-taste-frontend` standard)**:
-  - Reject generic AI-made aesthetics: eliminate unnecessary rounded border boxes around every container, nested gradient wrappers, tacky watermark text in empty spaces, and cluttered button stacks.
-  - Maintain a **premium, minimalist, lightweight dark-mode aesthetic** (`#07090e` / `#0b0f17` palette with refined border filaments).
-  - High breathing room: never squeeze cards into tiny postage stamps while leaving massive empty striped boxes.
-  - Dedicated focus on typography: use `tabular-nums` for numbers, crisp tracking, and clean hierarchy.
-
-## 3. Game Design & TCG UX Standards (`game-ui-ux`, `card-game`, `game-feel`)
-- **Card-First Design**: The artwork and tactical stats of cards are sacred. Never cover cards with chunky button overlays.
-- **Shield Realism**: Shields must look like authentic TCG shields / protective card barriers with heraldic crests and energy borders—never wireframe button boxes.
-- **Battle Zone Prominence**: The battlefield is the centerpiece of the duel. Allocate the primary flex height to the active combat zone so creatures can be large, readable, and visually impactful.
-- **Inspector Sticky State**: Card inspection must stay visible when the user moves their mouse to read abilities; never reset inspector state on mouse-leave. Show only tactical gameplay-relevant data (Cost, Name, Type, Civ, Power, Breakers, Race, Abilities); strip collector/set/illustrator trivia during duels.
-- **Action Elegance**: Card actions (Summon, Charge) must appear as floating, minimalist glass pills above the card, preserving full card visibility.
+## 1. Proactive Design Standards Enforcement (Default Pre-Flight Gate)
+Before touching any UI code or presenting changes, audit against our core design standards:
+- **Anti-Slop (`design-taste-frontend`)**:
+  - Eliminate all generic, templated, or AI-made aesthetics: noisy descriptive subtitles (e.g. "Interactive Card Database & 40-Card Deck Builder"), tacky hardcoded badges, nested gradient cards, and bloated wrappers.
+  - Plain, authentic copy only: keep branding clean, confident, and minimal (e.g. crisp "DUEL MASTERS" title, clean controls).
+  - Balanced padding and equal edges across all screen sizes.
+- **Project Design System (`DESIGN.md` & `awesome-design-md`)**:
+  - Canvas: Deep void canvas (`#070b14` / `#07090e`).
+  - Surfaces: Layered slate (`#0b1220` to `#17233d`) with hairline borders (`#1e293b`).
+  - Typography: Cinzel for headers/titles, Inter for UI text, tabular mono for stats/numbers.
+  - Colors: Authentic 5-civilization accents (Light `#facc15`, Water `#38bdf8`, Darkness `#c084fc`, Fire `#f87171`, Nature `#4ade80`).
+- **Game UI/UX Architecture (`game-ui-ux`, `card-game`)**:
+  - Card-first design: card artwork and stats have top priority; never squash cards into tiny thumbnails when space exists.
+  - Responsive container scaling: use container-query / flex proportions so elements scale smoothly to fit available space without awkward page-level scrollbars.
+  - Event-driven HUD updates, authentic TCG zones, and clean keyboard/mouse focus.
+- **Web Interface Guidelines (`web-design-guidelines`)**:
+  - Semantic form and select controls with truncate and accessible focus rings.
+  - Proper contrast ratios and clear hover/focus states.
 
 ## 4. Verification Gate
 - No UI feature may be declared done without:
