@@ -25,4 +25,5 @@
 - No UI feature may be declared done without:
   1. TypeScript typecheck & production build passing (`npm run build --prefix web`).
   2. Live browser testing and screenshot evidence verified via Playwright / DevTools.
-  3. All 7 criteria from user feedback verified.
+  3. All criteria from user feedback verified.
+  4. When raising or sharing a PR, verify live PR status via `gh pr view` and report mergeability and status checks per `pr-workflow-and-status-checks.md`.
