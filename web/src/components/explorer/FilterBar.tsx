@@ -1,6 +1,6 @@
 import React from 'react';
 import { Civilization, CardType } from '../../types/card';
-import { CardFilterOptions, SETS } from '../../data/cardLoader';
+import { CardFilterOptions, SETS, ALL_RACES } from '../../data/cardLoader';
 import { CivilizationIcon } from '../card/CivilizationIcon';
 import { Search, X, Zap, Shield, Swords, RotateCcw, Sparkles, Users, BatteryCharging, Combine } from 'lucide-react';
 
@@ -80,6 +80,7 @@ export const FilterBar: React.FC<Props> = ({
   const isFiltered =
     Boolean(filters.searchQuery) ||
     Boolean(filters.set && filters.set !== 'all') ||
+    Boolean(filters.race && filters.race !== 'all') ||
     Boolean(filters.civilizations && filters.civilizations.length > 0) ||
     Boolean(filters.cardTypes && filters.cardTypes.length > 0) ||
     Boolean(filters.keywords && filters.keywords.length > 0) ||
@@ -113,8 +114,8 @@ export const FilterBar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Set Selector, Sort Dropdown & Matches count */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Set Selector, Race Filter, Sort Dropdown & Matches count */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="text-xs text-slate-400 whitespace-nowrap">
             Showing <strong className="text-amber-400 font-bold">{totalMatches}</strong> cards
           </div>
@@ -129,6 +130,21 @@ export const FilterBar: React.FC<Props> = ({
             {SETS.map(s => (
               <option key={s.id} value={s.code}>
                 {s.code}: {s.name} ({s.cardCount} cards)
+              </option>
+            ))}
+          </select>
+
+          {/* Race Filter Dropdown */}
+          <select
+            value={filters.race || 'all'}
+            onChange={e => onChange({ ...filters, race: e.target.value === 'all' ? undefined : e.target.value })}
+            className="text-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer max-w-[160px] truncate"
+            title="Filter cards by race"
+          >
+            <option value="all">All Races ({ALL_RACES.length})</option>
+            {ALL_RACES.map(r => (
+              <option key={r} value={r}>
+                {r}
               </option>
             ))}
           </select>

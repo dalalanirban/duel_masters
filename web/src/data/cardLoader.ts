@@ -8,6 +8,14 @@ export const CARD_LIST: CardDefinition[] = allCardsData as unknown as CardDefini
 
 export const SETS: SetDefinition[] = setsData as unknown as SetDefinition[];
 
+export const ALL_RACES: string[] = Array.from(
+  new Set(
+    CARD_LIST.flatMap(c => c.races || [])
+      .map(r => r.trim())
+      .filter(Boolean)
+  )
+).sort((a, b) => a.localeCompare(b));
+
 export const CARD_MAP = new Map<string, CardDefinition>(
   CARD_LIST.map(card => [card.id, card])
 );
@@ -105,7 +113,12 @@ export function filterCards(options: CardFilterOptions = {}): CardDefinition[] {
     }
 
     // Race filter
-    if (options.race && !card.races.includes(options.race)) return false;
+    if (options.race && options.race.trim() !== '' && options.race.toLowerCase() !== 'all') {
+      const targetRace = options.race.toLowerCase().trim();
+      if (!card.races || !card.races.some(r => r.toLowerCase() === targetRace)) {
+        return false;
+      }
+    }
 
     return true;
   });
