@@ -85,3 +85,35 @@ export function hasShieldBurnReplacement(attacker: CreatureInstance): boolean {
     nameLower.includes('death phoenix')
   );
 }
+
+/**
+ * Checks whether an evolution creature has a leave-substitution replacement effect
+ * (e.g. Soul Phoenix, Avatar of Unity: "When this card would leave the battle zone, only the top card leaves the battle zone instead (Separate the other cards into 2 creatures)").
+ */
+export function hasLeaveSubstitution(creature: CreatureInstance): boolean {
+  const rules = creature.card.rulesText || '';
+  return (
+    /only the top card leaves the battle zone instead/i.test(rules) ||
+    creature.card.name.toLowerCase().includes('soul phoenix')
+  );
+}
+
+/**
+ * Separates the cards underneath an evolution creature back into individual creatures in the battle zone.
+ */
+export function separateEvolutionUnderlyingCreatures(
+  creature: CreatureInstance,
+  currentTurn: number
+): CreatureInstance[] {
+  if (!creature.evolvedOn || creature.evolvedOn.length === 0) {
+    return [];
+  }
+  return creature.evolvedOn.map((underCard) => ({
+    instanceId: underCard.instanceId,
+    card: underCard.card,
+    owner: underCard.owner || creature.owner,
+    isTapped: creature.isTapped,
+    summonedTurn: currentTurn,
+    powerModifier: 0
+  }));
+}

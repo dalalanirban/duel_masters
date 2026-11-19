@@ -1,7 +1,14 @@
 import type { GameState, GameAction, PlayerId, CardInstance, CreatureInstance } from './types.ts';
 import { canPayManaCost } from './mana.ts';
-import { isSummoningSick, isValidEvolutionBait, isEvolutionCreature } from './evolution.ts';
+import {
+  isSummoningSick,
+  isValidEvolutionBait,
+  isEvolutionCreature,
+  isVortexEvolution,
+  findValidVortexBaits
+} from './evolution.ts';
 import { getCreatureEffectivePower, hasCreatureSlayer } from './combat.ts';
+import { getSpellTargetRequirement } from './targeting.ts';
 
 /**
  * Intelligent AI player step generator.
@@ -160,20 +167,34 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
     case 'MAIN': {
       // 1. Try to summon highest cost affordable creature
-      const affordableCreatures: { cardInstance: CardInstance; baitId?: string }[] = [];
+      const affordableCreatures: {
+        cardInstance: CardInstance;
+        baitId?: string;
+        baitIds?: string[];
+      }[] = [];
 
       for (const item of aiState.hand) {
         if (item.card.type.includes('Creature')) {
           if (canPayManaCost(aiState.manaZone, item.card)) {
             if (isEvolutionCreature(item.card)) {
-              const validBait = aiState.battleZone.find((c) =>
-                isValidEvolutionBait(item.card, c)
-              );
-              if (validBait) {
-                affordableCreatures.push({
-                  cardInstance: item,
-                  baitId: validBait.instanceId
-                });
+              if (isVortexEvolution(item.card)) {
+                const vortexBaits = findValidVortexBaits(item.card, aiState.battleZone);
+                if (vortexBaits) {
+                  affordableCreatures.push({
+                    cardInstance: item,
+                    baitIds: [vortexBaits[0].instanceId, vortexBaits[1].instanceId]
+                  });
+                }
+              } else {
+                const validBait = aiState.battleZone.find((c) =>
+                  isValidEvolutionBait(item.card, c)
+                );
+                if (validBait) {
+                  affordableCreatures.push({
+                    cardInstance: item,
+                    baitId: validBait.instanceId
+                  });
+                }
               }
             } else {
               affordableCreatures.push({ cardInstance: item });
@@ -191,7 +212,8 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
           type: 'SUMMON_CREATURE',
           player: aiPlayer,
           cardInstanceId: pick.cardInstance.instanceId,
-          baitInstanceId: pick.baitId
+          baitInstanceId: pick.baitId,
+          baitInstanceIds: pick.baitIds
         };
       }
 
@@ -199,65 +221,27 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       for (const item of aiState.hand) {
         if (item.card.type.includes('Spell')) {
           if (canPayManaCost(aiState.manaZone, item.card)) {
-            const nameLower = item.card.name.toLowerCase();
-            const rules = item.card.rulesText || '';
-            let targets: string[] | undefined;
+            const req = getSpellTargetRequirement(item.card, aiState, oppState);
+            if (req.minTargets > 0 && req.validTargetIds.length < req.minTargets) {
+              continue; // Cannot cast because required targets are missing
+            }
 
-            if (nameLower.includes('burning power') || /gets (?:“|")power attacker/i.test(rules)) {
-              if (aiState.battleZone.length > 0) {
-                targets = [aiState.battleZone[0].instanceId];
-              }
-            } else if (
-              nameLower.includes('tornado flame') ||
-              /power 4000 or less/i.test(rules)
-            ) {
-              const validOpp = oppState.battleZone.filter(
-                (c) => getCreatureEffectivePower(c, false) <= 4000
+            let targets: string[] | undefined;
+            if (req.minTargets > 0 || (req.requiresTarget && req.validTargetIds.length > 0)) {
+              // Prefer opponent creatures with highest power
+              const oppTargets = oppState.battleZone.filter((c) =>
+                req.validTargetIds.includes(c.instanceId)
               );
-              if (validOpp.length === 0) continue;
-              validOpp.sort(
-                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
-              );
-              targets = [validOpp[0].instanceId];
-            } else if (
-              nameLower.includes('crimson hammer') ||
-              nameLower.includes('volcano charger') ||
-              /power 2000 or less/i.test(rules)
-            ) {
-              const validOpp = oppState.battleZone.filter(
-                (c) => getCreatureEffectivePower(c, false) <= 2000
-              );
-              if (validOpp.length === 0) continue;
-              validOpp.sort(
-                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
-              );
-              targets = [validOpp[0].instanceId];
-            } else if (nameLower.includes('death smoke') || /untapped creatures/i.test(rules)) {
-              const validOpp = oppState.battleZone.filter((c) => !c.isTapped);
-              if (validOpp.length === 0) continue;
-              validOpp.sort(
-                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
-              );
-              targets = [validOpp[0].instanceId];
-            } else if (nameLower.includes('critical blade') || /"blocker"/i.test(rules)) {
-              const validOpp = oppState.battleZone.filter((c) => c.card.isBlocker);
-              if (validOpp.length === 0) continue;
-              targets = [validOpp[0].instanceId];
-            } else if (
-              nameLower.includes('teleportation') ||
-              /choose up to 2 creatures in the battle zone/i.test(rules)
-            ) {
-              if (oppState.battleZone.length > 0) {
-                const sorted = [...oppState.battleZone].sort(
-                  (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
+              if (oppTargets.length > 0) {
+                oppTargets.sort(
+                  (a, b) =>
+                    getCreatureEffectivePower(b, false, oppState, aiState) -
+                    getCreatureEffectivePower(a, false, oppState, aiState)
                 );
-                targets = sorted.slice(0, 2).map((c) => c.instanceId);
+                targets = oppTargets.slice(0, req.maxTargets).map((c) => c.instanceId);
+              } else {
+                targets = req.validTargetIds.slice(0, req.maxTargets);
               }
-            } else if (oppState.battleZone.length > 0) {
-              const sortedOpp = [...oppState.battleZone].sort(
-                (a, b) => getCreatureEffectivePower(b, false) - getCreatureEffectivePower(a, false)
-              );
-              targets = [sortedOpp[0].instanceId];
             }
 
             return {

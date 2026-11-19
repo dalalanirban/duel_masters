@@ -11,6 +11,10 @@ import type {
 } from './types.ts';
 import { destroyCreature } from './spells.ts';
 import {
+  hasLeaveSubstitution,
+  separateEvolutionUnderlyingCreatures
+} from './replacements.ts';
+import {
   isWaveStriker,
   isWaveStrikerConditionMet,
   getWaveStrikerPowerBonus,
@@ -444,6 +448,16 @@ export function calculateContinuousAuraPower(
     powerBonus += hydroozeCount * 2000;
   }
 
+  // Phantomach, the Gigatrooper: +2000 to other Chimeras & Armorloids
+  if (races.some((r: string) => /chimera|armorloid/i.test(r))) {
+    const phantomachCount = fZone.filter(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        c.card.name.toLowerCase().includes('phantomach')
+    ).length;
+    powerBonus += phantomachCount * 2000;
+  }
+
   // Nemonex, Bajula's Robomantis: +2000 to other Xeno Parts & Giant Insects
   if (races.some((r: string) => /xeno\s*parts?|giant insect/i.test(r))) {
     const nemonexCount = fZone.filter(
@@ -527,6 +541,34 @@ export function bounceCreature(state: GameState, creatureInstanceId: string): Ga
 
   const { creature, owner } = found;
   const ownerState = state.players[owner];
+
+  // Phoenix leave-substitution replacement
+  if (hasLeaveSubstitution(creature) && creature.evolvedOn && creature.evolvedOn.length > 0) {
+    const restoredCreatures = separateEvolutionUnderlyingCreatures(creature, state.turn);
+    const topCardHand: CardInstance = {
+      instanceId: creature.instanceId,
+      card: creature.card,
+      owner
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: [
+            ...ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+            ...restoredCreatures
+          ],
+          hand: [...ownerState.hand, topCardHand]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name}'s Phoenix effect activated: only the top card returned to hand, and the underlying creatures separated back into the battle zone!`
+      ]
+    };
+  }
 
   const cardsToHand: CardInstance[] = [
     {
@@ -619,6 +661,92 @@ export function triggerDestroyed(
           ]
         };
       }
+    }
+  } else if (
+    cardName.includes('death phoenix') ||
+    /leaves the battle zone.*(?:your )?opponent discards (?:his|their) hand/i.test(rules)
+  ) {
+    // Death Phoenix, Avatar of Doom: "When this creature leaves the Battle Zone, your opponent discards his hand."
+    const opp = nextState.players[opponent];
+    if (opp.hand.length > 0) {
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [opponent]: {
+            ...opp,
+            hand: [],
+            graveyard: [...opp.graveyard, ...opp.hand]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `Death Phoenix triggered: ${opponent} discarded their entire hand to the graveyard!`
+        ]
+      };
+    }
+  }
+
+  // Cruel Naga, Avatar of Fate: "When this creature leaves the battle Zone, destroy all creatures in the battle Zone."
+  if (
+    cardName.includes('cruel naga') ||
+    /leaves the battle zone.*destroy all creatures in the battle zone/i.test(rules)
+  ) {
+    const newPlayers = { ...nextState.players };
+    for (const pid of ['player', 'opponent'] as const) {
+      const p = newPlayers[pid];
+      const allToGraveyard: CardInstance[] = [];
+      for (const c of p.battleZone) {
+        allToGraveyard.push({ instanceId: c.instanceId, card: c.card, owner: pid });
+        if (c.evolvedOn) {
+          allToGraveyard.push(...c.evolvedOn);
+        }
+      }
+      newPlayers[pid] = {
+        ...p,
+        battleZone: [],
+        graveyard: [...p.graveyard, ...allToGraveyard]
+      };
+    }
+    nextState = {
+      ...nextState,
+      players: newPlayers,
+      actionLog: [
+        ...nextState.actionLog,
+        `Cruel Naga's effect triggered: all creatures in the battle zone were destroyed!`
+      ]
+    };
+  }
+
+  // Wise Starnoid, Avatar of Hope: "Whenever this creature attacks or leaves the battle zone, add the card on top of your deck to your shields face-down."
+  if (
+    cardName.includes('wise starnoid') ||
+    /leaves the battle zone.*add the card on top of your deck to your shields/i.test(rules)
+  ) {
+    const p = nextState.players[owner];
+    if (p.deck.length > 0) {
+      const [topCard, ...restDeck] = p.deck;
+      const newShield: ShieldInstance = {
+        id: topCard.instanceId,
+        shieldId: topCard.instanceId,
+        card: topCard.card,
+        isBroken: false
+      };
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [owner]: {
+            ...p,
+            deck: restDeck,
+            shields: [...p.shields, newShield]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `Wise Starnoid's effect triggered: added top card of deck to shields face-down!`
+        ]
+      };
     }
   }
 
