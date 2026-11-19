@@ -11,7 +11,12 @@ import type {
 import { canPayManaCost, payManaCost } from './mana.ts';
 import { getCreatureEffectivePower } from './combat.ts';
 import { triggerDestroyed, isSurvivor, triggerCIP, hasCreatureBlocker } from './effects.ts';
-import { findSaverInBattleZone, isMadnessDiscardReplacement } from './replacements.ts';
+import {
+  findSaverInBattleZone,
+  isMadnessDiscardReplacement,
+  hasLeaveSubstitution,
+  separateEvolutionUnderlyingCreatures
+} from './replacements.ts';
 
 /**
  * Randomly removes count card(s) from targetPlayer's hand and moves them to graveyard,
@@ -139,6 +144,35 @@ export function destroyCreature(state: GameState, creatureInstanceId: string): G
       actionLog: [
         ...stateWithSaverSacrificed.actionLog,
         `${saver.card.name} sacrificed itself as a Saver to protect ${creature.card.name}!`
+      ]
+    };
+  }
+
+  // 0.5 Phoenix leave-substitution replacement (e.g. Soul Phoenix, Avatar of Unity):
+  // "When this card would leave the battle zone, only the top card leaves the battle zone instead (Separate the other cards into 2 creatures)."
+  if (hasLeaveSubstitution(creature) && creature.evolvedOn && creature.evolvedOn.length > 0) {
+    const restoredCreatures = separateEvolutionUnderlyingCreatures(creature, state.turn);
+    const topCardGraveyard: CardInstance = {
+      instanceId: creature.instanceId,
+      card: creature.card,
+      owner
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: [
+            ...ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+            ...restoredCreatures
+          ],
+          graveyard: [...ownerState.graveyard, topCardGraveyard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name}'s Phoenix effect activated: only the top card went to the graveyard, and the underlying creatures separated back into the battle zone!`
       ]
     };
   }
@@ -327,6 +361,34 @@ export function bounceCreature(state: GameState, creatureInstanceId: string): Ga
   const { creature, owner } = found;
   const ownerState = state.players[owner];
 
+  // Phoenix leave-substitution replacement
+  if (hasLeaveSubstitution(creature) && creature.evolvedOn && creature.evolvedOn.length > 0) {
+    const restoredCreatures = separateEvolutionUnderlyingCreatures(creature, state.turn);
+    const topCardHand: CardInstance = {
+      instanceId: creature.instanceId,
+      card: creature.card,
+      owner
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: [
+            ...ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+            ...restoredCreatures
+          ],
+          hand: [...ownerState.hand, topCardHand]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name}'s Phoenix effect activated: only the top card returned to hand, and the underlying creatures separated back into the battle zone!`
+      ]
+    };
+  }
+
   const cardsToHand: CardInstance[] = [
     {
       instanceId: creature.instanceId,
@@ -352,7 +414,7 @@ export function bounceCreature(state: GameState, creatureInstanceId: string): Ga
 
 /**
  * Moves a creature from the battle zone to its owner's mana zone:
- * - Places top card and any evolvedOn cards into the mana zone untapped.
+ * - Places top card and any evolvedOn cards into the mana zone (tapped if multi-civ).
  * - Pure and immutable.
  */
 export function sendCreatureToManaZone(
@@ -367,16 +429,47 @@ export function sendCreatureToManaZone(
   const { creature, owner } = found;
   const ownerState = state.players[owner];
 
+  const isMultiCiv = (c: CardDefinition) =>
+    Boolean(c.isMultiCiv || (c.civilizations && c.civilizations.length > 1));
+
+  // Phoenix leave-substitution replacement
+  if (hasLeaveSubstitution(creature) && creature.evolvedOn && creature.evolvedOn.length > 0) {
+    const restoredCreatures = separateEvolutionUnderlyingCreatures(creature, state.turn);
+    const topCardMana: ManaCardInstance = {
+      instanceId: creature.instanceId,
+      card: creature.card,
+      isTapped: isMultiCiv(creature.card)
+    };
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: [
+            ...ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+            ...restoredCreatures
+          ],
+          manaZone: [...ownerState.manaZone, topCardMana]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name}'s Phoenix effect activated: only the top card was put into the mana zone, and the underlying creatures separated back into the battle zone!`
+      ]
+    };
+  }
+
   const cardsToMana: ManaCardInstance[] = [
     {
       instanceId: creature.instanceId,
       card: creature.card,
-      isTapped: false
+      isTapped: isMultiCiv(creature.card)
     },
     ...(creature.evolvedOn || []).map((c) => ({
       instanceId: c.instanceId,
       card: c.card,
-      isTapped: false
+      isTapped: isMultiCiv(c.card)
     }))
   ];
 

@@ -55,8 +55,14 @@ export function findManaCardsToTap(
   const rawCivs = card.civilizations ?? ((card as any).civilization ? [(card as any).civilization] : []);
   const requiredCivs = [...new Set(rawCivs)];
 
-  // Backtracking search to find a subset of untapped cards of size <= cost
-  // that covers all required civilizations.
+  // A card with N required civilizations must have at least N mana cost and at least N distinct untapped cards
+  if (cost < requiredCivs.length || untapped.length < requiredCivs.length) {
+    return null;
+  }
+
+  // Backtracking search to find a distinct untapped card for each required civilization.
+  // Each card tapped only produces 1 mana of one of its civilizations, so a single multi-civ card
+  // cannot satisfy two distinct civilization requirements at once.
   function search(
     civIndex: number,
     selectedIndices: number[]
@@ -66,15 +72,8 @@ export function findManaCardsToTap(
     }
 
     const currentCiv = requiredCivs[civIndex];
-    // If an already selected card covers this civilization, advance
-    const alreadyCovered = selectedIndices.some((idx) =>
-      manaZone[idx].card.civilizations.includes(currentCiv)
-    );
-    if (alreadyCovered) {
-      return search(civIndex + 1, selectedIndices);
-    }
 
-    // Try selecting an untapped card that provides currentCiv
+    // Try selecting an untapped card that provides currentCiv and has not been used yet for another required civ
     for (const item of untapped) {
       if (
         !selectedIndices.includes(item.index) &&

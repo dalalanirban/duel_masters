@@ -104,11 +104,12 @@ export function step(state: GameState, action: GameAction): GameState {
 
       case 'SUMMON_CREATURE': {
         const player: PlayerId = action.player || state.activePlayer;
+        const baits = action.baitInstanceIds || action.baitInstanceId;
         return summonCreature(
           state,
           player,
           action.cardInstanceId,
-          action.baitInstanceId,
+          baits,
           action.targets
         );
       }

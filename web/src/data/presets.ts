@@ -63,5 +63,35 @@ export const PRESET_DECKS: Deck[] = [
     'DM01-006': 4, // Holy Awe (6 Light Spell - Shield Trigger)
     'DM01-S02': 2, // Urth, Purifying Elemental (6 Light Super Rare)
     'DM01-S04': 2, // King Depthcon (7 Water Super Rare)
+  }),
+
+  // 4. Hydrooze Water / Darkness Control (40 cards - Dual Civilization Either/Or Evolution)
+  createDeck('preset-hydrooze-control', "Hydrooze Water/Darkness Control", {
+    'DM12-017': 4, // Hydrooze, the Mutant Emperor (4 Water/Darkness Evolution Creature)
+    'DM10-099': 4, // Melnia, the Aqua Shadow (2 Water/Darkness Slayer)
+    'DM12-032': 4, // Sea Mutant Dormel (3 Water/Darkness Cyber Lord / Hedrian)
+    'DM03-014': 4, // Emeral (2 Water Cyber Lord)
+    'DM02-014': 2, // Corile (5 Water Cyber Lord)
+    'DM04-032': 4, // Locomotiver (4 Darkness Hedrian - Shield Trigger)
+    'DM07-031': 4, // Propeller Mutant (2 Darkness Hedrian)
+    'DM05-016': 4, // Aqua Surfer (6 Water - Shield Trigger)
+    'DM01-063': 4, // Terror Pit (6 Darkness Spell - Shield Trigger)
+    'DM01-040': 4, // Spiral Gate (2 Water Spell - Shield Trigger)
+    'DM01-054': 2, // Ghost Touch (2 Darkness Spell - Shield Trigger)
+  }),
+
+  // 5. Soul Phoenix Fire / Nature Ramp (40 cards - Dual Civilization Vortex Evolution)
+  createDeck('preset-soul-phoenix-ramp', "Soul Phoenix Fire/Nature Ramp", {
+    'DM12-005': 4, // Soul Phoenix, Avatar of Unity (4 Fire/Nature Vortex Evolution)
+    'DM10-105': 4, // Gonta, the Warrior Savage (2 Fire/Nature)
+    'DM10-107': 4, // Wind Axe, the Warrior Savage (5 Fire/Nature)
+    'DM12-034': 4, // Buzz Betocchi (3 Fire/Nature Fire Bird / Giant Insect)
+    'DM06-077': 4, // Cocco Lupia (3 Fire Fire Bird)
+    'DM04-046': 2, // Pippie Kuppie (2 Fire Fire Bird)
+    'DM08-054': 4, // Terradragon Gamiratar (4 Nature Earth Dragon)
+    'DM08-055': 2, // Terradragon Regarion (5 Nature Earth Dragon)
+    'DM06-098': 4, // Faerie Life (2 Nature Spell - Shield Trigger Ramp)
+    'DM01-090': 4, // Bronze-Arm Tribe (3 Nature Ramp)
+    'DM01-099': 4, // Natural Snare (6 Nature Spell - Shield Trigger)
   })
 ];

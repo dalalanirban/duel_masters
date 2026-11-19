@@ -142,6 +142,7 @@ export type GameAction =
       player?: PlayerId;
       cardInstanceId: string;
       baitInstanceId?: string;
+      baitInstanceIds?: string[];
       targets?: string[];
     }
   | {
