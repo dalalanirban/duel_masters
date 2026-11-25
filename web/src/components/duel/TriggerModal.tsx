@@ -3,7 +3,7 @@ import { Zap, ShieldAlert, ArrowRight, Clock, X } from 'lucide-react';
 import type { GameState, ShieldTriggerChoiceInteraction, CreatureInstance, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import { CivilizationIcon } from '../card/CivilizationIcon';
-import { getCreatureEffectivePower } from '../../engine/combat';
+import { getSpellTargetRequirement } from '../../engine/targeting';
 
 interface TriggerModalProps {
   isOpen: boolean;
@@ -14,64 +14,23 @@ interface TriggerModalProps {
 }
 
 /**
- * Helper to determine if a Shield Trigger card requires creature target selection on the battlefield.
+ * Helper to determine valid target creatures on the battlefield for a Shield Trigger card.
+ * Delegates to the engine's canonical `getSpellTargetRequirement` (respecting Petrova, effective power, blockers, etc.).
  */
 export function getTriggerTargetCandidates(
   card: CardDefinition,
   state: GameState,
   defendingPlayer: PlayerId
 ): CreatureInstance[] {
-  const opponent: PlayerId = defendingPlayer === 'player' ? 'opponent' : 'player';
-  const oppCreatures = state.players[opponent].battleZone;
-  const allCreatures = [
+  const req = getSpellTargetRequirement(card, state, defendingPlayer);
+  if (!req.requiresTarget || req.validTargetIds.length === 0) {
+    return [];
+  }
+  const idSet = new Set(req.validTargetIds);
+  return [
     ...state.players.player.battleZone,
     ...state.players.opponent.battleZone
-  ];
-
-  const rules = (card.rulesText || '').toLowerCase();
-  const name = card.name.toLowerCase();
-
-  // 1. Destroy 1 opponent creature (e.g. Terror Pit)
-  if (name.includes('terror pit') || (/destroy (?:one|1) of your opponent's creatures/i.test(rules) && !/power \d+ or less/i.test(rules))) {
-    return oppCreatures;
-  }
-
-  // 2. Put opponent creature into mana zone (e.g. Natural Snare)
-  if (name.includes('natural snare') || /put (?:it|that creature|one of your opponent's creatures) into (?:his|their) mana zone/i.test(rules)) {
-    return oppCreatures;
-  }
-
-  // 3. Return creature to hand (e.g. Spiral Gate, Aqua Surfer)
-  if (name.includes('spiral gate') || name.includes('aqua surfer') || /return (?:a|one|1) creature.*to (?:its|their) owner's hand/i.test(rules)) {
-    return allCreatures;
-  }
-
-  // 4. Power threshold destroy (e.g. Tornado Flame <= 4000, Crimson Hammer / Phantom Dragon <= 2000, Hurlosaur <= 1000)
-  const powerMatch = rules.match(/power (\d+) or less/i);
-  if (powerMatch || name.includes('tornado flame') || name.includes('phantom dragon') || name.includes('hurlosaur')) {
-    const maxPower = powerMatch
-      ? parseInt(powerMatch[1], 10)
-      : name.includes('tornado flame')
-      ? 4000
-      : name.includes('hurlosaur')
-      ? 1000
-      : 2000;
-    return oppCreatures.filter(
-      (c) => getCreatureEffectivePower(c, false, state.players[opponent], state.players[defendingPlayer]) <= maxPower
-    );
-  }
-
-  // 5. Blocker destroy (e.g. Critical Blade)
-  if (name.includes('critical blade') || (/destroy.*blocker/i.test(rules) && oppCreatures.length > 0)) {
-    return oppCreatures.filter((c) => c.card.isBlocker);
-  }
-
-  // 6. Tap 1 opponent creature (e.g. Solar Ray)
-  if (name.includes('solar ray') || /choose (?:one|1) of your opponent's creatures.*and tap it/i.test(rules)) {
-    return oppCreatures.filter((c) => !c.isTapped);
-  }
-
-  return [];
+  ].filter((c) => idSet.has(c.instanceId));
 }
 
 export const TriggerModal: React.FC<TriggerModalProps> = ({

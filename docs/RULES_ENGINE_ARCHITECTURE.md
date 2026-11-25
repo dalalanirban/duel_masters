@@ -1,0 +1,108 @@
+# Duel Masters Rules Engine & Interactive UI Architecture
+
+This document describes the modular pure-TypeScript Duel Masters rules engine ([web/src/engine/](file:///d:/Duel_Masters/web/src/engine/)) covering **DM-01 through DM-12** (**900 cards across 12 sets**), its acyclic module boundaries, interactive UI prompt pipeline, and Knowledge Graph integration.
+
+---
+
+## 1. Acyclic Module Dependency Architecture
+
+All rules logic executes deterministically on immutable `GameState` snapshots with zero React or DOM dependencies. Modules follow a strictly layered dependency graph so shared rules never duplicate across spells, triggers, combat, or AI decisions:
+
+```
+Level 0  types.ts, cardUtils.ts, interactionHelpers.ts
+            │
+Level 1  mana.ts, continuous.ts, replacements.ts, targeting.ts, state.ts
+            │
+Level 2  zoneOps.ts, boardRemoval.ts ──► zones.ts (canonical zone movement) ──► effects.ts (legacy facade)
+            │
+Level 3  triggers.ts, tapAbilities.ts, advancedMechanics.ts, zoneSelection.ts
+            │
+Level 4  evolution.ts, spells.ts, combat.ts, turn.ts
+            │
+Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), index.ts
+```
+
+### Core Engine Modules
+
+| Module | Responsibility |
+|---|---|
+| [types.ts](file:///d:/Duel_Masters/web/src/engine/types.ts) | `GameState`, `PlayerState`, `CreatureInstance` (`evolvedOn`, turn modifiers), `ManaCardInstance` (`isSpent`, `isStaged`), `PendingInteraction` union, `GameAction` union |
+| [cardUtils.ts](file:///d:/Duel_Masters/web/src/engine/cardUtils.ts) | Capability detection (`getCardCapabilities`), civilization/race normalization, Dragon & Survivor helpers |
+| [interactionHelpers.ts](file:///d:/Duel_Masters/web/src/engine/interactionHelpers.ts) | `enqueueInteraction`, `buildZoneOptions` across all 6 zones (`battleZone`, `hand`, `manaZone`, `shields`, `graveyard`, `deck`) |
+| [mana.ts](file:///d:/Duel_Masters/web/src/engine/mana.ts) | Cost calculation, multi-civ tapped entry, manual mana staging (`toggleManaTap`), spent lock enforcement, distinct dual-civ validation |
+| [continuous.ts](file:///d:/Duel_Masters/web/src/engine/continuous.ts) | Continuous power modifiers, Power Attacker, Stealth, Slayer, Speed Attacker, Blocker, Breaker count, Wave Striker, Turbo Rush, Survivor aura sharing |
+| [replacements.ts](file:///d:/Duel_Masters/web/src/engine/replacements.ts) | Saver matching, Madness discard replacement, Shield Burn (`Bolmeteus` / `Death Phoenix`), `flattenEvolutionStack`, Vortex `separateEvolutionUnderlyingCreatures` |
+| [targeting.ts](file:///d:/Duel_Masters/web/src/engine/targeting.ts) | Declarative spell & ability target filtering and legality validation |
+| [zoneOps.ts](file:///d:/Duel_Masters/web/src/engine/zoneOps.ts) | Draw, discard, deck ramp, shield break/burn, `Pulsar Tree` / `Nastasha` shield sacrifice, `Kyuroro` / `Meloppe` defender shield choice, `DECK_SEARCH` & graveyard salvage |
+| [boardRemoval.ts](file:///d:/Duel_Masters/web/src/engine/boardRemoval.ts) | Unified destruction/bounce/mana/deck/shield exits with nested evolution stack movement, leave-BZ triggers, and batch pause for interactive Savers |
+| [zones.ts](file:///d:/Duel_Masters/web/src/engine/zones.ts) | Unified export boundary combining `zoneOps.ts` and `boardRemoval.ts` |
+| [triggers.ts](file:///d:/Duel_Masters/web/src/engine/triggers.ts) | Come-into-play (`triggerCIP`), `triggerAttack`, `triggerBlocked`, `triggerUnblocked`, and `triggerEndTurn` |
+| [tapAbilities.ts](file:///d:/Duel_Masters/web/src/engine/tapAbilities.ts) | `hasTapAbility`, `canActivateTapAbility`, and `resolveTapAbility` covering all 41 `$tap` creatures (incl. choose-a-race and Kachua Dragon summons) |
+| [advancedMechanics.ts](file:///d:/Duel_Masters/web/src/engine/advancedMechanics.ts) | Wave Striker, Turbo Rush, and Silent Skill resolution (`resolveSilentSkill`, `shouldAiActivateSilentSkill`, `autoResolveAiSilentSkillsDetailed`) |
+| [zoneSelection.ts](file:///d:/Duel_Masters/web/src/engine/zoneSelection.ts) | Resolvers for interactive `ZONE_SELECTION` (`resolveZoneSelectionAction`) and `OPTIONAL_CHOICE` (`resolveOptionalChoiceAction`) |
+| [evolution.ts](file:///d:/Duel_Masters/web/src/engine/evolution.ts) | Base, `Either-Or`, `Vortex Evolution` validation and nested `evolvedOn` stacking in `summonCreature` |
+| [spells.ts](file:///d:/Duel_Masters/web/src/engine/spells.ts) | `canCastSpell`, `castSpell`, and full spell effect resolution across DM-01–DM-12 |
+| [combat.ts](file:///d:/Duel_Masters/web/src/engine/combat.ts) | Attack legality (`canDeclareAttack`), `declareAttack`, blocker interception (`declareBlock`), shield break & Shield Trigger queues, `resumeCombatAfterInteraction` |
+| [turn.ts](file:///d:/Duel_Masters/web/src/engine/turn.ts) | `startTurn`, `completeHumanSilentSkills`, `passToMainPhase`, `endTurn`, `finalizeEndTurn` |
+| [reducer.ts](file:///d:/Duel_Masters/web/src/engine/reducer.ts) | Master `step(state, action)` reducer and `advancePendingState` queue drain |
+| [ai.ts](file:///d:/Duel_Masters/web/src/engine/ai.ts) | Heuristic AI (`getAiAction`) handling mana charge, summons, spells, `$tap`, combat, blocking, Silent Skills, optional choices, and zone selections |
+
+---
+
+## 2. Implemented Game Rules & Interactive Pipelines
+
+### 2.1 Manual Mana Staging, Civilization Matching & Spent Lock
+- **Free Pre-Tap Staging**: In [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx), clicking or dragging across unspent mana toggles `isStaged` / `isTapped` freely before playing a card.
+- **Explicit Civilization Validation**:
+  - When manually staged mana is active, summoning/casting validates staged cards + fills only if explicit staging covers cost and civilizations.
+  - Mono-civilization cards require at least 1 matching civilization mana card among tapped mana.
+  - **Multi-civilization cards** require **distinct tapped mana cards** satisfying each civilization independently (a single `Light/Nature` card cannot simultaneously fulfill both Light and Nature without another matching mana card).
+- **Turn Lock & Start-of-Turn Untap**:
+  - Mana spent for a summon/cast (or multi-civilization cards charged tapped) sets `isSpent: true`, locking them from manual untapping until start of turn.
+  - `startTurn` automatically resets `isTapped`, `isSpent`, and `isStaged` unless prevented by an active effect such as `DM10-093 Terradragon Cusdalf`.
+
+### 2.2 Interactive `"you may"`, `"opponent chooses"` & 6-Zone Selection
+- `initializeGame(..., { interactiveHuman: true })` (used by [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx)) pauses at human decision points via `pendingInteraction` and `pendingInteractionQueue`, while keeping direct synchronous unit tests and fast AI-vs-AI simulations non-blocking when omitted:
+  - **`"you may"` Choices**: Prompted via `OPTIONAL_CHOICE` ([OptionalChoiceModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/OptionalChoiceModal.tsx)) or optional `ZONE_SELECTION` (`minSelections: 0`) for optional draws, Savers (`Kip Chippotto`), Shield Sacrifices (`Pulsar Tree`, `Nastasha`), Destroy-to-Hand replacements (`Aqua Agent`, `Gigastand`, `Dream Pirate`, `Jack Viper`), and EOT Vigilance untaps (`UNTAP_ALL_EOT`).
+  - **`"opponent chooses"` & Zone Scopes**: Prompted via [ZoneSelectionModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/ZoneSelectionModal.tsx) restricted strictly to the zone(s) named by the card (`battleZone`, `hand`, `manaZone`, hidden `shields`, `graveyard`, `deck`), including mixed-zone choices (`Crisis Boulder` for BZ/Mana, `Grinning Hunger` for BZ/Shields) and defender shield swaps (`Kyuroro`, `Meloppe`, `Miraculous Meltdown`).
+
+### 2.3 Nested Evolution Stacking & Phoenix Separation
+- Evolution creatures summoned onto existing evolutions preserve recursive `evolvedOn` chains (`Evo 2 -> Evo 1 -> Base`) alongside each card's `summonedTurn`.
+- Leaving the battle zone normally (`destroy`, `bounce`, `manaZone`, `topOfDeck`, `shields`) moves every stacked base card with the top evolution via `flattenEvolutionStack`.
+- Explicit leave-substitution (`Soul Phoenix, Avatar of Unity`) puts only the top evolution card into the destination zone and restores each direct bait creature onto the battle zone with its original `summonedTurn` and nested `evolvedOn` sub-stack intact.
+
+### 2.4 Human Start-of-Turn Silent Skill Choice
+- When a human player's turn starts in `interactiveHuman` mode with tapped Silent Skill creatures in the battle zone, `startTurn` pauses at `START_OF_TURN` and displays [SilentSkillModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/SilentSkillModal.tsx) per creature before untap & draw.
+- Accepting keeps the creature tapped and triggers its Silent Skill before un-tapping mana, un-tapping remaining creatures, and drawing for turn (`completeHumanSilentSkills`).
+
+### 2.5 Attack vs `$tap` Ability Choice
+- Ready creatures possessing `$tap` abilities during the `ATTACK` phase show `ATK / $TAP` badges in [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx).
+- Selecting the creature opens a choice bar in [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) to either declare an **Attack** (`DECLARE_ATTACK`) or tap the creature to resolve its **`$tap` Ability** (`ACTIVATE_TAP_ABILITY` / `resolveTapAbility`).
+
+---
+
+## 3. UI Component Inventory
+
+- [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) — Master arena orchestration, Attack vs `$tap` choice bar, modal mounts, error toast surfacing.
+- [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx) — Creature rendering, nested evo stack count, `$TAP` & `ATK / $TAP` indicators.
+- [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx) — Drag-tap mana staging, `STAGED` vs `LOCK` visual badges.
+- [ZoneSelectionModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/ZoneSelectionModal.tsx) — Multi-zone card picker (with hidden shield card backs, ordered pick badges, power constraint checks) & choose-a-race chip picker.
+- [SilentSkillModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/SilentSkillModal.tsx) — Start-of-turn Silent Skill confirmation modal.
+- [OptionalChoiceModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/OptionalChoiceModal.tsx), [DeckSearchModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/DeckSearchModal.tsx), [TriggerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/TriggerModal.tsx), [BlockerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/BlockerModal.tsx).
+
+---
+
+## 4. Verification & Knowledge Graph Maintenance
+
+```bash
+# Run full rules engine & multi-agent simulation suite (357 tests / 105 suites)
+node --test web/src/engine/tests/*.test.mjs
+
+# Typecheck & Vite production bundle build
+npm --prefix web run build
+
+# Refresh Graphify code graph after edits
+graphify update .
+```
+
+Graphify is configured via [.graphifyignore](file:///d:/Duel_Masters/.graphifyignore), [.agents/rules/graphify.md](file:///d:/Duel_Masters/.agents/rules/graphify.md), [.agents/workflows/graphify.md](file:///d:/Duel_Masters/.agents/workflows/graphify.md), and git hooks (`post-commit`, `post-checkout`, merge driver in `.gitattributes`) to keep `graphify-out/` synchronized cleanly across commits.

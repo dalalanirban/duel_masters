@@ -1,69 +1,49 @@
-import type { CardDefinition } from '../types/card';
-import type { GameState, PlayerId, CreatureInstance, CardInstance } from './types';
-import { canPayManaCost, payManaCost } from './mana.ts';
-import { resolveCreatureCIPEffect } from './spells.ts';
-import { isSurvivor, getSurvivorSharedAbilities } from './effects.ts';
+import type { CardDefinition } from '../types/card.ts';
+import type { GameState, PlayerId, CreatureInstance, CardInstance } from './types.ts';
+import {
+  getCardCapabilities,
+  getCreatureRaces,
+  getOpponentId,
+  hasDragonRace,
+  normalizeRace
+} from './cardUtils.ts';
+import {
+  canPayManaCost,
+  getManaPaymentFailureReason,
+  payManaCost
+} from './mana.ts';
+import { isCreatureSummoningSick } from './continuous.ts';
+import { triggerCIP } from './triggers.ts';
 
-/**
- * Normalizes race strings for comparison (case-insensitive, trims whitespace, handles plurals and aliases).
- */
-export function normalizeRace(race: string): string {
-  return race
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/xeno\s*parts?/i, 'xenoparts')
-    .replace(/horned\s*beasts?/i, 'hornbeast')
-    .replace(/horn\s*beasts?/i, 'hornbeast')
-    .replace(/rainbow\s*phantoms?/i, 'rainbowphantom')
-    .replace(/wild\s*veggies?/i, 'wildveggie')
-    .replace(/earth\s*eaters?/i, 'eartheater')
-    .replace(/cyber\s*lords?/i, 'cyberlord')
-    .replace(/cyber\s*viruses?/i, 'cybervirus')
-    .replace(/cyber\s*clusters?/i, 'cybercluster')
-    .replace(/fire\s*birds?/i, 'firebird')
-    .replace(/earth\s*dragons?/i, 'earthdragon')
-    .replace(/armored\s*dragons?/i, 'armoreddragon')
-    .replace(/zombie\s*dragons?/i, 'zombiedragon')
-    .replace(/light\s*bringers?/i, 'lightbringer')
-    .replace(/angel\s*commands?/i, 'angelcommand')
-    .replace(/demon\s*commands?/i, 'demoncommand')
-    .replace(/parasite\s*worms?/i, 'parasiteworm')
-    .replace(/rock\s*beasts?/i, 'rockbeast')
-    .replace(/giant\s*insects?/i, 'giantinsect')
-    .replace(/beast\s*folk/i, 'beastfolk')
-    .replace(/liquid\s*people/i, 'liquidpeople')
-    .replace(/s$/, ''); // strip trailing 's'
-}
+export { normalizeRace };
 
 /**
  * Checks whether any of the bait's races matches a required evolution race.
+ * Fixed:
+ * - "Dragon" excludes "Dragonoid" per official Duel Masters rules.
+ * - Uses exact normalized equality rather than substring `.includes` (so "Giant" != "Giant Insect", "Fish" != "Gel Fish").
  */
 export function matchesBaitRace(baitRaces: string[] = [], requirement: string): boolean {
   const reqClean = requirement.toLowerCase().trim();
   if (reqClean === 'dragon' || reqClean.includes('dragon in its race')) {
-    return baitRaces.some((r) => r.toLowerCase().includes('dragon'));
+    return hasDragonRace(baitRaces);
   }
   const reqNorm = normalizeRace(requirement);
-  return baitRaces.some((r) => {
-    const rNorm = normalizeRace(r);
-    return rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm);
-  });
+  return baitRaces.some((r) => normalizeRace(r) === reqNorm);
 }
 
 /**
  * Determines whether a card definition represents an Evolution Creature.
  */
 export function isEvolutionCreature(card: CardDefinition): boolean {
-  return card.type === 'Evolution Creature' || Boolean(card.isEvolution);
+  return getCardCapabilities(card).isEvolution;
 }
 
 /**
  * Checks whether an evolution creature is a Vortex Evolution creature.
- * Vortex Evolution creatures require two distinct creatures in the battle zone.
  */
 export function isVortexEvolution(card: CardDefinition): boolean {
-  return /vortex evolution/i.test(card.rulesText || '');
+  return getCardCapabilities(card).isVortexEvolution;
 }
 
 export interface VortexEvolutionRequirement {
@@ -92,18 +72,15 @@ export function getVortexEvolutionRequirements(
 
 /**
  * Extracts the required bait creature races for an evolution creature.
- * For either-or evolution creatures, returns the list of allowed races.
  */
 export function getEvolutionBaitRequirements(card: CardDefinition): string[] {
   const rules = card.rulesText || '';
 
-  // 1. Vortex evolution requirements
   const vortex = getVortexEvolutionRequirements(card);
   if (vortex) {
     return [vortex.race1, vortex.race2];
   }
 
-  // 2. Either/Or evolution: "Evolution—Put on one of your [Race A] or [Race B]."
   const orMatch = rules.match(
     /evolution[—\-]\s*put on one of your\s+([^.]+?)\s+or\s+(?:a\s+)?([^.]+?)\./i
   );
@@ -111,12 +88,10 @@ export function getEvolutionBaitRequirements(card: CardDefinition): string[] {
     return [orMatch[1].trim(), orMatch[2].trim()];
   }
 
-  // 3. Dragon rules text check: "Evolution—Put on one of your creatures that has Dragon in its race."
   if (/that has Dragon in its race/i.test(rules)) {
     return ['Dragon'];
   }
 
-  // 4. Standard single-race evolution: "Evolution—Put on one of your [Race]."
   const singleMatch = rules.match(/evolution[—\-]\s*put on one of your\s+([^.]+?)\./i);
   if (singleMatch) {
     return [singleMatch[1].trim()];
@@ -126,7 +101,6 @@ export function getEvolutionBaitRequirements(card: CardDefinition): string[] {
     return card.evolutionRaces;
   }
 
-  // Standard evolution creatures have their required race as their race
   if (card.races && card.races.length > 0) {
     return card.races;
   }
@@ -135,53 +109,59 @@ export function getEvolutionBaitRequirements(card: CardDefinition): string[] {
 }
 
 /**
- * Validates whether a given creature instance in the battle zone can serve as bait
- * for a standard or either-or evolution creature.
+ * Validates whether a given creature instance can serve as bait for a standard or either-or evolution creature.
  */
 export function isValidEvolutionBait(
   evolutionCard: CardDefinition,
   baitCreature: CreatureInstance
 ): boolean {
   const reqs = getEvolutionBaitRequirements(evolutionCard);
-  if (reqs.length === 0) {
-    return false;
-  }
-
-  const baitRaces = baitCreature.card.races || [];
+  if (reqs.length === 0) return false;
+  const baitRaces = getCreatureRaces(baitCreature);
   return reqs.some((req) => matchesBaitRace(baitRaces, req));
 }
 
 /**
- * Validates whether two distinct creatures in the battle zone can serve as baits
- * for a Vortex Evolution creature (one matching race1, the other matching race2).
+ * Validates whether two distinct creatures in the battle zone can serve as baits for a Vortex Evolution creature.
  */
 export function isValidVortexEvolutionBaits(
   evolutionCard: CardDefinition,
   bait1: CreatureInstance,
   bait2: CreatureInstance
 ): boolean {
-  if (bait1.instanceId === bait2.instanceId) {
-    return false;
-  }
-
+  if (bait1.instanceId === bait2.instanceId) return false;
   const vortexReq = getVortexEvolutionRequirements(evolutionCard);
-  if (!vortexReq) {
-    return false;
-  }
+  if (!vortexReq) return false;
 
-  const races1 = bait1.card.races || [];
-  const races2 = bait2.card.races || [];
+  const races1 = getCreatureRaces(bait1);
+  const races2 = getCreatureRaces(bait2);
 
-  const matchForward =
-    matchesBaitRace(races1, vortexReq.race1) && matchesBaitRace(races2, vortexReq.race2);
-  const matchReverse =
-    matchesBaitRace(races1, vortexReq.race2) && matchesBaitRace(races2, vortexReq.race1);
-
-  return matchForward || matchReverse;
+  return (
+    (matchesBaitRace(races1, vortexReq.race1) && matchesBaitRace(races2, vortexReq.race2)) ||
+    (matchesBaitRace(races1, vortexReq.race2) && matchesBaitRace(races2, vortexReq.race1))
+  );
 }
 
 /**
- * Finds a valid pair of bait creatures in the given battle zone for a Vortex Evolution creature.
+ * Finds all valid pairs of Vortex bait creatures in a battle zone.
+ */
+export function findAllValidVortexBaitPairs(
+  evolutionCard: CardDefinition,
+  battleZone: CreatureInstance[]
+): [CreatureInstance, CreatureInstance][] {
+  const pairs: [CreatureInstance, CreatureInstance][] = [];
+  for (let i = 0; i < battleZone.length; i++) {
+    for (let j = i + 1; j < battleZone.length; j++) {
+      if (isValidVortexEvolutionBaits(evolutionCard, battleZone[i], battleZone[j])) {
+        pairs.push([battleZone[i], battleZone[j]]);
+      }
+    }
+  }
+  return pairs;
+}
+
+/**
+ * Finds the first valid pair of bait creatures in the given battle zone for a Vortex Evolution creature.
  */
 export function findValidVortexBaits(
   evolutionCard: CardDefinition,
@@ -199,65 +179,32 @@ export function findValidVortexBaits(
 
 /**
  * Checks whether a creature has summoning sickness on a given turn.
- * - Regular creatures cannot attack on the turn summoned unless isSpeedAttacker is true.
- * - Evolution creatures ignore summoning sickness and can attack on the turn summoned.
+ * Delegates to continuous.ts (handles Evolution, Speed Attacker, Survivors, Burnwisp Lizard, Totto Pipicchi, Jagalzor Turbo Rush).
  */
 export function isSummoningSick(
   creature: CreatureInstance,
   currentTurn: number,
-  friendlyBattleZone?: CreatureInstance[]
+  friendlyBattleZone?: CreatureInstance[],
+  state?: GameState,
+  playerId?: PlayerId
 ): boolean {
-  if (isEvolutionCreature(creature.card)) {
-    return false;
-  }
-
-  if (creature.card.isSpeedAttacker || /speed attacker/i.test(creature.card.rulesText || '')) {
-    return false;
-  }
-
-  if (friendlyBattleZone) {
-    if (isSurvivor(creature.card)) {
-      const abilities = getSurvivorSharedAbilities(friendlyBattleZone);
-      if (abilities.hasSpeedAttacker) {
-        return false;
-      }
-    }
-
-    // Burnwisp Lizard: Each of your creatures that has "silent skill" has "speed attacker"
-    const hasBurnwispLizard = friendlyBattleZone.some((c) =>
-      c.card.name.toLowerCase().includes('burnwisp lizard')
-    );
-    if (hasBurnwispLizard && /silent skill/i.test(creature.card.rulesText || '')) {
-      return false;
-    }
-  }
-
-  return creature.summonedTurn >= currentTurn;
+  return isCreatureSummoningSick(creature, currentTurn, friendlyBattleZone, state, playerId);
 }
 
 /**
- * Summons a standard creature or evolution creature from the active player's hand:
- * 1. Validates game state, turn, phase (MANA_CHARGE auto-transitions to MAIN).
- * 2. Validates hand presence, card type, and mana cost affordability.
- * 3. Taps required mana in mana zone.
- * 4. If standard/either-or evolution creature:
- *    - Validates presence and race compatibility of bait in friendly battle zone.
- *    - Stacks on bait and inherits tapped state.
- * 5. If Vortex Evolution creature:
- *    - Validates presence and race compatibility of TWO distinct baits in friendly battle zone.
- *    - Stacks on both baits. Enters tapped if EITHER bait was tapped; enters untapped only if both were untapped.
- * 6. Places creature in battle zone.
- * 7. Deducts card from hand and logs the action.
- * 8. Pure and immutable.
+ * Summons a standard creature or evolution creature (single, either-or, or Vortex Evolution) from hand:
+ * - Enforces cost reduction auras (Cocco Lupia, Elf-X, Fever Nuts) and multi-civ mana rules.
+ * - Preserves bait `summonedTurn` inside `evolvedOn` for accurate Vortex separation rulings.
  */
 export function summonCreature(
   state: GameState,
   player: PlayerId,
   cardInstanceId: string,
   baitInstanceId?: string | string[],
-  targets?: string[]
+  targets?: string[],
+  manaInstanceIds?: string[]
 ): GameState {
-  if (state.winner !== null) {
+  if (Boolean(state.winner)) {
     throw new Error(`Game has already ended. Winner: ${state.winner}`);
   }
 
@@ -270,6 +217,7 @@ export function summonCreature(
   }
 
   const playerState = state.players[player];
+  const opponentState = state.players[getOpponentId(player)];
   const cardIndex = playerState.hand.findIndex((c) => c.instanceId === cardInstanceId);
   if (cardIndex === -1) {
     throw new Error(`Card ${cardInstanceId} not found in ${player}'s hand.`);
@@ -284,11 +232,32 @@ export function summonCreature(
     throw new Error(`Card ${handCard.card.name} is not a creature.`);
   }
 
-  if (!canPayManaCost(playerState.manaZone, handCard.card)) {
-    throw new Error(`Cannot afford mana cost for ${handCard.card.name}.`);
+  if (
+    !canPayManaCost(
+      playerState.manaZone,
+      handCard.card,
+      playerState.battleZone,
+      opponentState.battleZone,
+      manaInstanceIds
+    )
+  ) {
+    throw new Error(
+      getManaPaymentFailureReason(
+        playerState.manaZone,
+        handCard.card,
+        playerState.battleZone,
+        opponentState.battleZone
+      )
+    );
   }
 
-  const { success, updatedManaZone } = payManaCost(playerState.manaZone, handCard.card);
+  const { success, updatedManaZone } = payManaCost(
+    playerState.manaZone,
+    handCard.card,
+    playerState.battleZone,
+    opponentState.battleZone,
+    manaInstanceIds
+  );
   if (!success) {
     throw new Error(`Failed to pay mana cost for ${handCard.card.name}.`);
   }
@@ -297,7 +266,6 @@ export function summonCreature(
   let baitCreature2: CreatureInstance | undefined;
 
   if (isVortex) {
-    // Parse two bait instance IDs
     let baitIds: string[] = [];
     if (Array.isArray(baitInstanceId)) {
       baitIds = baitInstanceId;
@@ -349,44 +317,49 @@ export function summonCreature(
     );
   }
 
-  // Construct evolvedOn stack
   let evolvedOnStack: CardInstance[] | undefined;
   let enterTapped = false;
 
   const hasMysticMagician = playerState.battleZone.some((c) =>
-    c.card.name.toLowerCase().includes('mystic magician')
+    getCardCapabilities(c.card).nameLower.includes('mystic magician')
   );
-  const silentSkillTapped = hasMysticMagician && /silent skill/i.test(handCard.card.rulesText || '');
+  const silentSkillTapped = hasMysticMagician && getCardCapabilities(handCard.card).hasSilentSkill;
 
   if (isVortex && baitCreature1 && baitCreature2) {
     const bait1CardInstance: CardInstance = {
       instanceId: baitCreature1.instanceId,
       card: baitCreature1.card,
-      owner: baitCreature1.owner
+      owner: baitCreature1.owner,
+      summonedTurn: baitCreature1.summonedTurn,
+      ...(baitCreature1.evolvedOn && baitCreature1.evolvedOn.length > 0
+        ? { evolvedOn: baitCreature1.evolvedOn }
+        : {})
     };
     const bait2CardInstance: CardInstance = {
       instanceId: baitCreature2.instanceId,
       card: baitCreature2.card,
-      owner: baitCreature2.owner
+      owner: baitCreature2.owner,
+      summonedTurn: baitCreature2.summonedTurn,
+      ...(baitCreature2.evolvedOn && baitCreature2.evolvedOn.length > 0
+        ? { evolvedOn: baitCreature2.evolvedOn }
+        : {})
     };
 
-    evolvedOnStack = [
-      ...(baitCreature1.evolvedOn || []),
-      bait1CardInstance,
-      ...(baitCreature2.evolvedOn || []),
-      bait2CardInstance
-    ];
+    evolvedOnStack = [bait1CardInstance, bait2CardInstance];
 
-    // Vortex Evolution rule: Enters tapped if EITHER bait was tapped; enters untapped only if both were untapped
     enterTapped = baitCreature1.isTapped || baitCreature2.isTapped || silentSkillTapped;
   } else if (isEvo && baitCreature1) {
     const baitCardInstance: CardInstance = {
       instanceId: baitCreature1.instanceId,
       card: baitCreature1.card,
-      owner: baitCreature1.owner
+      owner: baitCreature1.owner,
+      summonedTurn: baitCreature1.summonedTurn,
+      ...(baitCreature1.evolvedOn && baitCreature1.evolvedOn.length > 0
+        ? { evolvedOn: baitCreature1.evolvedOn }
+        : {})
     };
 
-    evolvedOnStack = [...(baitCreature1.evolvedOn || []), baitCardInstance];
+    evolvedOnStack = [baitCardInstance];
     enterTapped = baitCreature1.isTapped || silentSkillTapped;
   } else {
     enterTapped = silentSkillTapped;
@@ -439,5 +412,5 @@ export function summonCreature(
     actionLog: [...state.actionLog, actionMessage]
   };
 
-  return resolveCreatureCIPEffect(stateWithSummonedCreature, player, newCreature, targets);
+  return triggerCIP(stateWithSummonedCreature, player, newCreature, targets);
 }

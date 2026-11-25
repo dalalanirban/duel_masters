@@ -1,0 +1,25 @@
+# Dependencies & build artifacts
+node_modules/
+dist/
+.vite/
+build/
+.gradle/
+coverage/
+*.apk
+*.aab
+
+# Agent configuration & local session scratch
+.agents/
+.superpowers/
+
+# Raw card datasets & card artwork assets (non-architectural data)
+data/
+web/public/
+web/src/data/*.json
+
+# Local reference & browser automation artifacts
+reference_engine/
+.playwright-mcp/
+
+# Graphify generated outputs & caches
+graphify-out/
