@@ -1,92 +1,143 @@
 import type { GameState, GameAction, PlayerId, AttackTarget } from './types.ts';
-import { chargeMana, undoChargeMana } from './mana.ts';
-import { summonCreature, isSummoningSick } from './evolution.ts';
+import { getOpponentId } from './cardUtils.ts';
+import { chargeMana, undoChargeMana, toManaCard, toggleManaTap } from './mana.ts';
+import { summonCreature } from './evolution.ts';
+import { canCreatureAttack } from './continuous.ts';
 import { castSpell, resolveSpellEffect } from './spells.ts';
 import { CARD_MAP } from '../data/cardLoader.ts';
-import { declareAttack, declareBlock, resolveShieldTrigger, hasMandatoryAttackers } from './combat.ts';
-import { passToMainPhase, endTurn, startTurn } from './turn.ts';
+import {
+  declareAttack,
+  declareBlock,
+  resolveShieldTrigger,
+  hasMandatoryAttackers,
+  resumeCombatAfterInteraction
+} from './combat.ts';
+import { passToMainPhase, endTurn, startTurn, completeHumanSilentSkills, finalizeEndTurn } from './turn.ts';
 import { resolveSilentSkill } from './advancedMechanics.ts';
-import { drawCards, searchDeckForCard, isSurvivor } from './effects.ts';
+import { triggerCIP } from './triggers.ts';
+import { canActivateTapAbility, resolveTapAbility } from './tapAbilities.ts';
+import { resolveZoneSelectionAction, resolveOptionalChoiceAction } from './zoneSelection.ts';
+import { enqueueInteraction } from './interactionHelpers.ts';
 
 /**
  * Checks whether any creature controlled by the active player in the battle zone
- * is currently able to declare an attack.
+ * can currently legally declare an attack.
  */
 function hasEligibleAttackers(state: GameState): boolean {
   const activeId = state.activePlayer;
-  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-  const activePlayer = state.players[activeId];
-  const defendingPlayer = state.players[defendingId];
-  const hasTappedOpponentCreatures = defendingPlayer.battleZone.some((c) => c.isTapped);
-
-  return activePlayer.battleZone.some((creature) => {
-    if (creature.isTapped) {
-      return false;
-    }
-    const rules = creature.card.rulesText || '';
-    if (/this creature can't attack(?!\s+players)/i.test(rules)) {
-      return false;
-    }
-    if (/this creature can't attack players/i.test(rules) && !hasTappedOpponentCreatures) {
-      return false;
-    }
-    return !isSummoningSick(creature, state.turn, activePlayer.battleZone);
-  });
+  return state.players[activeId].battleZone.some(
+    (creature) =>
+      canCreatureAttack(state, creature, undefined, activeId).valid ||
+      canActivateTapAbility(state, creature, activeId, { ignorePhase: true }).valid
+  );
 }
 
 /**
  * Automatically triggers a required attack for mandatory attackers (e.g. Deadly Fighter Braid Claw).
  */
 function executeMandatoryAttack(state: GameState, player: PlayerId): GameState {
-  const activeBZ = state.players[player].battleZone;
-  const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
+  const activePlayer = state.players[player];
+  const oppId = getOpponentId(player);
   const opp = state.players[oppId];
 
-  // Find the first mandatory attacker
-  const mandatoryCreature = activeBZ.find((c) => {
-    if (c.isTapped || isSummoningSick(c, state.turn, activeBZ)) return false;
+  const forcedRaces = activePlayer.tempAttacksIfAbleRacesThisTurn || [];
+
+  const mandatoryCreature = activePlayer.battleZone.find((c) => {
     const rules = c.card.rulesText || '';
-    return c.card.id === 'DM01-074' || /attacks each turn if able/i.test(rules);
+    const hasForcedRace =
+      forcedRaces.length > 0 &&
+      (c.card.races || []).some((r) =>
+        forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, ''))
+      );
+    const isMandatory =
+      c.card.id === 'DM01-074' ||
+      Boolean(c.tempAttacksIfAble) ||
+      hasForcedRace ||
+      /attacks each turn if able/i.test(rules);
+    if (!isMandatory) return false;
+    return canCreatureAttack(state, c, undefined, player).valid;
   });
 
   if (!mandatoryCreature) {
     return endTurn(state);
   }
 
-  const rules = mandatoryCreature.card.rulesText || '';
-  const cantAttackPlayers = /this creature can't attack players/i.test(rules);
-
-  if (cantAttackPlayers) {
-    const tappedOpp = opp.battleZone.find((c) => c.isTapped);
-    if (tappedOpp) {
-      return declareAttack(state, mandatoryCreature.instanceId, {
-        type: 'creature',
-        instanceId: tappedOpp.instanceId
-      });
-    }
-    return endTurn(state);
-  }
-
+  // Prefer shield/player if legally able to attack players
   const unbrokenShieldIdx = opp.shields.findIndex((s) => !s.isBroken);
-  let target: AttackTarget;
-  if (unbrokenShieldIdx !== -1) {
-    target = { type: 'shield', index: unbrokenShieldIdx };
-  } else {
-    target = { type: 'player' };
+  const playerTarget: AttackTarget =
+    unbrokenShieldIdx !== -1
+      ? { type: 'shield', index: unbrokenShieldIdx }
+      : { type: 'player' };
+
+  if (canCreatureAttack(state, mandatoryCreature, playerTarget, player).valid) {
+    return declareAttack(state, mandatoryCreature.instanceId, playerTarget);
   }
 
-  return declareAttack(state, mandatoryCreature.instanceId, target);
+  // Otherwise find a legal creature target
+  for (const def of opp.battleZone) {
+    const cTarget: AttackTarget = { type: 'creature', instanceId: def.instanceId };
+    if (canCreatureAttack(state, mandatoryCreature, cTarget, player).valid) {
+      return declareAttack(state, mandatoryCreature.instanceId, cTarget);
+    }
+  }
+
+  return endTurn(state);
+}
+
+/**
+ * After resolving an interaction (target selection, optional choice, deck search, or shield trigger),
+ * restores any queued Shield Trigger batches or resumes paused combat steps cleanly.
+ */
+function advancePendingState(state: GameState): GameState {
+  if (Boolean(state.winner) || state.pendingInteraction) {
+    return state;
+  }
+
+  if (state.pendingInteractionQueue && state.pendingInteractionQueue.length > 0) {
+    const [nextInteraction, ...restQueue] = state.pendingInteractionQueue;
+    return {
+      ...state,
+      pendingInteraction: nextInteraction,
+      pendingInteractionQueue: restQueue.length > 0 ? restQueue : undefined
+    };
+  }
+
+  if (state.pendingTriggerQueue && state.pendingTriggerQueue.length > 0) {
+    const [head, ...rest] = state.pendingTriggerQueue;
+    return {
+      ...state,
+      pendingTriggerQueue: rest.length > 0 ? rest : undefined,
+      pendingInteraction: {
+        type: 'SHIELD_TRIGGER_RESOLUTION',
+        player: head.player,
+        shieldCards: head.shieldCards,
+        triggers: head.triggers
+      }
+    };
+  }
+
+  if (state.phase === 'START_OF_TURN') {
+    return completeHumanSilentSkills(state, state.pendingKeptSilentIds || []);
+  }
+
+  if (
+    state.combatState &&
+    (state.combatState.stage === 'ATTACK' ||
+      state.combatState.stage === 'BATTLE' ||
+      state.combatState.stage === 'SHIELD_BREAK')
+  ) {
+    return resumeCombatAfterInteraction(state);
+  }
+
+  return state;
 }
 
 /**
  * Master Reducer for the Duel Masters Engine.
- * Dispatches player actions and advances the game state in a pure, immutable manner.
- * Guards against actions after game has ended, and records any unhandled or invalid action
- * into actionLog without throwing unhandled exceptions.
+ * Dispatches player actions and advances the game state cleanly and immutably.
  */
 export function step(state: GameState, action: GameAction): GameState {
-  // Guard against any actions once the duel has ended
-  if (state.winner !== null) {
+  if (Boolean(state.winner)) {
     return state;
   }
 
@@ -105,18 +156,16 @@ export function step(state: GameState, action: GameAction): GameState {
       case 'SUMMON_CREATURE': {
         const player: PlayerId = action.player || state.activePlayer;
         const baits = action.baitInstanceIds || action.baitInstanceId;
-        return summonCreature(
-          state,
-          player,
-          action.cardInstanceId,
-          baits,
-          action.targets
+        return advancePendingState(
+          summonCreature(state, player, action.cardInstanceId, baits, action.targets, action.manaInstanceIds)
         );
       }
 
       case 'CAST_SPELL': {
         const player: PlayerId = action.player || state.activePlayer;
-        return castSpell(state, player, action.cardInstanceId, action.targets);
+        return advancePendingState(
+          castSpell(state, player, action.cardInstanceId, action.targets, action.manaInstanceIds)
+        );
       }
 
       case 'DECLARE_ATTACK': {
@@ -143,7 +192,9 @@ export function step(state: GameState, action: GameAction): GameState {
             : action.playTrigger !== undefined
             ? action.playTrigger
             : true;
-        return resolveShieldTrigger(state, action.shieldId, activate, action.targets);
+        return advancePendingState(
+          resolveShieldTrigger(state, action.shieldId, activate, action.targets)
+        );
       }
 
       case 'PASS_PHASE':
@@ -163,7 +214,6 @@ export function step(state: GameState, action: GameAction): GameState {
             return endTurn(state);
           }
 
-          // If the player has no creatures that can attack, automatically end turn
           if (!hasEligibleAttackers(state)) {
             if (hasMandatoryAttackers(state, state.activePlayer)) {
               return executeMandatoryAttack(state, state.activePlayer);
@@ -171,7 +221,6 @@ export function step(state: GameState, action: GameAction): GameState {
             return endTurn(state);
           }
 
-          // Otherwise, proceed to ATTACK phase
           return {
             ...state,
             phase: 'ATTACK',
@@ -227,44 +276,46 @@ export function step(state: GameState, action: GameAction): GameState {
           pendingInteraction: null
         };
 
+        let result = stateWithoutPending;
         if (interaction.actionType === 'SPELL_TARGET') {
           const cardDef = CARD_MAP.get(interaction.sourceCardId);
           if (cardDef) {
-            return resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
+            result = resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
           }
         } else if (interaction.actionType === 'EFFECT_TARGET') {
           if (selectedIds.length === 0) {
-            return {
+            result = {
               ...stateWithoutPending,
               actionLog: [...stateWithoutPending.actionLog, `${player} skipped optional target selection.`]
             };
-          }
-          const oppId: PlayerId = player === 'player' ? 'opponent' : 'player';
-          const oppBZ = stateWithoutPending.players[oppId].battleZone;
-          const targetId = selectedIds[0];
-          const targetCreature = oppBZ.find((c) => c.instanceId === targetId);
-          if (targetCreature) {
-            const updatedOppBZ = oppBZ.map((c) =>
-              c.instanceId === targetId ? { ...c, isTapped: true } : c
-            );
-            return {
-              ...stateWithoutPending,
-              players: {
-                ...stateWithoutPending.players,
-                [oppId]: {
-                  ...stateWithoutPending.players[oppId],
-                  battleZone: updatedOppBZ
-                }
-              },
-              actionLog: [
-                ...stateWithoutPending.actionLog,
-                `${player} tapped ${targetCreature.card.name} with creature ability.`
-              ]
-            };
+          } else {
+            const oppId = getOpponentId(player);
+            const oppBZ = stateWithoutPending.players[oppId].battleZone;
+            const targetId = selectedIds[0];
+            const targetCreature = oppBZ.find((c) => c.instanceId === targetId);
+            if (targetCreature) {
+              const updatedOppBZ = oppBZ.map((c) =>
+                c.instanceId === targetId ? { ...c, isTapped: true } : c
+              );
+              result = {
+                ...stateWithoutPending,
+                players: {
+                  ...stateWithoutPending.players,
+                  [oppId]: {
+                    ...stateWithoutPending.players[oppId],
+                    battleZone: updatedOppBZ
+                  }
+                },
+                actionLog: [
+                  ...stateWithoutPending.actionLog,
+                  `${player} tapped ${targetCreature.card.name} with creature ability.`
+                ]
+              };
+            }
           }
         }
 
-        return stateWithoutPending;
+        return advancePendingState(result);
       }
 
       case 'RESOLVE_OPTIONAL_CHOICE': {
@@ -273,34 +324,72 @@ export function step(state: GameState, action: GameAction): GameState {
         }
         const interaction = state.pendingInteraction;
         const player = action.player || interaction.player;
-        const stateWithoutPending: GameState = {
+        let result = resolveOptionalChoiceAction(
+          state,
+          interaction,
+          player,
+          action.accept,
+          action.selectedTargetId
+        );
+        if (interaction.followUpAction?.kind === 'COMPLETE_END_TURN' && !result.pendingInteraction && !result.pendingInteractionQueue?.length) {
+          result = finalizeEndTurn(result);
+        }
+        return advancePendingState(result);
+      }
+
+      case 'RESOLVE_ZONE_SELECTION': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'ZONE_SELECTION') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const result = resolveZoneSelectionAction(
+          state,
+          interaction,
+          player,
+          action.selectedIds || [],
+          action.selectedRace
+        );
+        return advancePendingState(result);
+      }
+
+      case 'RESOLVE_SILENT_SKILL_CHOICE': {
+        if (!state.pendingInteraction || state.pendingInteraction.type !== 'SILENT_SKILL_CHOICE') {
+          return state;
+        }
+        const interaction = state.pendingInteraction;
+        const player = action.player || interaction.player;
+        const kept = [...(interaction.keptTappedIds || [])];
+        let result: GameState = {
           ...state,
-          pendingInteraction: null
+          pendingInteraction: null,
+          pendingKeptSilentIds: kept
         };
 
-        if (!action.accept) {
-          return {
-            ...stateWithoutPending,
-            actionLog: [
-              ...stateWithoutPending.actionLog,
-              `${player} chose not to use optional ability (${interaction.abilityName}).`
-            ]
-          };
+        if (action.activate) {
+          kept.push(interaction.creatureInstanceId);
+          result = { ...result, pendingKeptSilentIds: kept };
+          result = resolveSilentSkill(result, interaction.creatureInstanceId, action.targets);
         }
 
-        // Action accepted: execute effect
-        if (interaction.effectType === 'DRAW') {
-          const count = interaction.drawCount || 1;
-          return drawCards(stateWithoutPending, player, count);
-        } else if (interaction.effectType === 'SEARCH_DECK') {
-          const cardDef = CARD_MAP.get(interaction.sourceCardId);
-          if (cardDef?.name.toLowerCase().includes('forbos')) {
-            return searchDeckForCard(stateWithoutPending, player, (c) => c.type === 'Spell', 'hand');
-          } else {
-            return searchDeckForCard(stateWithoutPending, player, (c) => isSurvivor(c), 'hand');
+        const remaining = [...(interaction.remainingCreatureIds || [])];
+        while (remaining.length > 0) {
+          const nextId = remaining.shift()!;
+          const nextCreature = result.players[player].battleZone.find((c) => c.instanceId === nextId);
+          if (nextCreature && nextCreature.isTapped) {
+            result = enqueueInteraction(result, {
+              type: 'SILENT_SKILL_CHOICE',
+              player,
+              creatureInstanceId: nextCreature.instanceId,
+              card: nextCreature.card,
+              remainingCreatureIds: remaining,
+              keptTappedIds: kept
+            });
+            break;
           }
         }
-        return stateWithoutPending;
+
+        return advancePendingState(result);
       }
 
       case 'RESOLVE_DECK_SEARCH': {
@@ -316,18 +405,18 @@ export function step(state: GameState, action: GameAction): GameState {
         };
 
         if (!action.selectedCardInstanceId) {
-          return {
+          return advancePendingState({
             ...stateWithoutPending,
             actionLog: [
               ...stateWithoutPending.actionLog,
               `${player} searched deck (${interaction.sourceCardName}) but chose not to take a card.`
             ]
-          };
+          });
         }
 
         const cardIndex = pState.deck.findIndex((c) => c.instanceId === action.selectedCardInstanceId);
         if (cardIndex === -1) {
-          return stateWithoutPending;
+          return advancePendingState(stateWithoutPending);
         }
 
         const chosenCard = pState.deck[cardIndex];
@@ -341,87 +430,86 @@ export function step(state: GameState, action: GameAction): GameState {
         }
 
         const dest = interaction.destination;
-        let updatedPlayer: typeof pState;
         if (dest === 'manaZone') {
-          updatedPlayer = {
-            ...pState,
-            deck: shuffledDeck,
-            manaZone: [
-              ...pState.manaZone,
-              {
-                instanceId: chosenCard.instanceId,
-                card: chosenCard.card,
-                isTapped: false
+          const manaCard = toManaCard(chosenCard);
+          return advancePendingState({
+            ...stateWithoutPending,
+            players: {
+              ...stateWithoutPending.players,
+              [player]: {
+                ...pState,
+                deck: shuffledDeck,
+                manaZone: [...pState.manaZone, manaCard]
               }
+            },
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into mana zone${
+                manaCard.isTapped ? ' (tapped)' : ''
+              }.`
             ]
-          };
-        } else if (dest === 'battleZone') {
-          updatedPlayer = {
-            ...pState,
-            deck: shuffledDeck,
-            battleZone: [
-              ...pState.battleZone,
-              {
-                instanceId: chosenCard.instanceId,
-                card: chosenCard.card,
-                owner: player,
-                isTapped: false,
-                powerModifier: 0,
-                summonedTurn: state.turn
-              }
-            ]
-          };
-        } else {
-          // Default: hand
-          updatedPlayer = {
-            ...pState,
-            deck: shuffledDeck,
-            hand: [...pState.hand, chosenCard]
-          };
+          });
         }
 
-        return {
+        if (dest === 'battleZone') {
+          const isKachua = interaction.sourceCardName.toLowerCase().includes('kachua');
+          const summonedCreature = {
+            instanceId: chosenCard.instanceId,
+            card: chosenCard.card,
+            owner: player,
+            isTapped: false,
+            powerModifier: 0,
+            summonedTurn: state.turn,
+            ...(isKachua ? { tempSpeedAttacker: true, tempDestroyAtEndTurn: true } : {})
+          };
+          const stateWithBZ: GameState = {
+            ...stateWithoutPending,
+            players: {
+              ...stateWithoutPending.players,
+              [player]: {
+                ...pState,
+                deck: shuffledDeck,
+                battleZone: [...pState.battleZone, summonedCreature]
+              }
+            },
+            actionLog: [
+              ...stateWithoutPending.actionLog,
+              `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into battle zone.`
+            ]
+          };
+          return advancePendingState(triggerCIP(stateWithBZ, player, summonedCreature));
+        }
+
+        return advancePendingState({
           ...stateWithoutPending,
           players: {
             ...stateWithoutPending.players,
-            [player]: updatedPlayer
+            [player]: {
+              ...pState,
+              deck: shuffledDeck,
+              hand: [...pState.hand, chosenCard]
+            }
           },
           actionLog: [
             ...stateWithoutPending.actionLog,
-            `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into ${dest}.`
+            `${player} searched deck (${interaction.sourceCardName}) and put ${chosenCard.card.name} into hand.`
           ]
-        };
+        });
       }
 
       case 'TOGGLE_MANA_TAP': {
         const player = action.player || 'player';
-        const pState = state.players[player];
-        const manaCard = pState.manaZone.find((m) => m.instanceId === action.cardInstanceId);
-        if (!manaCard) return state;
-
-        const nextTapped = action.forceTapped !== undefined ? action.forceTapped : !manaCard.isTapped;
-        const nextManaZone = pState.manaZone.map((m) =>
-          m.instanceId === action.cardInstanceId ? { ...m, isTapped: nextTapped } : m
-        );
-
-        return {
-          ...state,
-          players: {
-            ...state.players,
-            [player]: {
-              ...pState,
-              manaZone: nextManaZone
-            }
-          },
-          actionLog: [
-            ...state.actionLog,
-            `${player} ${nextTapped ? 'tapped' : 'untapped'} ${manaCard.card.name} in mana zone.`
-          ]
-        };
+        return toggleManaTap(state, player, action.cardInstanceId, action.forceTapped);
       }
 
       case 'ACTIVATE_SILENT_SKILL': {
-        return resolveSilentSkill(state, action.creatureInstanceId, action.targets);
+        return advancePendingState(resolveSilentSkill(state, action.creatureInstanceId, action.targets));
+      }
+
+      case 'ACTIVATE_TAP_ABILITY': {
+        return advancePendingState(
+          resolveTapAbility(state, action.creatureInstanceId, action.targets, action.selectedRace)
+        );
       }
 
       default: {

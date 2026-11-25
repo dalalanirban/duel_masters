@@ -1,6 +1,11 @@
 // Types
 export * from './types.ts';
 
+// Shared Card Utilities & Replacements
+export * from './cardUtils.ts';
+export * from './replacements.ts';
+export * from './targeting.ts';
+
 // State & Initialization
 export * from './state.ts';
 
@@ -8,25 +13,39 @@ export * from './state.ts';
 export * from './turn.ts';
 export * from './mana.ts';
 
-// Main Phase Operations
+// Continuous Rules, Zones, Triggers & Advanced Mechanics
+export * from './continuous.ts';
+export * from './zones.ts';
+export * from './interactionHelpers.ts';
+export * from './zoneSelection.ts';
+export * from './triggers.ts';
+export * from './advancedMechanics.ts';
+export * from './tapAbilities.ts';
+
+// Main Phase & Combat Operations
 export * from './evolution.ts';
 export * from './spells.ts';
-
-// Combat & Attack Phase Operations
 export * from './combat.ts';
 
-// Declarative Effects & Triggers
-export * from './effects.ts';
-
-// Explicit re-exports to resolve TS2308 ambiguity between spells.ts and effects.ts
+// Explicit backward-compatible exports from effects facade
 export {
-  addShieldFromDeck,
-  bounceCreature,
-  destroyOpponentShields,
-  discardRandomHandCards,
+  findCreature,
   drawCards,
-  rampTopDeckToManaZone
-} from './effects.ts';
+  discardHandCardsByIndices,
+  discardRandomHandCards,
+  rampTopDeckToManaZone,
+  addShieldFromDeck,
+  destroyOpponentShields,
+  breakOpponentShields,
+  searchDeckForCard,
+  salvageFromGraveyard,
+  destroyCreature,
+  destroyCreaturesBatch,
+  bounceCreature,
+  sendCreatureToManaZone,
+  sendCreatureToTopOfDeck,
+  sendCreatureToShields
+} from './zones.ts';
 
 // Master Reducer
 export * from './reducer.ts';

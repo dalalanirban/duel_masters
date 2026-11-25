@@ -5,7 +5,16 @@ import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
 import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
-import { isValidEvolutionBait, isEvolutionCreature } from '../../engine/evolution';
+import {
+  isValidEvolutionBait,
+  isEvolutionCreature,
+  isVortexEvolution,
+  findAllValidVortexBaitPairs
+} from '../../engine/evolution';
+import { getCreatureBreakerCount, canCreatureAttack } from '../../engine/combat';
+import { getSpellTargetRequirement } from '../../engine/targeting';
+import { canCastSpell } from '../../engine/spells';
+import { canActivateTapAbility, hasTapAbility } from '../../engine/tapAbilities';
 import { PRESET_DECKS } from '../../data/presets';
 import { CARD_MAP } from '../../data/cardLoader';
 import { CardInspectorPane } from './CardInspectorPane';
@@ -18,6 +27,8 @@ import { BlockerModal } from './BlockerModal';
 import { GameOverModal } from './GameOverModal';
 import { OptionalChoiceModal } from './OptionalChoiceModal';
 import { DeckSearchModal } from './DeckSearchModal';
+import { ZoneSelectionModal } from './ZoneSelectionModal';
+import { SilentSkillModal } from './SilentSkillModal';
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -29,7 +40,7 @@ type ArenaAction = GameAction | { type: 'RESET_GAME'; playerDeck: Deck; opponent
 
 const arenaReducer = (currentState: GameState, action: ArenaAction): GameState => {
   if (action.type === 'RESET_GAME') {
-    return initializeGame(action.playerDeck, action.opponentDeck, 'player');
+    return initializeGame(action.playerDeck, action.opponentDeck, 'player', { interactiveHuman: true });
   }
   return step(currentState, action as GameAction);
 };
@@ -69,11 +80,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [state, dispatch] = useReducer(
     arenaReducer,
     undefined,
-    () => initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player')
+    () => initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player', { interactiveHuman: true })
   );
 
   // UI state
   const [selectedAttackerId, setSelectedAttackerId] = useState<string | null>(null);
+  const [tapChoiceCreatureId, setTapChoiceCreatureId] = useState<string | null>(null);
   const [isAutoPlayOpponent, setIsAutoPlayOpponent] = useState<boolean>(true);
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
@@ -89,10 +101,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     return () => clearTimeout(timer);
   }, [state.turn, state.activePlayer]);
 
-  // Evolution bait mode
+  // Evolution bait mode (supports both standard 1-bait and Vortex 2-bait evolutions)
   const [evolutionCandidate, setEvolutionCandidate] = useState<{
     cardInstanceId: string;
     card: CardDefinition;
+    isVortex: boolean;
+    selectedBaitIds: string[];
     validBaitIds: string[];
   } | null>(null);
 
@@ -210,26 +224,66 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     }
   }, [isAutoPlayOpponent, state, triggerAiStep]);
 
-  // Clear selected attacker if turn/phase changes
+  // Clear selected attacker & tap choice banner if turn/phase changes
   useEffect(() => {
     setSelectedAttackerId(null);
+    setTapChoiceCreatureId(null);
     setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
   }, [state.turn, state.phase, state.activePlayer]);
+
+  // Surface latest engine action error or mana lock warning in toast cleanly
+  useEffect(() => {
+    const lastLog = state.actionLog[state.actionLog.length - 1];
+    if (lastLog && lastLog.startsWith('Action error (')) {
+      showToast(lastLog.replace(/^Action error \([^)]+\):\s*/, ''));
+    }
+  }, [state.actionLog]);
 
   // Player action: Charge Mana
   const handleChargeMana = (cardInstanceId: string) => {
     dispatch({ type: 'CHARGE_MANA', player: 'player', cardInstanceId });
   };
 
-  // Player action: Summon Creature
+  // Player action: Summon Creature (supports single-bait Evolution & 2-bait Vortex Evolution)
   const handleSummonCreature = (cardInstanceId: string) => {
     const cardInstance = state.players.player.hand.find((c) => c.instanceId === cardInstanceId);
     if (!cardInstance) return;
 
-    // Check if evolution creature
     if (isEvolutionCreature(cardInstance.card)) {
+      if (isVortexEvolution(cardInstance.card)) {
+        const pairs = findAllValidVortexBaitPairs(
+          cardInstance.card,
+          state.players.player.battleZone
+        );
+        if (pairs.length === 0) {
+          showToast(`No valid bait pair found for Vortex Evolution ${cardInstance.card.name}!`);
+          return;
+        }
+        if (pairs.length === 1) {
+          dispatch({
+            type: 'SUMMON_CREATURE',
+            player: 'player',
+            cardInstanceId,
+            baitInstanceIds: [pairs[0][0].instanceId, pairs[0][1].instanceId]
+          });
+          return;
+        }
+        const validBaitIds = Array.from(
+          new Set(pairs.flatMap(([a, b]) => [a.instanceId, b.instanceId]))
+        );
+        setEvolutionCandidate({
+          cardInstanceId,
+          card: cardInstance.card,
+          isVortex: true,
+          selectedBaitIds: [],
+          validBaitIds
+        });
+        showToast(`Select 1st Vortex bait creature for ${cardInstance.card.name}.`);
+        return;
+      }
+
       const validBaits = state.players.player.battleZone.filter((b) =>
         isValidEvolutionBait(cardInstance.card, b)
       );
@@ -240,7 +294,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       }
 
       if (validBaits.length === 1) {
-        // Auto-evolve on the only valid bait
         dispatch({
           type: 'SUMMON_CREATURE',
           player: 'player',
@@ -250,121 +303,115 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         return;
       }
 
-      // Enter bait selection mode
       setEvolutionCandidate({
         cardInstanceId,
         card: cardInstance.card,
+        isVortex: false,
+        selectedBaitIds: [],
         validBaitIds: validBaits.map((b) => b.instanceId)
       });
       showToast('Select a creature in your battle zone to evolve onto.');
       return;
     }
 
-    // Standard summon
     dispatch({ type: 'SUMMON_CREATURE', player: 'player', cardInstanceId });
   };
 
-  // Player action: Cast Spell
+  // Player action: Cast Spell (delegates precondition & target resolution to engine)
   const handleCastSpell = (cardInstanceId: string) => {
     const cardInstance = state.players.player.hand.find((c) => c.instanceId === cardInstanceId);
     if (!cardInstance) return;
 
-    const card = cardInstance.card;
-    const nameLower = card.name.toLowerCase();
-    const rulesLower = (card.rulesText || '').toLowerCase();
-
-    // Determine target candidates
-    const oppCreatures = state.players.opponent.battleZone;
-    const allCreatures = [
-      ...state.players.player.battleZone,
-      ...state.players.opponent.battleZone
-    ];
-
-    let validCandidates: typeof oppCreatures = [];
-    let needsTarget = false;
-
-    if (
-      nameLower.includes('spiral gate') ||
-      nameLower.includes('riptide charger') ||
-      nameLower.includes('teleportation') ||
-      rulesLower.includes('choose a creature in the battle zone and return it to its owner') ||
-      rulesLower.includes('choose up to 2 creatures in the battle zone')
-    ) {
-      needsTarget = true;
-      validCandidates = allCreatures;
-    } else if (nameLower.includes('death smoke')) {
-      needsTarget = true;
-      validCandidates = oppCreatures.filter((c) => !c.isTapped);
-    } else if (
-      nameLower.includes('comet missile') ||
-      /destroy.*opponent.*"blocker".*power 6000 or less/i.test(rulesLower)
-    ) {
-      needsTarget = true;
-      validCandidates = oppCreatures.filter(
-        (c) => c.card.isBlocker && (c.card.power || 0) + c.powerModifier <= 6000
-      );
-    } else if (nameLower.includes('critical blade')) {
-      needsTarget = true;
-      validCandidates = oppCreatures.filter((c) => c.card.isBlocker);
-    } else if (nameLower.includes('volcano charger') || nameLower.includes('crimson hammer')) {
-      needsTarget = true;
-      validCandidates = oppCreatures.filter(
-        (c) => (c.card.power || 0) + c.powerModifier <= 2000
-      );
-    } else if (nameLower.includes('tornado flame')) {
-      needsTarget = true;
-      validCandidates = oppCreatures.filter(
-        (c) => (c.card.power || 0) + c.powerModifier <= 4000
-      );
-    } else if (
-      nameLower.includes('terror pit') ||
-      nameLower.includes('natural snare') ||
-      nameLower.includes('solar ray') ||
-      rulesLower.includes('destroy 1 of your opponent')
-    ) {
-      needsTarget = true;
-      validCandidates = oppCreatures;
+    const precondition = canCastSpell(state, 'player', cardInstance.card);
+    if (!precondition.allowed) {
+      showToast(precondition.reason || `Cannot cast ${cardInstance.card.name} right now!`);
+      return;
     }
 
-    if (needsTarget) {
-      if (validCandidates.length === 0) {
-        showToast(`No valid target creatures in the battle zone for ${card.name}!`);
-        return;
-      }
+    const card = cardInstance.card;
+    const req = getSpellTargetRequirement(card, state.players.player, state.players.opponent);
 
-      if (validCandidates.length === 1) {
-        // Auto-cast with single target
+    if (req.minTargets > req.validTargetIds.length) {
+      showToast(`No valid target creatures in the battle zone for ${card.name}!`);
+      return;
+    }
+
+    if (req.requiresTarget && req.validTargetIds.length > 0) {
+      if (req.validTargetIds.length === 1 && req.minTargets <= 1 && req.maxTargets === 1) {
         dispatch({
           type: 'CAST_SPELL',
           player: 'player',
           cardInstanceId,
-          targets: [validCandidates[0].instanceId]
+          targets: [req.validTargetIds[0]]
         });
         return;
       }
 
-      // Enter spell targeting mode
       setSpellCandidate({
         cardInstanceId,
         card,
-        validTargetIds: validCandidates.map((c) => c.instanceId)
+        validTargetIds: req.validTargetIds
       });
-      showToast(`Select a target creature in the battle zone for ${card.name}.`);
+      showToast(req.prompt || `Select a target creature in the battle zone for ${card.name}.`);
       return;
     }
 
-    // Direct cast for non-targeted spells (Brain Serum, Holy Awe, Faerie Life, Energy Charger, etc.)
     dispatch({ type: 'CAST_SPELL', player: 'player', cardInstanceId });
   };
 
-  // Evolution bait selected
+  // Evolution bait selected (single bait or 2-step Vortex pair)
   const handleSelectBait = (baitInstanceId: string) => {
     if (!evolutionCandidate) return;
+
+    if (!evolutionCandidate.isVortex) {
+      dispatch({
+        type: 'SUMMON_CREATURE',
+        player: 'player',
+        cardInstanceId: evolutionCandidate.cardInstanceId,
+        baitInstanceId
+      });
+      setEvolutionCandidate(null);
+      return;
+    }
+
+    if (evolutionCandidate.selectedBaitIds.length === 0) {
+      const pairs = findAllValidVortexBaitPairs(
+        evolutionCandidate.card,
+        state.players.player.battleZone
+      );
+      const partnerIds = Array.from(
+        new Set(
+          pairs
+            .filter(([a, b]) => a.instanceId === baitInstanceId || b.instanceId === baitInstanceId)
+            .map(([a, b]) => (a.instanceId === baitInstanceId ? b.instanceId : a.instanceId))
+        )
+      );
+
+      if (partnerIds.length === 1) {
+        dispatch({
+          type: 'SUMMON_CREATURE',
+          player: 'player',
+          cardInstanceId: evolutionCandidate.cardInstanceId,
+          baitInstanceIds: [baitInstanceId, partnerIds[0]]
+        });
+        setEvolutionCandidate(null);
+        return;
+      }
+
+      setEvolutionCandidate({
+        ...evolutionCandidate,
+        selectedBaitIds: [baitInstanceId],
+        validBaitIds: partnerIds
+      });
+      showToast(`Select 2nd Vortex bait creature for ${evolutionCandidate.card.name}.`);
+      return;
+    }
+
     dispatch({
       type: 'SUMMON_CREATURE',
       player: 'player',
       cardInstanceId: evolutionCandidate.cardInstanceId,
-      baitInstanceId
+      baitInstanceIds: [evolutionCandidate.selectedBaitIds[0], baitInstanceId]
     });
     setEvolutionCandidate(null);
   };
@@ -381,23 +428,46 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSpellCandidate(null);
   };
 
-  // Attacker selection / toggle
+  // Attacker selection / Attack-vs-$tap Ability prompt
   const handleSelectAttacker = (creatureId: string) => {
     if (selectedAttackerId === creatureId) {
       setSelectedAttackerId(null);
+      setTapChoiceCreatureId(null);
       setSelectedShieldIndices([]);
+      return;
+    }
+
+    const attacker = state.players.player.battleZone.find((c) => c.instanceId === creatureId);
+    if (
+      state.phase === 'ATTACK' &&
+      attacker &&
+      hasTapAbility(attacker.card) &&
+      canActivateTapAbility(state, attacker, 'player').valid
+    ) {
+      setSelectedAttackerId(null);
+      setSelectedShieldIndices([]);
+      setTapChoiceCreatureId(creatureId);
+      return;
+    }
+
+    setTapChoiceCreatureId(null);
+    setSelectedAttackerId(creatureId);
+    setSelectedShieldIndices([]);
+    const breakerCount = attacker
+      ? getCreatureBreakerCount(
+          attacker,
+          state.players.player.battleZone,
+          state.players.opponent.battleZone,
+          state,
+          'player'
+        )
+      : 1;
+    const unbrokenCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
+    const req = Math.min(breakerCount, unbrokenCount);
+    if (req > 1) {
+      showToast(`Select ${req} opponent shields to break.`);
     } else {
-      setSelectedAttackerId(creatureId);
-      setSelectedShieldIndices([]);
-      const attacker = state.players.player.battleZone.find((c) => c.instanceId === creatureId);
-      const breakerCount = attacker?.card.breakerCount || 1;
-      const unbrokenCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
-      const req = Math.min(breakerCount, unbrokenCount);
-      if (req > 1) {
-        showToast(`Select ${req} opponent shields to break.`);
-      } else {
-        showToast('Select an opponent shield or tapped creature to attack!');
-      }
+      showToast('Select an opponent shield or creature target to attack!');
     }
   };
 
@@ -493,31 +563,46 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   const isPlayerTurn = state.activePlayer === 'player';
 
-  // Calculate attack targeting constraints
+  // Calculate attack targeting constraints via engine rules
   const selectedAttacker = selectedAttackerId
     ? state.players.player.battleZone.find((c) => c.instanceId === selectedAttackerId)
     : null;
 
-  const attackerCannotAttackPlayers = Boolean(
-    selectedAttacker &&
-    /this creature can't attack players/i.test(selectedAttacker.card.rulesText || '')
-  );
-
+  const firstUnbrokenShieldIndex = state.players.opponent.shields.findIndex((s) => !s.isBroken);
   const oppUnbrokenShieldsCount = state.players.opponent.shields.filter((s) => !s.isBroken).length;
-  const attackerBreakerCount = selectedAttacker ? (selectedAttacker.card.breakerCount || 1) : 1;
+  const attackerBreakerCount = selectedAttacker
+    ? getCreatureBreakerCount(
+        selectedAttacker,
+        state.players.player.battleZone,
+        state.players.opponent.battleZone,
+        state,
+        'player'
+      )
+    : 1;
   const requiredBreakerCount = Math.min(attackerBreakerCount, oppUnbrokenShieldsCount);
 
   const canTargetShields = Boolean(
     selectedAttacker &&
-    !attackerCannotAttackPlayers &&
-    oppUnbrokenShieldsCount > 0
+    firstUnbrokenShieldIndex !== -1 &&
+    canCreatureAttack(
+      state,
+      selectedAttacker,
+      { type: 'shield', index: firstUnbrokenShieldIndex },
+      'player'
+    ).valid
   );
 
   const canDirectAttack = Boolean(
     selectedAttacker &&
-    !attackerCannotAttackPlayers &&
-    oppUnbrokenShieldsCount === 0
+    oppUnbrokenShieldsCount === 0 &&
+    canCreatureAttack(state, selectedAttacker, { type: 'player' }, 'player').valid
   );
+
+  const pendingTargetSelection =
+    state.pendingInteraction?.type === 'TARGET_SELECTION' &&
+    state.pendingInteraction.player === 'player'
+      ? state.pendingInteraction
+      : null;
 
   const canUndoMana = Boolean(
     isPlayerTurn &&
@@ -720,6 +805,30 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             </div>
           )}
 
+          {/* Action Banner: Evolution / Vortex Bait Selection */}
+          {evolutionCandidate && (
+            <div className="w-full flex items-center justify-between px-3 py-1.5 mb-1 rounded-lg bg-cyan-950/90 border border-cyan-500/60 shadow-lg text-xs animate-fade-in z-30">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse shrink-0" />
+                <span className="font-cinzel font-bold text-cyan-200 truncate">
+                  {evolutionCandidate.isVortex
+                    ? evolutionCandidate.selectedBaitIds.length === 0
+                      ? `Vortex Evolution (${evolutionCandidate.card.name}): Click 1st bait creature`
+                      : `Vortex Evolution (${evolutionCandidate.card.name}): Click 2nd bait creature`
+                    : `Evolution (${evolutionCandidate.card.name}): Click bait creature to evolve onto`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEvolutionCandidate(null)}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-2"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </div>
+          )}
+
           {/* Opponent Field */}
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
             <BattleZoneView
@@ -736,14 +845,22 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               onSelectTargetCreature={handleSelectCreatureTarget}
               onInspectCard={handleInspectCard}
               onHoverCard={handleHoverCard}
-              spellTargetMode={spellCandidate !== null || triggerTargetSelection !== null}
+              spellTargetMode={
+                spellCandidate !== null ||
+                triggerTargetSelection !== null ||
+                pendingTargetSelection !== null
+              }
               validSpellTargetIds={
-                triggerTargetSelection
+                pendingTargetSelection
+                  ? pendingTargetSelection.validTargetIds
+                  : triggerTargetSelection
                   ? triggerTargetSelection.validTargetIds
                   : spellCandidate?.validTargetIds
               }
               onSelectSpellTarget={(targetId) => {
-                if (triggerTargetSelection) {
+                if (pendingTargetSelection) {
+                  dispatch({ type: 'SELECT_TARGETS', player: 'player', selectedIds: [targetId] });
+                } else if (triggerTargetSelection) {
                   handleResolveShieldTrigger(triggerTargetSelection.shieldId, true, [targetId]);
                 } else {
                   handleSelectSpellTarget(targetId);
@@ -778,15 +895,20 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               onSelectBait={handleSelectBait}
               spellTargetMode={
                 (spellCandidate !== null && spellCandidate.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id))) ||
-                (triggerTargetSelection !== null && triggerTargetSelection.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id)))
+                (triggerTargetSelection !== null && triggerTargetSelection.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id))) ||
+                (pendingTargetSelection !== null && pendingTargetSelection.validTargetIds.some((id) => state.players.player.battleZone.some((c) => c.instanceId === id)))
               }
               validSpellTargetIds={
-                triggerTargetSelection
+                pendingTargetSelection
+                  ? pendingTargetSelection.validTargetIds
+                  : triggerTargetSelection
                   ? triggerTargetSelection.validTargetIds
                   : spellCandidate?.validTargetIds
               }
               onSelectSpellTarget={(targetId) => {
-                if (triggerTargetSelection) {
+                if (pendingTargetSelection) {
+                  dispatch({ type: 'SELECT_TARGETS', player: 'player', selectedIds: [targetId] });
+                } else if (triggerTargetSelection) {
                   handleResolveShieldTrigger(triggerTargetSelection.shieldId, true, [targetId]);
                 } else {
                   handleSelectSpellTarget(targetId);
@@ -816,9 +938,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
-            onToggleManaTap={(cardInstanceId, forceTapped) =>
-              dispatch({ type: 'TOGGLE_MANA_TAP', player: 'player', cardInstanceId, forceTapped })
-            }
+            onToggleManaTap={(cardInstanceId, forceTapped) => {
+              const targetMana = state.players.player.manaZone.find((m) => m.instanceId === cardInstanceId);
+              if (targetMana?.isSpent && forceTapped === false) {
+                showToast(`${targetMana.card.name} was already spent this turn and cannot untap until start of turn.`);
+                return;
+              }
+              dispatch({ type: 'TOGGLE_MANA_TAP', player: 'player', cardInstanceId, forceTapped });
+            }}
             onHoverCard={handleHoverCard}
             onInspectCard={handleInspectCard}
           />
@@ -829,6 +956,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               hand={state.players.player.hand}
               owner="player"
               manaZone={state.players.player.manaZone}
+              battleZone={state.players.player.battleZone}
+              opponentBattleZone={state.players.opponent.battleZone}
               isPlayerTurn={isPlayerTurn}
               phase={state.phase}
               manaChargedThisTurn={state.players.player.manaChargedThisTurn}
@@ -908,6 +1037,48 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onDecline={handleDeclineOptionalChoice}
       />
 
+      {/* Floating Attack vs $tap Choice Bar */}
+      {tapChoiceCreatureId && (() => {
+        const tapChoiceCreature = state.players.player.battleZone.find((c) => c.instanceId === tapChoiceCreatureId);
+        if (!tapChoiceCreature) return null;
+        return (
+          <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 px-4 py-3 rounded-2xl bg-slate-900/95 border border-violet-400/60 shadow-2xl flex flex-wrap items-center gap-3 backdrop-blur-md">
+            <span className="text-xs font-cinzel font-bold text-slate-100">
+              {tapChoiceCreature.card.name}:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTapChoiceCreatureId(null);
+                setSelectedAttackerId(tapChoiceCreature.instanceId);
+                setSelectedShieldIndices([]);
+                showToast('Select an opponent shield or creature target to attack!');
+              }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950"
+            >
+              Attack
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTapChoiceCreatureId(null);
+                dispatch({ type: 'ACTIVATE_TAP_ABILITY', player: 'player', creatureInstanceId: tapChoiceCreature.instanceId });
+              }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white"
+            >
+              Use $tap Ability
+            </button>
+            <button
+              type="button"
+              onClick={() => setTapChoiceCreatureId(null)}
+              className="px-2.5 py-1.5 rounded-lg text-xs text-slate-300 bg-slate-800 hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+          </div>
+        );
+      })()}
+
       <DeckSearchModal
         isOpen={state.pendingInteraction?.type === 'DECK_SEARCH' && state.pendingInteraction.player === 'player'}
         interaction={state.pendingInteraction?.type === 'DECK_SEARCH' ? state.pendingInteraction : null}
@@ -915,6 +1086,33 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onSelectCard={(id) => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: id })}
         onSkip={() => dispatch({ type: 'RESOLVE_DECK_SEARCH', player: 'player', selectedCardInstanceId: null })}
         onHoverCard={handleHoverCard}
+        onInspectCard={handleInspectCard}
+      />
+
+      <ZoneSelectionModal
+        isOpen={state.pendingInteraction?.type === 'ZONE_SELECTION' && state.pendingInteraction.player === 'player'}
+        interaction={state.pendingInteraction?.type === 'ZONE_SELECTION' ? state.pendingInteraction : null}
+        onConfirm={(selectedIds, selectedRace) =>
+          dispatch({
+            type: 'RESOLVE_ZONE_SELECTION',
+            player: 'player',
+            selectedIds,
+            selectedRace
+          })
+        }
+        onInspectCard={handleInspectCard}
+      />
+
+      <SilentSkillModal
+        isOpen={state.pendingInteraction?.type === 'SILENT_SKILL_CHOICE' && state.pendingInteraction.player === 'player'}
+        interaction={state.pendingInteraction?.type === 'SILENT_SKILL_CHOICE' ? state.pendingInteraction : null}
+        onResolve={(activate) =>
+          dispatch({
+            type: 'RESOLVE_SILENT_SKILL_CHOICE',
+            player: 'player',
+            activate
+          })
+        }
         onInspectCard={handleInspectCard}
       />
 

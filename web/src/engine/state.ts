@@ -74,6 +74,7 @@ export function shuffleCards<T>(cards: T[], rng: () => number = Math.random): T[
 export interface InitializeGameOptions {
   rng?: () => number;
   shuffle?: boolean;
+  interactiveHuman?: boolean;
 }
 
 /**
@@ -153,11 +154,13 @@ export function initializeGame(
 
   return {
     turn: 1,
+    startingPlayer,
     activePlayer: startingPlayer,
     phase: 'MANA_CHARGE', // Turn 1 first player skips draw step
     players,
     combatState: null,
     pendingInteraction: null,
+    ...(options.interactiveHuman ? { interactiveHuman: true } : {}),
     winner: null,
     actionLog: [
       `Duel started. Turn 1: ${startingPlayer} goes first (draw step skipped).`

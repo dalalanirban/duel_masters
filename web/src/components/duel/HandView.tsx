@@ -1,13 +1,15 @@
 import React from 'react';
 import { Sparkles, Swords, Wand2 } from 'lucide-react';
-import type { CardInstance, ManaCardInstance, Phase, PlayerId } from '../../engine/types';
+import type { CardInstance, CreatureInstance, ManaCardInstance, Phase, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
-import { canPayManaCost } from '../../engine/mana';
+import { canPayManaCost, getEffectiveManaCost } from '../../engine/mana';
 
 interface HandViewProps {
   hand: CardInstance[];
   owner: PlayerId;
   manaZone: ManaCardInstance[];
+  battleZone?: CreatureInstance[];
+  opponentBattleZone?: CreatureInstance[];
   isPlayerTurn: boolean;
   phase: Phase;
   manaChargedThisTurn: boolean;
@@ -22,6 +24,8 @@ export const HandView: React.FC<HandViewProps> = ({
   hand,
   owner,
   manaZone,
+  battleZone = [],
+  opponentBattleZone = [],
   isPlayerTurn,
   phase,
   manaChargedThisTurn,
@@ -74,7 +78,8 @@ export const HandView: React.FC<HandViewProps> = ({
             const card = item.card;
             const isCreature = card.type.includes('Creature');
             const isSpell = card.type.includes('Spell');
-            const affordable = canPayManaCost(manaZone, card);
+            const effectiveCost = getEffectiveManaCost(card, battleZone, opponentBattleZone);
+            const affordable = canPayManaCost(manaZone, card, battleZone, opponentBattleZone);
             // In Duel Masters, mana can ONLY be charged during the MANA_CHARGE phase before advancing!
             const canCharge =
               isPlayerTurn &&
@@ -120,8 +125,15 @@ export const HandView: React.FC<HandViewProps> = ({
                   />
 
                   {/* Top-Right: Mana Cost Badge */}
-                  <div className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-950/90 border border-amber-400 text-amber-300 font-mono font-black text-[9px] sm:text-[10px] flex items-center justify-center shadow-md tabular-nums z-10">
-                    {card.manaCost}
+                  <div
+                    className={`absolute top-0.5 right-0.5 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-950/90 border font-mono font-black text-[9px] sm:text-[10px] flex items-center justify-center shadow-md tabular-nums z-10 ${
+                      effectiveCost < card.manaCost
+                        ? 'border-emerald-400 text-emerald-300'
+                        : 'border-amber-400 text-amber-300'
+                    }`}
+                    title={effectiveCost < card.manaCost ? `Reduced cost ${effectiveCost} (base ${card.manaCost})` : `Mana cost ${card.manaCost}`}
+                  >
+                    {effectiveCost}
                   </div>
 
                   {/* Top-Left: Playable Beacon */}

@@ -2,31 +2,37 @@ import type {
   GameState,
   PlayerId,
   CreatureInstance,
-  CardInstance,
   AttackTarget,
   CombatState,
-  ShieldInstance,
   BlockerChoiceInteraction,
   ShieldTriggerChoiceInteraction,
   PlayerState
-} from './types';
-import { isSummoningSick } from './evolution.ts';
+} from './types.ts';
+import { getCardCapabilities, getOpponentId } from './cardUtils.ts';
 import {
-  destroyCreature,
-  resolveSpellEffect,
-  isChargerSpell,
-  resolveCreatureCIPEffect
-} from './spells.ts';
-import {
-  triggerAttack,
-  canCreatureAttackUntapped,
+  checkStealth,
+  isSurvivor,
+  getSurvivorSharedAbilities,
   hasCreatureBlocker,
   hasCreatureSlayer,
+  hasCreatureSpeedAttacker,
   isCreatureUnblockable,
   getCreatureBreakerCount,
-  calculateContinuousAuraPower
-} from './effects.ts';
-import { hasShieldBurnReplacement } from './replacements.ts';
+  calculateContinuousAuraPower,
+  getCreatureEffectivePower,
+  canCreatureAttackUntapped,
+  canBeBlockedBy,
+  canCreatureBeAttackedBy,
+  isCreatureSummoningSick,
+  canCreatureAttack
+} from './continuous.ts';
+import {
+  breakOpponentShields,
+  destroyCreaturesBatch,
+  drawCards
+} from './zones.ts';
+import { triggerAttack, triggerBlocked, triggerUnblocked } from './triggers.ts';
+import { resolveSpellEffect, isChargerSpell, resolveCreatureCIPEffect } from './spells.ts';
 
 export {
   checkStealth,
@@ -37,84 +43,33 @@ export {
   hasCreatureSpeedAttacker,
   isCreatureUnblockable,
   getCreatureBreakerCount,
-  calculateContinuousAuraPower
-} from './effects.ts';
+  calculateContinuousAuraPower,
+  getCreatureEffectivePower,
+  canCreatureAttackUntapped,
+  canBeBlockedBy,
+  canCreatureBeAttackedBy,
+  isCreatureSummoningSick,
+  canCreatureAttack
+};
 
 /**
- * Calculates the total effective combat power of a creature:
- * - Base power from card definition.
- * - Current creature powerModifier (e.g. buffs, debuffs).
- * - powerAttackerBonus if isAttacking is true.
- * - Continuous auras from calculateContinuousAuraPower.
- * - Power cannot be negative (floored at 0).
- */
-export function getCreatureEffectivePower(
-  creature: CreatureInstance,
-  isAttacking: boolean,
-  playerState?: PlayerState,
-  opponentState?: PlayerState,
-  isOpponentsTurn?: boolean
-): number {
-  const basePower = creature.card.power ?? 0;
-  const powerModifier = creature.powerModifier || 0;
-  let powerAttackerBonus = isAttacking ? (creature.card.powerAttackerBonus || 0) : 0;
-  powerAttackerBonus += isAttacking ? (creature.tempPowerAttackerBonus || 0) : 0;
-
-  if (isAttacking && playerState) {
-    if (
-      creature.card.name.toLowerCase().includes('bolshack dragon') ||
-      /for each fire card in your graveyard/i.test(creature.card.rulesText || '')
-    ) {
-      const fireCount = playerState.graveyard.filter((c) =>
-        c.card.civilizations?.includes('Fire')
-      ).length;
-      powerAttackerBonus += fireCount * 1000;
-    }
-  }
-
-  const friendlyBZ = playerState?.battleZone || [];
-  const opponentBZ = opponentState?.battleZone || [];
-
-  const aura = calculateContinuousAuraPower(
-    creature,
-    isAttacking,
-    friendlyBZ,
-    opponentBZ,
-    playerState,
-    opponentState,
-    isOpponentsTurn
-  );
-
-  const totalPowerAttacker = isAttacking ? (powerAttackerBonus + aura.powerAttackerBonus) : 0;
-  return Math.max(0, basePower + powerModifier + aura.powerBonus + totalPowerAttacker);
-}
-
-/**
- * Validates whether the active player can declare an attack with the given creature on target:
- * - Game must not have already ended.
- * - No active combat or pending interaction.
- * - Phase must be MAIN or ATTACK.
- * - Attacker must belong to active player and be untapped.
- * - Attacker must not have summoning sickness (unless Speed Attacker or Evolution).
- * - Target must be:
- *   - Opponent's tapped creature in the battle zone.
- *   - Opponent's unbroken shield.
- *   - Opponent directly (valid ONLY if opponent has 0 shields).
+ * Validates whether the active player can declare an attack with the given creature on target.
+ * Delegates all card-specific summoning-sickness, tap, protection, and restriction rules to `continuous.canCreatureAttack`.
  */
 export function canDeclareAttack(
   state: GameState,
   attackerId: string,
   target: AttackTarget
 ): { valid: boolean; reason?: string } {
-  if (state.winner !== null) {
+  if (Boolean(state.winner)) {
     return { valid: false, reason: `Game has already ended. Winner: ${state.winner}` };
   }
 
-  if (state.combatState !== null) {
+  if (state.combatState !== null && state.combatState !== undefined) {
     return { valid: false, reason: 'Combat is already in progress.' };
   }
 
-  if (state.pendingInteraction !== null) {
+  if (state.pendingInteraction !== null && state.pendingInteraction !== undefined) {
     return { valid: false, reason: 'A pending interaction must be resolved first.' };
   }
 
@@ -123,148 +78,49 @@ export function canDeclareAttack(
   }
 
   const activeId = state.activePlayer;
-  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
   const activePlayer = state.players[activeId];
-  const defendingPlayer = state.players[defendingId];
-
   const attacker = activePlayer.battleZone.find((c) => c.instanceId === attackerId);
   if (!attacker) {
     return { valid: false, reason: `Attacker creature ${attackerId} not found in battle zone.` };
   }
 
-  if (attacker.isTapped) {
-    return { valid: false, reason: 'Creature is already tapped.' };
-  }
-
-  if (isSummoningSick(attacker, state.turn, activePlayer.battleZone)) {
-    return { valid: false, reason: 'Creature has summoning sickness.' };
-  }
-
-  const rules = attacker.card.rulesText || '';
-  if (/this creature can't attack(?!\s+players)/i.test(rules)) {
-    return { valid: false, reason: `${attacker.card.name} cannot attack.` };
-  }
-  if (/this creature can't attack players/i.test(rules)) {
-    if (target.type === 'shield' || target.type === 'player') {
-      return { valid: false, reason: `${attacker.card.name} cannot attack players.` };
-    }
-  }
-
-  if (target.type === 'creature') {
-    const targetCreature = defendingPlayer.battleZone.find(
-      (c) => c.instanceId === target.instanceId
-    );
-    if (!targetCreature) {
-      return {
-        valid: false,
-        reason: `Target creature ${target.instanceId} not found in opponent's battle zone.`
-      };
-    }
-    if (!targetCreature.isTapped && !canCreatureAttackUntapped(attacker, targetCreature)) {
-      return { valid: false, reason: 'Cannot attack an untapped creature.' };
-    }
-  } else if (target.type === 'shield') {
-    const unbrokenShields = defendingPlayer.shields.filter((s) => !s.isBroken);
-    if (unbrokenShields.length === 0) {
-      return { valid: false, reason: 'Opponent has no shields to attack.' };
-    }
-    const indices: number[] =
-      target.indices && target.indices.length > 0
-        ? target.indices
-        : target.index !== undefined
-        ? [target.index]
-        : [];
-
-    if (indices.length === 0) {
-      return { valid: false, reason: 'No shield target index provided.' };
-    }
-
-    if (new Set(indices).size !== indices.length) {
-      return { valid: false, reason: 'Duplicate shield indices in attack target.' };
-    }
-
-    for (const idx of indices) {
-      if (
-        idx < 0 ||
-        idx >= defendingPlayer.shields.length ||
-        defendingPlayer.shields[idx].isBroken
-      ) {
-        return { valid: false, reason: `Invalid shield target at index ${idx}.` };
-      }
-    }
-  } else if (target.type === 'player') {
-    const unbrokenCount = defendingPlayer.shields.filter((s) => !s.isBroken).length;
-    if (unbrokenCount > 0) {
-      return {
-        valid: false,
-        reason: 'Cannot directly attack opponent while they have shields.'
-      };
-    }
-  } else {
-    return { valid: false, reason: 'Unknown attack target type.' };
-  }
-
-  return { valid: true };
+  return canCreatureAttack(state, attacker, target, activeId);
 }
 
 /**
- * Declares an attack with the specified creature on the chosen target:
- * 1. Validates attack declaration.
- * 2. Taps the attacking creature and advances phase to ATTACK.
- * 3. Checks if defending player controls any untapped blockers.
- *    - If blockers exist: transitions to BLOCK stage and sets pending BLOCK_DECLARATION interaction.
- *    - If no blockers: immediately proceeds to combat resolution.
- * 4. Pure and immutable.
+ * Checks whether any untapped blocker available to the defending player has a forced-block rule
+ * against this attacker (e.g. Storm Wrangler).
  */
-export function declareAttack(
+function hasForcedBlocker(
   state: GameState,
+  attackerId: string,
+  validBlockerIds: string[]
+): boolean {
+  const defendingId = getOpponentId(state.activePlayer);
+  return state.players[defendingId].battleZone.some(
+    (b) => validBlockerIds.includes(b.instanceId) && b.tempMustBlockTargetId === attackerId
+  );
+}
+
+/**
+ * Enters either BLOCK stage (if legal blockers exist) or runs on-unblocked triggers and combat resolution.
+ */
+function continueAfterAttackTriggers(
+  stateAfterAttackTrigger: GameState,
   attackerId: string,
   target: AttackTarget
 ): GameState {
-  const check = canDeclareAttack(state, attackerId, target);
-  if (!check.valid) {
-    throw new Error(check.reason || 'Invalid attack declaration.');
+  if (Boolean(stateAfterAttackTrigger.winner)) {
+    return { ...stateAfterAttackTrigger, combatState: null };
   }
 
-  const activeId = state.activePlayer;
-  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-  const activePlayer = state.players[activeId];
-  const attacker = activePlayer.battleZone.find((c) => c.instanceId === attackerId)!;
-
-  // Tap the attacker creature
-  const updatedBattleZone = activePlayer.battleZone.map((c) =>
-    c.instanceId === attackerId ? { ...c, isTapped: true } : c
-  );
-
-  const stateWithTappedAttacker: GameState = {
-    ...state,
-    phase: 'ATTACK',
-    players: {
-      ...state.players,
-      [activeId]: {
-        ...activePlayer,
-        battleZone: updatedBattleZone
-      }
-    },
-    actionLog: [
-      ...state.actionLog,
-      `${activeId} declared attack with ${attacker.card.name}.`
-    ]
-  };
-
-  // Trigger on-attack effects before blockers are declared
-  const stateAfterAttackTrigger = triggerAttack(
-    stateWithTappedAttacker,
-    activeId,
-    attacker,
-    target
-  );
-
+  const activeId = stateAfterAttackTrigger.activePlayer;
+  const defendingId = getOpponentId(activeId);
   const curActivePlayer = stateAfterAttackTrigger.players[activeId];
   const curDefendingPlayer = stateAfterAttackTrigger.players[defendingId];
   const curAttacker = curActivePlayer.battleZone.find((c) => c.instanceId === attackerId);
 
-  // If attacker was destroyed during attack trigger, combat ends
+  // If attacker was destroyed or removed during attack trigger, combat ends cleanly
   if (!curAttacker) {
     return {
       ...stateAfterAttackTrigger,
@@ -272,19 +128,24 @@ export function declareAttack(
     };
   }
 
-  // Blocker check: any untapped creatures with isBlocker === true
-  // Attacker is unblockable if rulesText matches "can't be blocked" OR stealth is active
-  const isUnblockable = isCreatureUnblockable(
-    curAttacker,
-    target,
-    curDefendingPlayer.manaZone,
-    curActivePlayer.battleZone
+  // Compute per-blocker legal blockers via Single Source of Truth (`canBeBlockedBy`)
+  const validBlockers = curDefendingPlayer.battleZone.filter((c) =>
+    canBeBlockedBy(curAttacker, c, target, stateAfterAttackTrigger)
   );
-  const validBlockers = isUnblockable
-    ? []
-    : curDefendingPlayer.battleZone.filter(
-        (c) => !c.isTapped && hasCreatureBlocker(c, curDefendingPlayer.battleZone)
-      );
+
+  // If attack triggers opened a pending interaction (e.g. Aura Pegasus deck play -> CIP target/search),
+  // hold combat at ATTACK stage so the reducer resumes blocker checks once that interaction clears.
+  if (stateAfterAttackTrigger.pendingInteraction) {
+    return {
+      ...stateAfterAttackTrigger,
+      combatState: {
+        attackerId,
+        target,
+        blockerId: null,
+        stage: 'ATTACK'
+      }
+    };
+  }
 
   if (validBlockers.length > 0) {
     const combatState: CombatState = {
@@ -312,31 +173,105 @@ export function declareAttack(
     };
   }
 
-  // No blockers: proceed directly to combat resolution
-  const combatState: CombatState = {
-    attackerId,
-    target,
-    blockerId: null,
-    stage:
-      target.type === 'creature'
-        ? 'BATTLE'
-        : target.type === 'shield'
-        ? 'SHIELD_BREAK'
-        : 'BATTLE'
-  };
+  // No legal blockers: fire "is attacking ... and isn't blocked" abilities first
+  const stateAfterUnblocked = triggerUnblocked(
+    stateAfterAttackTrigger,
+    activeId,
+    curAttacker,
+    target
+  );
+
+  const stage: CombatState['stage'] =
+    target.type === 'shield' ? 'SHIELD_BREAK' : 'BATTLE';
 
   return resolveCombat({
-    ...stateAfterAttackTrigger,
-    combatState
+    ...stateAfterUnblocked,
+    combatState: {
+      attackerId,
+      target,
+      blockerId: null,
+      stage
+    }
   });
 }
 
 /**
+ * Declares an attack with the specified creature on the chosen target:
+ * 1. Validates attack declaration.
+ * 2. Taps the attacker and sets phase to ATTACK.
+ * 3. Fires `triggerAttack` abilities.
+ * 4. Checks legal blockers with `canBeBlockedBy` (per-blocker rules + Stealth + Ninja Pumpkin + Storm Wrangler).
+ * 5. Enters BLOCK_DECLARATION or runs `triggerUnblocked` and `resolveCombat`.
+ */
+export function declareAttack(
+  state: GameState,
+  attackerId: string,
+  target: AttackTarget
+): GameState {
+  const check = canDeclareAttack(state, attackerId, target);
+  if (!check.valid) {
+    throw new Error(check.reason || 'Invalid attack declaration.');
+  }
+
+  const activeId = state.activePlayer;
+  const activePlayer = state.players[activeId];
+  const attacker = activePlayer.battleZone.find((c) => c.instanceId === attackerId)!;
+
+  const updatedBattleZone = activePlayer.battleZone.map((c) =>
+    c.instanceId === attackerId ? { ...c, isTapped: true } : c
+  );
+
+  const stateWithTappedAttacker: GameState = {
+    ...state,
+    phase: 'ATTACK',
+    players: {
+      ...state.players,
+      [activeId]: {
+        ...activePlayer,
+        battleZone: updatedBattleZone
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${activeId} declared attack with ${attacker.card.name}.`
+    ]
+  };
+
+  const stateAfterAttackTrigger = triggerAttack(
+    stateWithTappedAttacker,
+    activeId,
+    attacker,
+    target
+  );
+
+  return continueAfterAttackTriggers(stateAfterAttackTrigger, attackerId, target);
+}
+
+/**
+ * Resumes an attack paused during attack triggers once its pending interaction has cleared.
+ */
+export function resumeCombatAfterInteraction(state: GameState): GameState {
+  if (!state.combatState || state.pendingInteraction) {
+    return state;
+  }
+  if (state.combatState.stage === 'ATTACK') {
+    return continueAfterAttackTriggers(
+      state,
+      state.combatState.attackerId,
+      state.combatState.target
+    );
+  }
+  if (state.combatState.stage === 'BATTLE' || state.combatState.stage === 'SHIELD_BREAK') {
+    return resolveCombat(state);
+  }
+  return state;
+}
+
+/**
  * Handles blocker declaration during the BLOCK stage:
- * - If blockerId is null: opponent passes block; attack proceeds to original target.
- * - If blockerId is provided: validates blocker, taps blocker, redirects attack target to blocker,
- *   and proceeds to creature battle resolution.
- * - Pure and immutable.
+ * - If blockerId is null: fires `triggerUnblocked` and resolves the original target.
+ * - If blockerId is provided: validates via `canBeBlockedBy`, taps blocker, fires `triggerBlocked`,
+ *   redirects attack to blocker, and resolves battle.
  */
 export function declareBlock(
   state: GameState,
@@ -347,44 +282,58 @@ export function declareBlock(
   }
 
   const activeId = state.activePlayer;
-  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-  const defendingPlayer = state.players[defendingId];
+  const defendingId = getOpponentId(activeId);
+  const attackerId = state.combatState.attackerId;
+  const attacker = state.players[activeId].battleZone.find((c) => c.instanceId === attackerId);
+  const origTarget = state.combatState.target;
 
   if (blockerId === null) {
-    // Pass block: proceed to original target
-    const origTarget = state.combatState.target;
-    const nextStage =
-      origTarget.type === 'creature'
-        ? 'BATTLE'
-        : origTarget.type === 'shield'
-        ? 'SHIELD_BREAK'
-        : 'BATTLE';
+    // Enforce Storm Wrangler forced block if the forced blocker is still legal
+    if (
+      state.pendingInteraction?.type === 'BLOCK_DECLARATION' &&
+      hasForcedBlocker(state, attackerId, state.pendingInteraction.validBlockerIds)
+    ) {
+      throw new Error('You must block with the forced blocker.');
+    }
 
-    const stateAfterPass: GameState = {
+    const baseAfterPass: GameState = {
       ...state,
       pendingInteraction: null,
-      combatState: {
-        ...state.combatState,
-        stage: nextStage
-      },
       actionLog: [...state.actionLog, `${defendingId} chose not to block.`]
     };
 
-    return resolveCombat(stateAfterPass);
+    const stateAfterUnblocked = attacker
+      ? triggerUnblocked(baseAfterPass, activeId, attacker, origTarget)
+      : baseAfterPass;
+
+    const nextStage: CombatState['stage'] =
+      origTarget.type === 'shield' ? 'SHIELD_BREAK' : 'BATTLE';
+
+    return resolveCombat({
+      ...stateAfterUnblocked,
+      combatState: {
+        ...state.combatState,
+        stage: nextStage
+      }
+    });
   }
 
-  // Blocker selected: validate
-  const blocker = defendingPlayer.battleZone.find((c) => c.instanceId === blockerId);
-  if (!blocker || blocker.isTapped || !hasCreatureBlocker(blocker, defendingPlayer.battleZone)) {
+  const blocker = state.players[defendingId].battleZone.find((c) => c.instanceId === blockerId);
+  if (
+    !blocker ||
+    !attacker ||
+    !canBeBlockedBy(attacker, blocker, origTarget, state)
+  ) {
     throw new Error(`Invalid blocker ${blockerId}.`);
   }
 
-  // Tap blocker creature
+  const defendingPlayer = state.players[defendingId];
   const updatedBZ = defendingPlayer.battleZone.map((c) =>
     c.instanceId === blockerId ? { ...c, isTapped: true } : c
   );
+  const tappedBlocker = updatedBZ.find((c) => c.instanceId === blockerId)!;
 
-  const stateAfterBlock: GameState = {
+  const stateWithTappedBlocker: GameState = {
     ...state,
     pendingInteraction: null,
     combatState: {
@@ -403,35 +352,37 @@ export function declareBlock(
     actionLog: [...state.actionLog, `${defendingId} blocked with ${blocker.card.name}.`]
   };
 
-  return resolveCombat(stateAfterBlock);
+  // Fire blocked abilities (Emperor Maroll, Avalanche Giant, Splinterclaw Wasp, Storm Wrangler, Coliseum Shell, Carbonite Scarab, Agira)
+  const stateAfterBlocked = triggerBlocked(
+    stateWithTappedBlocker,
+    activeId,
+    attacker,
+    tappedBlocker
+  );
+
+  return resolveCombat(stateAfterBlocked);
 }
 
 /**
- * Resolves combat resolution for the current combatState:
- * 1. Direct Attack (target.type === 'player'):
- *    - If opponent has 0 shields and unblocked, active player immediately wins!
- * 2. Creature vs Creature Battle (target.type === 'creature'):
- *    - Power comparison with base power, powerModifier, and powerAttackerBonus.
- *    - Lower power destroyed.
- *    - Power tie: both destroyed.
- *    - Slayer: if creature with Slayer is destroyed in battle, opposing creature is also destroyed.
- * 3. Shield Break (target.type === 'shield'):
- *    - Breaks breakerCount shields (1, 2 for Double Breaker, 3 for Triple Breaker).
- *    - Shields moved to opponent's hand.
- *    - Queues Shield Triggers if any broken shields have isShieldTrigger === true.
- * - Pure and immutable.
+ * Resolves active combat once blocking is settled:
+ * 1. Direct Attack -> immediate win if 0 unbroken shields.
+ * 2. Creature vs Creature Battle -> Chekicul/Badlands Lizard/Choya skip-battle check,
+ *    power comparison + Slayer, simultaneous destruction, post-battle self-destruct (Bloody Squito,
+ *    Dark Clown, Vile Mulder), post-battle untap (Spiral Grass, La Byle, Kuukai, Fists of Forever).
+ * 3. Shield Break -> `breakOpponentShields` (Shield Burn, Kyuroro, Cryptic Totem, Fu Reil, Gigabolver,
+ *    Turbo Rush tracking, ST queueing) + Miracle Quest draw.
  */
 export function resolveCombat(state: GameState): GameState {
   if (!state.combatState) {
     return state;
   }
 
-  if (state.combatState.stage === 'BLOCK') {
-    return state; // Waiting for blocker declaration
+  if (state.combatState.stage === 'BLOCK' || state.combatState.stage === 'ATTACK') {
+    return state;
   }
 
   const activeId = state.activePlayer;
-  const defendingId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
+  const defendingId = getOpponentId(activeId);
   const attacker = state.players[activeId].battleZone.find(
     (c) => c.instanceId === state.combatState!.attackerId
   );
@@ -473,39 +424,64 @@ export function resolveCombat(state: GameState): GameState {
       return { ...state, combatState: null };
     }
 
+    const attCaps = getCardCapabilities(attacker.card);
+    const defCaps = getCardCapabilities(defender.card);
+    const wasBlocked = Boolean(state.combatState.blockerId === defender.instanceId);
+
+    // Badlands Lizard / Choya / Chekicul: "Whenever this creature becomes blocked / blocks, no battle happens."
+    if (
+      wasBlocked &&
+      (attCaps.noBattleWhenBlocked ||
+        attCaps.noBattleOnBlock ||
+        defCaps.noBattleOnBlock ||
+        defCaps.noBattleWhenBlocked)
+    ) {
+      return {
+        ...state,
+        combatState: null,
+        actionLog: [
+          ...state.actionLog,
+          `${attacker.card.name} vs ${defender.card.name}: no battle happens.`
+        ]
+      };
+    }
+
     const attPower = getCreatureEffectivePower(
       attacker,
       true,
       state.players[activeId],
       state.players[defendingId],
-      false
+      false,
+      state
     );
     const defPower = getCreatureEffectivePower(
       defender,
       false,
       state.players[defendingId],
       state.players[activeId],
-      true
+      true,
+      state
     );
 
-    let destroyAttacker = false;
-    let destroyDefender = false;
+    const attackerWon = attPower > defPower;
+    const defenderWon = defPower > attPower;
+    const isTie = attPower === defPower;
 
-    if (attPower > defPower) {
-      destroyDefender = true;
-      if (hasCreatureSlayer(defender, defendingPlayer.battleZone)) {
-        destroyAttacker = true;
-      }
-    } else if (defPower > attPower) {
-      destroyAttacker = true;
-      if (hasCreatureSlayer(attacker, state.players[activeId].battleZone)) {
-        destroyDefender = true;
-      }
-    } else {
-      // Power tie: both destroyed
-      destroyAttacker = true;
-      destroyDefender = true;
-    }
+    const attHasSlayer = hasCreatureSlayer(
+      attacker,
+      state.players[activeId].battleZone,
+      state.players[defendingId].battleZone,
+      state.players[activeId]
+    );
+    const defHasSlayer = hasCreatureSlayer(
+      defender,
+      defendingPlayer.battleZone,
+      state.players[activeId].battleZone,
+      defendingPlayer
+    );
+
+    const destroyDefenderFromBattle = attackerWon || isTie || (defenderWon && attHasSlayer);
+    const destroyAttackerFromBattle = defenderWon || isTie || (attackerWon && defHasSlayer);
 
     let nextState: GameState = {
       ...state,
@@ -516,11 +492,119 @@ export function resolveCombat(state: GameState): GameState {
       ]
     };
 
-    if (destroyDefender) {
-      nextState = destroyCreature(nextState, defender.instanceId);
+    const simultaneousIds: string[] = [];
+    if (destroyDefenderFromBattle) simultaneousIds.push(defender.instanceId);
+    if (destroyAttackerFromBattle) simultaneousIds.push(attacker.instanceId);
+
+    if (simultaneousIds.length > 0) {
+      nextState = destroyCreaturesBatch(nextState, simultaneousIds);
     }
-    if (destroyAttacker) {
-      nextState = destroyCreature(nextState, attacker.instanceId);
+
+    // Post-battle self-destruction:
+    // - Bloody Squito / Dark Clown: "When this creature wins a battle, destroy it."
+    // - Vile Mulder: "When this creature battles, destroy it after the battle."
+    const postDestroyIds: string[] = [];
+    if (
+      attackerWon &&
+      /when this creature wins a battle,\s*destroy it/i.test(attacker.card.rulesText || '') &&
+      nextState.players[activeId].battleZone.some((c) => c.instanceId === attacker.instanceId)
+    ) {
+      postDestroyIds.push(attacker.instanceId);
+    }
+    if (
+      defenderWon &&
+      /when this creature wins a battle,\s*destroy it/i.test(defender.card.rulesText || '') &&
+      nextState.players[defendingId].battleZone.some((c) => c.instanceId === defender.instanceId)
+    ) {
+      postDestroyIds.push(defender.instanceId);
+    }
+    if (
+      (attacker.tempDestroyAfterBattle ||
+        /when this creature battles,\s*destroy it after the battle/i.test(attacker.card.rulesText || '')) &&
+      nextState.players[activeId].battleZone.some((c) => c.instanceId === attacker.instanceId) &&
+      !postDestroyIds.includes(attacker.instanceId)
+    ) {
+      postDestroyIds.push(attacker.instanceId);
+    }
+    if (
+      (defender.tempDestroyAfterBattle ||
+        /when this creature battles,\s*destroy it after the battle/i.test(defender.card.rulesText || '')) &&
+      nextState.players[defendingId].battleZone.some((c) => c.instanceId === defender.instanceId) &&
+      !postDestroyIds.includes(defender.instanceId)
+    ) {
+      postDestroyIds.push(defender.instanceId);
+    }
+
+    if (postDestroyIds.length > 0) {
+      nextState = destroyCreaturesBatch(nextState, postDestroyIds);
+    }
+
+    // Post-battle untap abilities:
+    // - Spiral Grass / La Byle / Kuukai: "Whenever this creature blocks, untap it after it battles."
+    if (
+      wasBlocked &&
+      /whenever this creature blocks,\s*untap it after it battles/i.test(defender.card.rulesText || '')
+    ) {
+      const defStillInBZ = nextState.players[defendingId].battleZone.some(
+        (c) => c.instanceId === defender.instanceId && c.isTapped
+      );
+      if (defStillInBZ) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [defendingId]: {
+              ...nextState.players[defendingId],
+              battleZone: nextState.players[defendingId].battleZone.map((c) =>
+                c.instanceId === defender.instanceId ? { ...c, isTapped: false } : c
+              )
+            }
+          },
+          actionLog: [...nextState.actionLog, `${defender.card.name} untapped after battling.`]
+        };
+      }
+    }
+
+    // - Fists of Forever: untap winning creature if marked with tempUntapOnWinBattle
+    if (attackerWon && attacker.tempUntapOnWinBattle) {
+      const attStillTapped = nextState.players[activeId].battleZone.some(
+        (c) => c.instanceId === attacker.instanceId && c.isTapped
+      );
+      if (attStillTapped) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [activeId]: {
+              ...nextState.players[activeId],
+              battleZone: nextState.players[activeId].battleZone.map((c) =>
+                c.instanceId === attacker.instanceId ? { ...c, isTapped: false } : c
+              )
+            }
+          },
+          actionLog: [...nextState.actionLog, `Fists of Forever untapped ${attacker.card.name}!`]
+        };
+      }
+    }
+    if (defenderWon && defender.tempUntapOnWinBattle) {
+      const defStillTapped = nextState.players[defendingId].battleZone.some(
+        (c) => c.instanceId === defender.instanceId && c.isTapped
+      );
+      if (defStillTapped) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [defendingId]: {
+              ...nextState.players[defendingId],
+              battleZone: nextState.players[defendingId].battleZone.map((c) =>
+                c.instanceId === defender.instanceId ? { ...c, isTapped: false } : c
+              )
+            }
+          },
+          actionLog: [...nextState.actionLog, `Fists of Forever untapped ${defender.card.name}!`]
+        };
+      }
     }
 
     return nextState;
@@ -529,13 +613,19 @@ export function resolveCombat(state: GameState): GameState {
   // Case 3: Shield Break
   if (target.type === 'shield') {
     const defendingPlayer = state.players[defendingId];
-    const unbrokenShields = defendingPlayer.shields.filter((s) => !s.isBroken);
+    const shieldsBefore = defendingPlayer.shields.filter((s) => !s.isBroken).length;
 
-    if (unbrokenShields.length === 0) {
+    if (shieldsBefore === 0) {
       return { ...state, combatState: null };
     }
 
-    const breakerCount = getCreatureBreakerCount(attacker, state.players[activeId].battleZone);
+    const breakerCount = getCreatureBreakerCount(
+      attacker,
+      state.players[activeId].battleZone,
+      defendingPlayer.battleZone,
+      state,
+      activeId
+    );
     const targetIndices: number[] =
       target.indices && target.indices.length > 0
         ? target.indices
@@ -543,126 +633,35 @@ export function resolveCombat(state: GameState): GameState {
         ? [target.index]
         : [];
 
-    const shieldsToBreak: ShieldInstance[] = [];
-    for (const idx of targetIndices) {
-      const shield = defendingPlayer.shields[idx];
-      if (shield && !shield.isBroken && !shieldsToBreak.some((x) => x.id === shield.id)) {
-        shieldsToBreak.push(shield);
+    let nextState = breakOpponentShields(
+      { ...state, combatState: null },
+      activeId,
+      breakerCount,
+      {
+        attacker,
+        targetIndices,
+        trackTurboRushAttackerId: attacker.instanceId
       }
+    );
+
+    const shieldsAfter = nextState.players[defendingId].shields.filter((s) => !s.isBroken).length;
+    const brokenCount = shieldsBefore - shieldsAfter;
+
+    // Miracle Quest: draw N cards per shield broken when creature finishes attacking
+    const drawPerShield = nextState.players[activeId].tempDrawPerShieldBrokenOnAttack || 0;
+    if (brokenCount > 0 && drawPerShield > 0) {
+      nextState = drawCards(nextState, activeId, brokenCount * drawPerShield);
     }
 
-    for (const s of unbrokenShields) {
-      if (shieldsToBreak.length >= breakerCount) break;
-      if (!shieldsToBreak.some((x) => x.id === s.id)) {
-        shieldsToBreak.push(s);
-      }
-    }
-
-    const breakIds = new Set(shieldsToBreak.map((s) => s.id));
-    const nextShields = defendingPlayer.shields.filter((s) => !breakIds.has(s.id));
-
-    const brokenCards: CardInstance[] = shieldsToBreak.map((s) => ({
-      instanceId: s.id,
-      card: s.card,
-      owner: defendingId
-    }));
-
-    const currentBroken = state.players[activeId].shieldsBrokenThisTurn || [];
-    const updatedBroken = currentBroken.includes(attacker.instanceId)
-      ? currentBroken
-      : [...currentBroken, attacker.instanceId];
-
-    // Check Shield Burn replacement (e.g. Death Phoenix puts shields to graveyard instead of hand)
-    if (hasShieldBurnReplacement(attacker)) {
-      return {
-        ...state,
-        combatState: null,
-        players: {
-          ...state.players,
-          [activeId]: {
-            ...state.players[activeId],
-            shieldsBrokenThisTurn: updatedBroken
-          },
-          [defendingId]: {
-            ...defendingPlayer,
-            shields: nextShields,
-            graveyard: [...defendingPlayer.graveyard, ...brokenCards]
-          }
-        },
-        actionLog: [
-          ...state.actionLog,
-          `${attacker.card.name} burned ${shieldsToBreak.length} shield(s) into the graveyard: ${shieldsToBreak
-            .map((s) => s.card.name)
-            .join(', ')}.`
-        ]
-      };
-    }
-
-    const nextHand = [...defendingPlayer.hand, ...brokenCards];
-
-    const stateWithBrokenShields: GameState = {
-      ...state,
-      combatState: null,
-      players: {
-        ...state.players,
-        [activeId]: {
-          ...state.players[activeId],
-          shieldsBrokenThisTurn: updatedBroken
-        },
-        [defendingId]: {
-          ...defendingPlayer,
-          shields: nextShields,
-          hand: nextHand
-        }
-      },
-      actionLog: [
-        ...state.actionLog,
-        `${attacker.card.name} broke ${shieldsToBreak.length} shield(s): ${shieldsToBreak
-          .map((s) => s.card.name)
-          .join(', ')}.`
-      ]
-    };
-
-    // Shield Trigger detection
-    const triggerShields = shieldsToBreak.filter((s) => s.card.isShieldTrigger);
-
-    if (triggerShields.length > 0) {
-      const pendingInteraction: ShieldTriggerChoiceInteraction = {
-        type: 'SHIELD_TRIGGER_RESOLUTION',
-        player: defendingId,
-        shieldCards: brokenCards.filter((c) => c.card.isShieldTrigger),
-        triggers: triggerShields.map((s) => ({
-          shieldId: s.id,
-          card: s.card
-        }))
-      };
-
-      return {
-        ...stateWithBrokenShields,
-        pendingInteraction,
-        actionLog: [
-          ...stateWithBrokenShields.actionLog,
-          `Shield Trigger(s) detected: ${triggerShields
-            .map((s) => s.card.name)
-            .join(', ')}!`
-        ]
-      };
-    }
-
-    return stateWithBrokenShields;
+    return nextState;
   }
 
   return { ...state, combatState: null };
 }
 
 /**
- * Resolves a queued shield trigger card:
- * - If playTrigger is false: card remains in hand; trigger is removed from queue.
- * - If playTrigger is true: card is played for FREE (0 mana):
- *   - Spell: casts immediately with resolveSpellEffect, moves to graveyard (or mana zone if charger).
- *   - Creature: summoned immediately to battle zone without summoning sickness.
- * - When all triggers are resolved, pendingInteraction is cleared.
- * - Pure and immutable.
+ * Resolves a queued shield trigger card without clobbering follow-up Shield Triggers
+ * when the first Shield Trigger opens a TARGET_SELECTION, DECK_SEARCH, or OPTIONAL_CHOICE interaction.
  */
 export function resolveShieldTrigger(
   state: GameState,
@@ -718,13 +717,9 @@ export function resolveShieldTrigger(
   }
 
   // Case B: Player uses shield trigger: play for FREE (0 mana)
-  let handCardIndex = playerState.hand.findIndex(
-    (c) => c.instanceId === trigger.shieldId
-  );
+  let handCardIndex = playerState.hand.findIndex((c) => c.instanceId === trigger.shieldId);
   if (handCardIndex === -1) {
-    handCardIndex = playerState.hand.findIndex(
-      (c) => c.card.id === trigger.card.id
-    );
+    handCardIndex = playerState.hand.findIndex((c) => c.card.id === trigger.card.id);
   }
 
   const nextHand =
@@ -732,9 +727,14 @@ export function resolveShieldTrigger(
       ? playerState.hand.filter((_, idx) => idx !== handCardIndex)
       : playerState.hand;
 
+  const queuedWithRemaining = nextPending
+    ? [nextPending, ...(state.pendingTriggerQueue || [])]
+    : state.pendingTriggerQueue;
+
   const stateWithCardRemovedFromHand: GameState = {
     ...state,
-    pendingInteraction: nextPending,
+    pendingInteraction: null,
+    pendingTriggerQueue: queuedWithRemaining,
     players: {
       ...state.players,
       [player]: {
@@ -744,7 +744,7 @@ export function resolveShieldTrigger(
     }
   };
 
-  // If card is a Spell
+  // Spell Shield Trigger
   if (trigger.card.type === 'Spell') {
     const stateAfterEffect = resolveSpellEffect(
       stateWithCardRemovedFromHand,
@@ -756,35 +756,43 @@ export function resolveShieldTrigger(
     const isCharger = isChargerSpell(trigger.card);
     const curPlayerState = stateAfterEffect.players[player];
 
-    let nextPlayerState: PlayerState;
-    if (isCharger) {
-      nextPlayerState = {
-        ...curPlayerState,
-        manaZone: [
-          ...curPlayerState.manaZone,
-          {
-            instanceId: trigger.shieldId,
-            card: trigger.card,
-            isTapped: false
-          }
-        ]
-      };
-    } else {
-      nextPlayerState = {
-        ...curPlayerState,
-        graveyard: [
-          ...curPlayerState.graveyard,
-          {
-            instanceId: trigger.shieldId,
-            card: trigger.card,
-            owner: player
-          }
-        ]
-      };
+    const nextPlayerState: PlayerState = isCharger
+      ? {
+          ...curPlayerState,
+          manaZone: [
+            ...curPlayerState.manaZone,
+            {
+              instanceId: trigger.shieldId,
+              card: trigger.card,
+              isTapped: false
+            }
+          ]
+        }
+      : {
+          ...curPlayerState,
+          graveyard: [
+            ...curPlayerState.graveyard,
+            {
+              instanceId: trigger.shieldId,
+              card: trigger.card,
+              owner: player
+            }
+          ]
+        };
+
+    // If spell didn't open a new sub-interaction, pop next Shield Trigger batch right back into pendingInteraction
+    let finalPending = stateAfterEffect.pendingInteraction;
+    let finalQueue = stateAfterEffect.pendingTriggerQueue;
+    if (!finalPending && finalQueue && finalQueue.length > 0) {
+      const [head, ...rest] = finalQueue;
+      finalPending = head;
+      finalQueue = rest.length > 0 ? rest : undefined;
     }
 
     return {
       ...stateAfterEffect,
+      pendingInteraction: finalPending,
+      pendingTriggerQueue: finalQueue,
       players: {
         ...stateAfterEffect.players,
         [player]: nextPlayerState
@@ -796,17 +804,18 @@ export function resolveShieldTrigger(
     };
   }
 
-  // If card is a Creature
+  // Creature Shield Trigger: summoned on opponent's turn can attack on this player's next turn
+  const summonedTurn = player === state.activePlayer ? state.turn : state.turn - 1;
   const newCreature: CreatureInstance = {
     instanceId: trigger.shieldId,
     card: trigger.card,
     owner: player,
     isTapped: false,
-    summonedTurn: state.turn - 1, // Ignores summoning sickness
+    summonedTurn,
     powerModifier: 0
   };
 
-  let stateWithCreature: GameState = {
+  const stateWithCreature: GameState = {
     ...stateWithCardRemovedFromHand,
     players: {
       ...stateWithCardRemovedFromHand.players,
@@ -824,7 +833,19 @@ export function resolveShieldTrigger(
     ]
   };
 
-  return resolveCreatureCIPEffect(stateWithCreature, player, newCreature, targets);
+  const stateAfterCIP = resolveCreatureCIPEffect(stateWithCreature, player, newCreature, targets);
+
+  // If CIP opened no sub-interaction, immediately surface the queued follow-up Shield Trigger
+  if (!stateAfterCIP.pendingInteraction && stateAfterCIP.pendingTriggerQueue && stateAfterCIP.pendingTriggerQueue.length > 0) {
+    const [head, ...rest] = stateAfterCIP.pendingTriggerQueue;
+    return {
+      ...stateAfterCIP,
+      pendingInteraction: head,
+      pendingTriggerQueue: rest.length > 0 ? rest : undefined
+    };
+  }
+
+  return stateAfterCIP;
 }
 
 /**
@@ -833,31 +854,21 @@ export function resolveShieldTrigger(
  */
 export function hasMandatoryAttackers(state: GameState, playerId: PlayerId): boolean {
   const player = state.players[playerId];
-  const opponentId: PlayerId = playerId === 'player' ? 'opponent' : 'player';
-  const opponent = state.players[opponentId];
+  const forcedRaces = player.tempAttacksIfAbleRacesThisTurn || [];
 
   return player.battleZone.some((creature) => {
-    if (creature.isTapped) return false;
-    if (isSummoningSick(creature, state.turn, player.battleZone)) return false;
-
     const rules = creature.card.rulesText || '';
+    const hasForcedRace =
+      forcedRaces.length > 0 &&
+      (creature.card.races || []).some((r) => forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, '')));
+
     const isMandatory =
       creature.card.id === 'DM01-074' ||
+      Boolean(creature.tempAttacksIfAble) ||
+      hasForcedRace ||
       /attacks each turn if able/i.test(rules);
-
     if (!isMandatory) return false;
 
-    const canAttackShields = opponent.shields.some((s) => !s.isBroken);
-    const canAttackPlayer = !canAttackShields;
-    const canAttackCreature = opponent.battleZone.some((c) => c.isTapped || canCreatureAttackUntapped(creature, c));
-
-    if (/this creature can't attack players/i.test(rules)) {
-      return canAttackCreature;
-    }
-    if (/this creature can't attack(?!\s+players)/i.test(rules)) {
-      return false;
-    }
-
-    return canAttackShields || canAttackPlayer || canAttackCreature;
+    return canCreatureAttack(state, creature, undefined, playerId).valid;
   });
 }

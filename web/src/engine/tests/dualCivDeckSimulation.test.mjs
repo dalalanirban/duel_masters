@@ -18,12 +18,17 @@ assert.ok(SOUL_PHOENIX_DECK, 'Soul Phoenix deck must exist in presets');
  * 2. Power and modifier numerical validity.
  * 3. Multi-civ mana tapping invariants.
  */
+function countStack(cards) {
+  if (!cards || cards.length === 0) return 0;
+  return cards.reduce((s, item) => s + 1 + countStack(item.evolvedOn), 0);
+}
+
 function assertDualCivInvariants(state, stepIndex) {
   for (const pid of ['player', 'opponent']) {
     const p = state.players[pid];
 
     const battleZoneCards = p.battleZone.reduce(
-      (sum, c) => sum + 1 + (c.evolvedOn ? c.evolvedOn.length : 0),
+      (sum, c) => sum + 1 + countStack(c.evolvedOn),
       0
     );
 

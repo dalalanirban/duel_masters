@@ -51,12 +51,17 @@ function generateRandomTournamentDeck(seed = 1) {
  * 3. No NaN power, mana, or shield state.
  * 4. No unhandled fatal errors in actionLog.
  */
+function countEvoStack(cards) {
+  if (!cards || cards.length === 0) return 0;
+  return cards.reduce((s, item) => s + 1 + countEvoStack(item.evolvedOn), 0);
+}
+
 function assertEngineInvariants(state) {
   for (const pid of ['player', 'opponent']) {
     const p = state.players[pid];
 
     const battleZoneCards = p.battleZone.reduce(
-      (sum, c) => sum + 1 + (c.evolvedOn ? c.evolvedOn.length : 0),
+      (sum, c) => sum + 1 + countEvoStack(c.evolvedOn),
       0
     );
 

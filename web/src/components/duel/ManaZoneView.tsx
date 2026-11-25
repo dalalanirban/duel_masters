@@ -85,7 +85,9 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
         {manaZone.map((manaCard) => {
           const card = manaCard.card;
           const isTapped = manaCard.isTapped;
+          const isSpent = Boolean(manaCard.isSpent);
           const isPlayer = owner === 'player';
+          const isLockedSpent = isPlayer && isTapped && isSpent;
           const imageSrc = card.imageAssetPath
             ? `/${card.imageAssetPath}`
             : card.imageUrl;
@@ -108,6 +110,10 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
                   onInspectCard?.(card);
                   return;
                 }
+                if (isLockedSpent) {
+                  onToggleManaTap(manaCard.instanceId, false);
+                  return;
+                }
                 isDraggingRef.current = true;
                 const nextState = !manaCard.isTapped;
                 targetTapRef.current = nextState;
@@ -115,14 +121,20 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
               }}
               onPointerEnter={() => {
                 onHoverCard?.(card);
-                if (isOpponent || !onToggleManaTap || !isDraggingRef.current) return;
+                if (isOpponent || !onToggleManaTap || !isDraggingRef.current || isLockedSpent) return;
                 onToggleManaTap(manaCard.instanceId, targetTapRef.current);
               }}
-              className={`relative shrink-0 ${cardDimensions} rounded-xs sm:rounded-sm overflow-hidden border transition-transform duration-150 cursor-pointer ${rotationStyle}`}
+              className={`relative shrink-0 ${cardDimensions} rounded-xs sm:rounded-sm overflow-hidden border transition-transform duration-150 ${
+                isLockedSpent ? 'cursor-not-allowed' : 'cursor-pointer'
+              } ${rotationStyle}`}
               title={
                 isPlayer
                   ? `${card.name} (${card.civilizations.join('/')}) - ${
-                      isTapped ? 'Tapped (Click to untap)' : 'Ready (Click or drag to tap)'
+                      isLockedSpent
+                        ? 'Spent this turn (Locked until start of turn)'
+                        : isTapped
+                        ? 'Staged Mana (Click to untap)'
+                        : 'Ready (Click or drag to tap)'
                     }`
                   : `${card.name} (${card.civilizations.join('/')}) - ${
                       isTapped ? 'Tapped' : 'Ready'
@@ -144,11 +156,17 @@ export const ManaZoneView: React.FC<ManaZoneViewProps> = ({
                 <CivilizationIcon civilization={card.civilizations[0]} className="w-2.5 h-2.5" />
               </div>
 
-              {/* Tap Indicator Pill for Player Mana */}
+              {/* Tap / Lock Indicator Pill for Player Mana */}
               {isPlayer && isTapped && (
-                <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
-                  <span className="text-[8px] font-mono font-bold text-slate-300 px-1 py-0.2 rounded bg-slate-900/80 border border-slate-700/60">
-                    TAP
+                <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center">
+                  <span
+                    className={`text-[7px] font-mono font-bold px-1 py-0.2 rounded border ${
+                      isSpent
+                        ? 'text-slate-300 bg-slate-900/90 border-slate-600/80'
+                        : 'text-amber-300 bg-amber-950/90 border-amber-500/60'
+                    }`}
+                  >
+                    {isSpent ? 'LOCK' : 'STAGED'}
                   </span>
                 </div>
               )}

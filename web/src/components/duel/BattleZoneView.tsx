@@ -15,9 +15,12 @@ import {
   getCreatureEffectivePower,
   hasCreatureBlocker,
   hasCreatureSlayer,
-  hasCreatureSpeedAttacker
+  hasCreatureSpeedAttacker,
+  canCreatureAttackUntapped,
+  canCreatureBeAttackedBy,
+  isCreatureSummoningSick
 } from '../../engine/combat';
-import { isSummoningSick } from '../../engine/evolution';
+import { hasTapAbility } from '../../engine/tapAbilities';
 
 interface BattleZoneViewProps {
   battleZone: CreatureInstance[];
@@ -100,31 +103,65 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
       {battleZone.map((creature) => {
         const card = creature.card;
         const isTapped = creature.isTapped;
-        const sick = isSummoningSick(creature, turn, battleZone);
+        const sick = isCreatureSummoningSick(creature, turn, battleZone, undefined, owner);
         const isAttacker = selectedAttackerId === creature.instanceId || combatAttackerId === creature.instanceId;
-        const friendlyState = playerState || ({ battleZone } as any);
-        const oppState = opponentState || ({ battleZone: opponentBattleZone || [] } as any);
-        const effectivePower = getCreatureEffectivePower(creature, isAttacker, friendlyState, oppState);
-        const isBlocker = hasCreatureBlocker(creature, battleZone);
-        const isSlayer = hasCreatureSlayer(creature, battleZone);
-        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone);
+        const friendlyState = playerState || ({ battleZone } as PlayerState);
+        const oppState = opponentState || ({ battleZone: opponentBattleZone || [] } as PlayerState);
+        const oppBZ = opponentBattleZone || oppState.battleZone || [];
+        const isOpponentsTurn = activePlayer !== owner;
+        const effectivePower = getCreatureEffectivePower(creature, isAttacker, friendlyState, oppState, isOpponentsTurn);
+        const isBlocker = hasCreatureBlocker(creature, battleZone, oppBZ, friendlyState);
+        const isSlayer = hasCreatureSlayer(creature, battleZone, oppBZ, friendlyState);
+        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone, undefined, owner);
+        const countStack = (items?: typeof creature.evolvedOn): number =>
+          !items || items.length === 0
+            ? 0
+            : items.reduce((s, it) => s + 1 + countStack(it.evolvedOn), 0);
         const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
-        const underlyingCount = creature.evolvedOn ? creature.evolvedOn.length : 0;
+        const underlyingCount = countStack(creature.evolvedOn);
 
-        // Attack eligibility
+        // Attack eligibility (respects Nariel, can't attack, summoning sickness)
+        const rulesLower = (card.rulesText || '').toLowerCase();
+        const cantAttack = /this creature can't attack(?!\s+players)/i.test(rulesLower) || Boolean(creature.tempCantAttack);
+        const narielBlocks = [...battleZone, ...oppBZ].some((c) => c.card.name.toLowerCase().includes('nariel')) && effectivePower >= 3000;
+        const canTapAbility =
+          !isOpponent &&
+          isPlayerTurn &&
+          phase === 'ATTACK' &&
+          !isTapped &&
+          (!sick || Boolean(friendlyState.tempIgnoreAttackPrevention)) &&
+          !cantAttack &&
+          hasTapAbility(card);
         const canAttack =
           !isOpponent &&
           isPlayerTurn &&
           (phase === 'MAIN' || phase === 'ATTACK') &&
           !isTapped &&
-          !sick;
+          (!sick || Boolean(friendlyState.tempIgnoreAttackPrevention)) &&
+          !cantAttack &&
+          !narielBlocks;
+        const canActivateAction = canAttack || canTapAbility;
 
-        // Targetable by current attacker
+        // Targetable by current attacker (supports untapped attackers & respects immunity)
+        const currentAttacker =
+          isOpponent && selectedAttackerId
+            ? oppBZ.find((c) => c.instanceId === selectedAttackerId)
+            : undefined;
         const canBeAttacked =
           isOpponent &&
           isPlayerTurn &&
-          selectedAttackerId !== null &&
-          isTapped;
+          Boolean(currentAttacker) &&
+          canCreatureBeAttackedBy(creature, currentAttacker!).allowed &&
+          (isTapped ||
+            canCreatureAttackUntapped(
+              currentAttacker!,
+              creature,
+              oppBZ,
+              battleZone,
+              undefined,
+              oppState,
+              friendlyState
+            ));
 
         // Bait eligibility
         const isBaitCandidate =
@@ -175,7 +212,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
             return;
           }
 
-          if (canAttack && onSelectAttacker) {
+          if (canActivateAction && onSelectAttacker) {
             onSelectAttacker(creature.instanceId);
             return;
           }
@@ -280,6 +317,14 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 <div className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black font-cinzel tracking-wider animate-pulse flex items-center gap-0.5">
                   <Swords className="w-2.5 h-2.5" />
                   <span>ATK</span>
+                </div>
+              ) : canTapAbility && canAttack ? (
+                <div className="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-emerald-500/95 to-violet-500/95 text-white text-[7px] font-bold font-mono">
+                  ATK / $TAP
+                </div>
+              ) : canTapAbility ? (
+                <div className="px-1.5 py-0.2 rounded-full bg-violet-500/95 text-white text-[8px] font-bold font-mono">
+                  $TAP
                 </div>
               ) : canAttack ? (
                 <div className="px-1.5 py-0.2 rounded-full bg-emerald-500/90 text-slate-950 text-[8px] font-bold font-mono">

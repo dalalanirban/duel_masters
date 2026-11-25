@@ -57,9 +57,9 @@ cp backend/.env.example backend/.env
 
 The server starts on `http://localhost:8080` by default.
 
-## Web Application (Card Explorer & Deck Builder)
+## Web Application (Card Explorer, Deck Builder & AI Duel Arena)
 
-A modern, fast web application built with **React**, **TypeScript**, **Vite**, and **Tailwind CSS**.
+A modern web application built with **React**, **TypeScript**, **Vite**, and **Tailwind CSS**, powered by a modular pure-TypeScript Duel Masters rules engine.
 
 ```bash
 cd web
@@ -68,14 +68,16 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- **120 Cards from DM-01 Base Set** with authentic procedural card frames.
-- **Search & Multi-Filter:** Filter by Civilization, Cost, Power, Type, and Keywords (Blocker, Shield Trigger, Slayer, etc.).
-- **Tournament Deck Builder:** Strict 40-card limit, 4-copy rule, live Mana Curve, and Civilization breakdown.
-- **Opening Hand & Shield Simulator:** Deal 5 face-down Shields and 5 Starting Hand cards to test your curve.
-- **Presets:** Pre-loaded with Shobu Beatdown, Kokujo Control, and Hakuoh Stall.
+- **900 Cards across 12 Sets (DM-01 through DM-12)** with localized scan assets, Search, and multi-filter Explorer (Civilization, Cost, Power, Type, Race, Keywords).
+- **Tournament Deck Builder:** Strict 40-card limit, 4-copy rule, Mana Curve, Civilization breakdown, and ready-made dual-civ/mechanics preset decks.
+- **Full Rules Engine & Interactive Duel Arena:** Manual mana staging/locking, dual-civ & Vortex Evolution (including nested stack separation), Wave Striker, Turbo Rush, Silent Skill start-of-turn choices, all 41 `$tap` abilities (`Attack` vs `$tap`), and 6-zone/optional effect prompts.
+- **Verification Suites:**
+  - Engine & Simulation Tests (`357` tests / `105` suites): `node --test web/src/engine/tests/*.test.mjs`
+  - TypeScript & Production Build: `npm --prefix web run build`
 
 ## Documentation
 
+- [Rules Engine & Interactive UI Architecture](docs/RULES_ENGINE_ARCHITECTURE.md)
 - [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md)
 - [Web-First Architecture & Strategy](docs/WEB_FIRST_STRATEGY.md)
 - [Card Sets Knowledge & Database Roadmap](docs/CARD_SETS_AND_DATABASE_ROADMAP.md)
@@ -84,8 +86,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Development roadmap
 
-- [ ] Core card game rules engine
-- [ ] Local single-player vs AI
+- [x] Core card game rules engine (DM-01–DM-12)
+- [x] Local single-player Duel Arena vs AI
 - [ ] Room persistence for decks and match history
 - [ ] Online matchmaking and real-time sync via Ktor WebSockets
 - [ ] PostgreSQL-backed player accounts and rankings

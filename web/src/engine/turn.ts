@@ -1,41 +1,35 @@
-import type { GameState, PlayerId, CreatureInstance } from './types';
-import { autoResolveAiSilentSkills } from './advancedMechanics.ts';
-import { isSurvivor, getSurvivorSharedAbilities } from './effects.ts';
+import type { GameState, PlayerId } from './types.ts';
+import { getCardCapabilities, getOpponentId } from './cardUtils.ts';
+import { autoResolveAiSilentSkillsDetailed, hasSilentSkill } from './advancedMechanics.ts';
+import { enqueueInteraction } from './interactionHelpers.ts';
+import { triggerEndTurn } from './triggers.ts';
 
-/**
- * Handles the start-of-turn procedure for the active player:
- * 1. Untaps all cards in the active player's mana zone and battle zone.
- * 2. Resets active player's manaChargedThisTurn to false.
- * 3. Advances to DRAW phase and performs card draw:
- *    - Turn 1 Player 1 skips draw step.
- *    - Turn 1 Player 2 and all subsequent turns draw 1 card from deck.
- *    - If deck is empty when drawing, active player loses immediately (deck-out).
- * 4. Advances to MANA_CHARGE phase (unless game has already ended due to deck-out).
- */
-export function startTurn(state: GameState): GameState {
-  if (state.winner !== null) {
-    return state;
-  }
-
-  const activeId = state.activePlayer;
-  const opponentId: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-
-  // 0. Auto-resolve Silent Skills for AI or automated turns
-  let preState = state;
-  if (activeId === 'opponent') {
-    preState = autoResolveAiSilentSkills(preState, activeId);
-  }
+function performStartTurnUntapAndDraw(
+  preState: GameState,
+  keptTappedIds: Set<string>
+): GameState {
+  const activeId = preState.activePlayer;
+  const opponentId: PlayerId = getOpponentId(activeId);
   const curActivePlayer = preState.players[activeId];
 
-  // 1. Untap step: Untap active player's mana zone and battle zone creatures (except those kept tapped for Silent Skill)
-  const untappedManaZone = curActivePlayer.manaZone.map((card) => ({
-    ...card,
-    isTapped: false
-  }));
+  // Check Terradragon Cusdalf ("You can't untap the cards in your mana zone at the start of each of your turns.")
+  const hasCusdalf = curActivePlayer.battleZone.some((c) =>
+    getCardCapabilities(c.card).nameLower.includes('cusdalf')
+  );
+  // Check Warped Lunatron ("Creatures in the battle zone don't untap at the start of each player's turn.")
+  const hasWarpedLunatron = [
+    ...preState.players.player.battleZone,
+    ...preState.players.opponent.battleZone
+  ].some((c) => getCardCapabilities(c.card).nameLower.includes('warped lunatron'));
+
+  const untappedManaZone = curActivePlayer.manaZone.map((card) =>
+    hasCusdalf
+      ? { ...card, isStaged: false, isSpent: card.isTapped ? (card.isSpent ?? true) : false }
+      : { ...card, isTapped: false, isSpent: false, isStaged: false }
+  );
 
   const untappedBattleZone = curActivePlayer.battleZone.map((creature) => {
-    // If creature already used Silent Skill this turn, keep it tapped
-    if (activeId === 'opponent' && creature.isTapped && /silent skill/i.test(creature.card.rulesText || '')) {
+    if (keptTappedIds.has(creature.instanceId) || hasWarpedLunatron) {
       return creature;
     }
     return {
@@ -51,35 +45,42 @@ export function startTurn(state: GameState): GameState {
     manaChargedThisTurn: false
   };
 
-  const actionLogs = [
-    ...preState.actionLog,
-    `Turn ${preState.turn}: Start of ${activeId}'s turn. Untapped cards in mana and battle zones.`
-  ];
+  const actionLogs = [...preState.actionLog];
+  if (hasCusdalf) {
+    actionLogs.push(
+      `Turn ${preState.turn}: Terradragon Cusdalf prevented ${activeId}'s mana zone from untapping.`
+    );
+  } else {
+    actionLogs.push(`Turn ${preState.turn}: Start of ${activeId}'s turn. Untapped cards cleanly.`);
+  }
+  if (hasWarpedLunatron) {
+    actionLogs.push(`Warped Lunatron prevented battle zone creatures from untapping.`);
+  }
 
-  // 2. Draw step
-  const isTurn1Player1 = state.turn === 1 && activeId === 'player';
+  // 2. Draw step (respecting startingPlayer on Turn 1)
+  const startingPlayer = preState.startingPlayer || 'player';
+  const isTurn1StartingPlayer = preState.turn === 1 && activeId === startingPlayer;
 
-  if (isTurn1Player1) {
+  if (isTurn1StartingPlayer) {
     actionLogs.push(`Turn 1: ${activeId} skips the draw step.`);
   } else {
-    // Check deck-out condition
     if (newPlayerState.deck.length === 0) {
       actionLogs.push(
         `${activeId} cannot draw from an empty deck! ${opponentId} wins the duel by deck-out.`
       );
       return {
-        ...state,
+        ...preState,
         phase: 'DRAW',
         winner: opponentId,
+        pendingKeptSilentIds: undefined,
         players: {
-          ...state.players,
+          ...preState.players,
           [activeId]: newPlayerState
         },
         actionLog: actionLogs
       };
     }
 
-    // Draw 1 card from deck to hand
     const [drawnCard, ...remainingDeck] = newPlayerState.deck;
     newPlayerState = {
       ...newPlayerState,
@@ -89,14 +90,15 @@ export function startTurn(state: GameState): GameState {
     actionLogs.push(`${activeId} drew a card.`);
   }
 
-  // 3. Advance to MANA_CHARGE phase
+  // 3. Advance to MANA_CHARGE phase (always spreading preState so Silent Skill changes persist!)
   actionLogs.push(`${activeId} entered MANA_CHARGE phase.`);
 
   return {
-    ...state,
+    ...preState,
     phase: 'MANA_CHARGE',
+    pendingKeptSilentIds: undefined,
     players: {
-      ...state.players,
+      ...preState.players,
       [activeId]: newPlayerState
     },
     actionLog: actionLogs
@@ -104,10 +106,87 @@ export function startTurn(state: GameState): GameState {
 }
 
 /**
+ * Completes the human start-of-turn untap and draw steps after all Silent Skill choices are made.
+ */
+export function completeHumanSilentSkills(
+  state: GameState,
+  keptTappedIdsList: string[]
+): GameState {
+  if (Boolean(state.winner)) return state;
+  return performStartTurnUntapAndDraw(state, new Set(keptTappedIdsList));
+}
+
+/**
+ * Handles the start-of-turn procedure for the active player:
+ * 1. Expires any "until the start of your next turn" player modifiers cast by this player on their prior turn.
+ * 2. Evaluates AI Silent Skills OR prompts human player for Silent Skill choices before untapping.
+ * 3. Untaps mana zone (unless Terradragon Cusdalf blocks it) & BZ creatures (unless kept / Warped Lunatron).
+ * 4. Advances to DRAW -> MANA_CHARGE phase.
+ */
+export function startTurn(state: GameState): GameState {
+  if (Boolean(state.winner)) {
+    return state;
+  }
+
+  const activeId = state.activePlayer;
+
+  // 0. Clear "until the start of your next turn" modifiers created on this player's previous turn
+  let preState: GameState = {
+    ...state,
+    pendingKeptSilentIds: undefined,
+    players: {
+      ...state.players,
+      [activeId]: {
+        ...state.players[activeId],
+        tempAllBlockersUntilNextTurn: undefined,
+        tempRaceBlockersUntilNextTurn: undefined,
+        tempProtectedFromAttackCivs: undefined,
+        tempForceAllAttacksUntilNextTurn: undefined
+      }
+    }
+  };
+
+  // 0b. Evaluate Silent Skills before the untap step
+  let keptTappedIds = new Set<string>();
+  if (activeId === 'opponent') {
+    const silentRes = autoResolveAiSilentSkillsDetailed(preState, activeId);
+    preState = silentRes.state;
+    keptTappedIds = silentRes.keptTappedIds;
+    if (Boolean(preState.winner)) {
+      return preState;
+    }
+  } else if (activeId === 'player' && preState.interactiveHuman) {
+    const silentCandidates = preState.players.player.battleZone.filter(
+      (c) => c.isTapped && hasSilentSkill(c.card)
+    );
+    if (silentCandidates.length > 0) {
+      const [first, ...rest] = silentCandidates;
+      return enqueueInteraction(
+        {
+          ...preState,
+          phase: 'START_OF_TURN',
+          pendingKeptSilentIds: []
+        },
+        {
+          type: 'SILENT_SKILL_CHOICE',
+          player: 'player',
+          creatureInstanceId: first.instanceId,
+          card: first.card,
+          remainingCreatureIds: rest.map((c) => c.instanceId),
+          keptTappedIds: []
+        }
+      );
+    }
+  }
+
+  return performStartTurnUntapAndDraw(preState, keptTappedIds);
+}
+
+/**
  * Transitions phase from MANA_CHARGE to MAIN phase.
  */
 export function passToMainPhase(state: GameState): GameState {
-  if (state.winner !== null) {
+  if (Boolean(state.winner)) {
     return state;
   }
 
@@ -119,86 +198,73 @@ export function passToMainPhase(state: GameState): GameState {
 }
 
 /**
- * Ends the active player's turn:
- * - Switches active player ('player' -> 'opponent' or 'opponent' -> 'player').
- * - Increments turn count when turn passes back to 'player'.
- * - Cleans up lingering combat/interaction states.
- * - Automatically invokes startTurn for the new active player.
+ * Completes the turn handoff and calls `startTurn` for the next player after EOT triggers finish.
  */
-export function endTurn(state: GameState): GameState {
-  if (state.winner !== null) {
-    return state;
+export function finalizeEndTurn(afterEotState: GameState): GameState {
+  if (Boolean(afterEotState.winner)) {
+    return afterEotState;
   }
 
-  const activeId = state.activePlayer;
-  const nextPlayer: PlayerId = activeId === 'player' ? 'opponent' : 'player';
-  const nextTurn = activeId === 'opponent' ? state.turn + 1 : state.turn;
-
-  // 1. End-of-turn untap triggers for active player's creatures (including Survivor Ballus, Dogfight Enforcer Q)
-  const untapLogs: string[] = [];
-  const survivorAbilities = getSurvivorSharedAbilities(state.players[activeId].battleZone);
-  const updatedActiveBZ = state.players[activeId].battleZone.map((creature) => {
-    const rules = creature.card.rulesText || '';
-    const nameLower = creature.card.name.toLowerCase();
-    const hasSurvivorUntap = isSurvivor(creature.card) && survivorAbilities.hasUntapAtEndTurn;
-
-    const hasUntapVigilance =
-      hasSurvivorUntap ||
-      nameLower.includes('urth') ||
-      nameLower.includes('frei') ||
-      nameLower.includes('ruby grass') ||
-      nameLower.includes('ballus') ||
-      nameLower.includes('betrale') ||
-      nameLower.includes('lukia lex') ||
-      nameLower.includes('nial') ||
-      /at the end of (?:each of )?your turns?,? (?:you may )?untap this creature/i.test(rules);
-
-    if (creature.isTapped && hasUntapVigilance) {
-      const source = hasSurvivorUntap && !nameLower.includes('ballus')
-        ? ' (Survivor ability: Ballus, Dogfight Enforcer Q)'
-        : '';
-      untapLogs.push(`${creature.card.name} untapped at the end of the turn${source}.`);
-      return { ...creature, isTapped: false };
-    }
-    return creature;
-  });
-
-  // 2. Reset temporary power attacker bonuses and power modifiers for all creatures in both battle zones
-  const resetBZ = (bz: CreatureInstance[]) =>
-    bz.map((c) => ({
-      ...c,
-      tempPowerAttackerBonus: 0,
-      powerModifier: 0
-    }));
+  const activeId = afterEotState.activePlayer;
+  const startingPlayer = afterEotState.startingPlayer || 'player';
+  const nextPlayer: PlayerId = getOpponentId(activeId);
+  const nextTurn = nextPlayer === startingPlayer ? afterEotState.turn + 1 : afterEotState.turn;
 
   const intermediatePlayers = {
-    ...state.players,
+    ...afterEotState.players,
     [activeId]: {
-      ...state.players[activeId],
-      battleZone: resetBZ(updatedActiveBZ),
+      ...afterEotState.players[activeId],
       shieldsBrokenThisTurn: []
     },
     [nextPlayer]: {
-      ...state.players[nextPlayer],
-      battleZone: resetBZ(state.players[nextPlayer].battleZone),
+      ...afterEotState.players[nextPlayer],
       shieldsBrokenThisTurn: []
     }
   };
 
   const intermediateState: GameState = {
-    ...state,
+    ...afterEotState,
     turn: nextTurn,
     activePlayer: nextPlayer,
     phase: 'END_OF_TURN',
     combatState: null,
     pendingInteraction: null,
+    pendingTriggerQueue: undefined,
     players: intermediatePlayers,
-    actionLog: [
-      ...state.actionLog,
-      ...untapLogs,
-      `${activeId} ended their turn.`
-    ]
+    actionLog: [...afterEotState.actionLog, `${activeId} ended their turn.`]
   };
 
   return startTurn(intermediateState);
+}
+
+/**
+ * Ends the active player's turn:
+ * - Fires all end-of-turn triggers & temporary cleanup via `triggers.triggerEndTurn`.
+ * - If an interactive EOT Untap choice was raised for player, defers `finalizeEndTurn` until answered.
+ */
+export function endTurn(state: GameState): GameState {
+  if (Boolean(state.winner)) {
+    return state;
+  }
+
+  const activeId = state.activePlayer;
+  const afterEotState = triggerEndTurn(state, activeId);
+  if (Boolean(afterEotState.winner)) {
+    return afterEotState;
+  }
+
+  if (
+    afterEotState.pendingInteraction?.type === 'OPTIONAL_CHOICE' &&
+    afterEotState.pendingInteraction.effectType === 'UNTAP_ALL_EOT'
+  ) {
+    return {
+      ...afterEotState,
+      pendingInteraction: {
+        ...afterEotState.pendingInteraction,
+        followUpAction: { kind: 'COMPLETE_END_TURN' }
+      }
+    };
+  }
+
+  return finalizeEndTurn(afterEotState);
 }

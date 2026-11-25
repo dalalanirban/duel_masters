@@ -2,13 +2,21 @@
 
 ## Overview
 
-This repository is a monorepo for the Duel Masters Android game and its online multiplayer backend.
+This repository is a monorepo containing the active Web client & Duel Masters rules engine (`web/`), the Android Jetpack Compose client (`app/`), and the online multiplayer backend (`backend/`).
 
 ```
+Web Client (React/TS) ──► Pure-TS Rules Engine (DM-01–DM-12) & AI Agent
 Android App (Compose)  <--REST/WebSocket-->  Ktor Backend  -->  PostgreSQL
         |
      Room DB (local decks, offline cache)
 ```
+
+## Web client & Rules Engine (`web/`)
+
+- **UI**: React 18, TypeScript, Tailwind CSS, Vite (`web/src/components/duel/` for Battle Zone, Mana Zone, Hand, Shields, Card Inspector, and interactive `ZoneSelectionModal` / `SilentSkillModal` / `OptionalChoiceModal` / `DeckSearchModal`)
+- **Rules Engine**: Modular, acyclic TypeScript engine in `web/src/engine/` covering 900 cards across 12 sets — see [RULES_ENGINE_ARCHITECTURE.md](RULES_ENGINE_ARCHITECTURE.md)
+- **Verification**: Verified via `node --test web/src/engine/tests/*.test.mjs` and `npm --prefix web run build`
+- **Knowledge Graph**: Indexed via Graphify (`graphify-out/`, `.graphifyignore`, git hooks)
 
 ## Android client (`app/`)
 
