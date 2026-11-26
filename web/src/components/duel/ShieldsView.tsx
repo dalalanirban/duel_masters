@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Crosshair, Skull } from 'lucide-react';
 import type { ShieldInstance, AttackTarget, PlayerId } from '../../engine/types';
 
@@ -30,6 +30,23 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
 }) => {
   const isOpponent = owner === 'opponent';
   const cardDimensions = 'w-9 h-13 sm:w-10 sm:h-14 md:w-11 md:h-15.5 aspect-[491/682]';
+
+  const prevBrokenRef = useRef<Set<string>>(new Set(shields.filter((s) => s.isBroken).map((s) => s.id)));
+  const [justBrokenIds, setJustBrokenIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newlyBroken = shields
+      .filter((s) => s.isBroken && !prevBrokenRef.current.has(s.id))
+      .map((s) => s.id);
+    prevBrokenRef.current = new Set(shields.filter((s) => s.isBroken).map((s) => s.id));
+
+    if (newlyBroken.length > 0) {
+      setJustBrokenIds((prev) => [...prev, ...newlyBroken]);
+      setTimeout(() => {
+        setJustBrokenIds((prev) => prev.filter((id) => !newlyBroken.includes(id)));
+      }, 1200);
+    }
+  }, [shields]);
 
   // If opponent has 0 unbroken shields and canDirectAttack is active:
   // Render the entire shield zone as a clickable Final Blow Direct Attack target!
@@ -70,10 +87,15 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
         const isClickable = canTargetShields && isOpponent && !isBroken;
 
         if (isBroken) {
+          const isJustBroken = justBrokenIds.includes(shield.id);
           return (
             <div
               key={shield.id || `empty-${index}`}
-              className={`${cardDimensions} rounded-md border border-dashed border-cyan-900/30 bg-cyan-950/10 flex items-center justify-center p-0.5 transition-opacity opacity-25`}
+              className={`${cardDimensions} rounded-md border flex items-center justify-center p-0.5 transition-opacity ${
+                isJustBroken
+                  ? 'animate-shield-break border-red-400/90 bg-red-950/60'
+                  : 'border-dashed border-cyan-900/30 bg-cyan-950/10 opacity-25'
+              }`}
               title="Shattered Shield"
             >
               {/* Dissipated Shield Silhouette */}

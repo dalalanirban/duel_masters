@@ -35,3 +35,117 @@
 .animate-fade-in {
   animation: fadeIn 0.15s ease-out forwards;
 }
+
+@keyframes bzLogFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+}
+
+.animate-bz-log {
+  animation: bzLogFade 2.6s ease-out forwards;
+}
+
+@keyframes spellSpotlight {
+  0% {
+    opacity: 0;
+    transform: scale(0.75) translateY(12px);
+    filter: brightness(1.3);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.06) translateY(0);
+    filter: brightness(1.1);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+    filter: brightness(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.14) translateY(-14px);
+    filter: brightness(1.2);
+  }
+}
+
+.animate-spell-spotlight {
+  animation: spellSpotlight 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes shieldBreak {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1.4);
+  }
+  25% {
+    opacity: 0.95;
+    transform: scale(1.1) rotate(-6deg);
+    filter: brightness(1.8) drop-shadow(0 0 12px rgba(239, 68, 68, 0.9));
+  }
+  60% {
+    opacity: 0.6;
+    transform: scale(0.9) rotate(8deg) translateY(-6px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.45) rotate(14deg) translateY(-16px);
+  }
+}
+
+.animate-shield-break {
+  animation: shieldBreak 1.2s ease-out forwards;
+}
+
+@keyframes cardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.82);
+    filter: brightness(1.6) drop-shadow(0 0 14px rgba(251, 191, 36, 0.85));
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.06);
+    filter: brightness(1.25) drop-shadow(0 0 10px rgba(251, 191, 36, 0.5));
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+.animate-card-enter {
+  animation: cardEnter 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cardAttack {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-12px) scale(1.1);
+    filter: drop-shadow(0 0 14px rgba(239, 68, 68, 0.9));
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-attack {
+  animation: cardAttack 1.0s ease-out;
+}

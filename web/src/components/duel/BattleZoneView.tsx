@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Shield,
   Zap,
@@ -79,6 +79,23 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
 }) => {
   const isOpponent = owner === 'opponent';
   const isPlayerTurn = activePlayer === 'player';
+
+  const prevIdsRef = useRef<Set<string>>(new Set(battleZone.map((c) => c.instanceId)));
+  const [enteringIds, setEnteringIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newIds = battleZone
+      .map((c) => c.instanceId)
+      .filter((id) => !prevIdsRef.current.has(id));
+    prevIdsRef.current = new Set(battleZone.map((c) => c.instanceId));
+
+    if (newIds.length > 0) {
+      setEnteringIds((prev) => [...prev, ...newIds]);
+      setTimeout(() => {
+        setEnteringIds((prev) => prev.filter((id) => !newIds.includes(id)));
+      }, 1100);
+    }
+  }, [battleZone]);
 
   if (battleZone.length === 0) {
     return (
@@ -228,7 +245,9 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
               onHoverCard?.(card);
             }}
             onMouseLeave={() => onHoverCard?.(null)}
-            className={`relative shrink-0 w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
+            className={`relative shrink-0 w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden transition-all duration-500 cursor-pointer shadow-lg group ${
+              enteringIds.includes(creature.instanceId) ? 'animate-card-enter' : ''
+            } ${combatAttackerId === creature.instanceId ? 'animate-card-attack' : ''} ${
               isTapped ? 'rotate-90 scale-90' : ''
             } ${
               isAttacker

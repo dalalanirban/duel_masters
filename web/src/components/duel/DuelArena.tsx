@@ -1,4 +1,4 @@
-import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useReducer, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sparkles, Swords, Shield, Zap, X } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
@@ -21,6 +21,8 @@ import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
 import { BattleZoneView } from './BattleZoneView';
+import { BattlezoneOverlay, type SpellSpotlightState } from './BattlezoneOverlay';
+import { toActiveVoiceLog, type BattlezoneLogEntry } from './activeVoiceLog';
 import { HandView } from './HandView';
 import { TriggerModal } from './TriggerModal';
 import { BlockerModal } from './BlockerModal';
@@ -91,6 +93,75 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
+  const [bzLogs, setBzLogs] = useState<BattlezoneLogEntry[]>([]);
+  const [spellSpotlight, setSpellSpotlight] = useState<SpellSpotlightState | null>(null);
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const prevLogLengthRef = useRef<number>(state.actionLog.length);
+
+  // Watch actionLog for battlezone feed, spell spotlight, and AI pacing
+  useEffect(() => {
+    const prevLen = prevLogLengthRef.current;
+    const currLen = state.actionLog.length;
+    if (currLen <= prevLen) {
+      prevLogLengthRef.current = currLen;
+      return;
+    }
+
+    const newLines = state.actionLog.slice(prevLen);
+    prevLogLengthRef.current = currLen;
+
+    let maxAnimMs = 0;
+    const addedEntries: BattlezoneLogEntry[] = [];
+
+    newLines.forEach((line, idx) => {
+      const actor: 'player' | 'opponent' = /^opponent\b/i.test(line)
+        ? 'opponent'
+        : /^player\b/i.test(line)
+        ? 'player'
+        : state.activePlayer;
+
+      const lower = line.toLowerCase();
+      if (actor === 'opponent') {
+        addedEntries.push({
+          id: `${Date.now()}-${prevLen + idx}`,
+          actor,
+          text: toActiveVoiceLog(line, actor),
+          createdAt: Date.now()
+        });
+        maxAnimMs = Math.max(maxAnimMs, 1000);
+      }
+
+      if (lower.includes('cast')) {
+        const foundCard = Object.values(CARD_MAP).find(
+          (c) => c.cardType === 'Spell' && lower.includes(c.name.toLowerCase())
+        );
+        if (foundCard) {
+          setSpellSpotlight({ card: foundCard, actor, key: Date.now() + idx });
+          maxAnimMs = Math.max(maxAnimMs, 1800);
+        }
+      } else if (lower.includes('broke') || lower.includes('break') || lower.includes('shield')) {
+        maxAnimMs = Math.max(maxAnimMs, 1200);
+      } else if (lower.includes('summon') || lower.includes('evolve') || lower.includes('attack')) {
+        maxAnimMs = Math.max(maxAnimMs, 1100);
+      }
+    });
+
+    if (addedEntries.length > 0) {
+      setBzLogs((prev) => [...prev.slice(-6), ...addedEntries]);
+      const entryIds = addedEntries.map((e) => e.id);
+      setTimeout(() => {
+        setBzLogs((prev) => prev.filter((e) => !entryIds.includes(e.id)));
+      }, 2600);
+    }
+
+    if (maxAnimMs > 0) {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setIsAnimating(false);
+        setSpellSpotlight(null);
+      }, maxAnimMs);
+    }
+  }, [state.actionLog, state.activePlayer]);
 
   // Turn change impact banner
   useEffect(() => {
@@ -199,9 +270,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     }
   }, [state]);
 
-  // Auto-play timer loop for opponent
+  // Auto-play timer loop for opponent (paced by isAnimating)
   useEffect(() => {
-    if (!isAutoPlayOpponent || state.winner !== null) return;
+    if (!isAutoPlayOpponent || state.winner !== null || isAnimating) return;
 
     const isPlayerPendingInteraction = Boolean(
       state.pendingInteraction &&
@@ -219,10 +290,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     if (isOpponentTurnActive || isOpponentPendingInteraction) {
       const timer = setTimeout(() => {
         triggerAiStep();
-      }, 700);
+      }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [isAutoPlayOpponent, state, triggerAiStep]);
+  }, [isAutoPlayOpponent, isAnimating, state, triggerAiStep]);
 
   // Clear selected attacker & tap choice banner if turn/phase changes
   useEffect(() => {
@@ -828,6 +899,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               </button>
             </div>
           )}
+
+          {/* Battlezone Active-Voice Log & Spell Spotlight Overlay */}
+          <BattlezoneOverlay
+            logs={bzLogs}
+            activePlayer={state.activePlayer}
+            spellSpotlight={spellSpotlight}
+          />
 
           {/* Opponent Field */}
           <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
