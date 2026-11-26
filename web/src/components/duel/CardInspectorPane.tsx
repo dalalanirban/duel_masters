@@ -12,7 +12,8 @@ import {
   Swords,
   Layers,
   Eye,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 
 export interface CardInspectorPaneProps {
@@ -26,6 +27,7 @@ export interface CardInspectorPaneProps {
   onSelectOpponentDeck?: (deckId: string) => void;
   playerDeckName?: string;
   opponentDeckName?: string;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -74,6 +76,7 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   opponentDeck,
   availableOpponentDecks = [],
   onSelectOpponentDeck,
+  onClose,
   className = ''
 }) => {
   const isPlayerTurn = activePlayer === 'player';
@@ -163,6 +166,18 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
           >
             {phaseInfo.label}
           </span>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-md bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer shrink-0"
+              title="Close Inspector"
+              aria-label="Close Card Inspector"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* AI Battle Deck Selector */}

@@ -666,7 +666,8 @@ export function calculateContinuousAuraPower(
     for (const c of fZone) {
       if (
         c.instanceId !== creature.instanceId &&
-        getCardCapabilities(c.card).nameLower.includes('jabaha')
+        (getCardCapabilities(c.card).nameLower.includes('überdragon jabaha') ||
+          getCardCapabilities(c.card).nameLower.includes('uberdragon jabaha'))
       ) {
         powerAttackerBonus += 2000;
       }

@@ -29,7 +29,7 @@ Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), ind
 | [types.ts](file:///d:/Duel_Masters/web/src/engine/types.ts) | `GameState`, `PlayerState`, `CreatureInstance` (`evolvedOn`, turn modifiers), `ManaCardInstance` (`isSpent`, `isStaged`), `PendingInteraction` union, `GameAction` union |
 | [cardUtils.ts](file:///d:/Duel_Masters/web/src/engine/cardUtils.ts) | Capability detection (`getCardCapabilities`), civilization/race normalization, Dragon & Survivor helpers |
 | [interactionHelpers.ts](file:///d:/Duel_Masters/web/src/engine/interactionHelpers.ts) | `enqueueInteraction`, `buildZoneOptions` across all 6 zones (`battleZone`, `hand`, `manaZone`, `shields`, `graveyard`, `deck`) |
-| [mana.ts](file:///d:/Duel_Masters/web/src/engine/mana.ts) | Cost calculation, multi-civ tapped entry, manual mana staging (`toggleManaTap`), spent lock enforcement, distinct dual-civ validation |
+| [mana.ts](file:///d:/Duel_Masters/web/src/engine/mana.ts) | Cost calculation, multi-civ tapped entry, manual mana staging (`toggleManaTap`), interactive payment validation (`validateManualManaSelection`), spent lock enforcement, distinct dual-civ validation |
 | [continuous.ts](file:///d:/Duel_Masters/web/src/engine/continuous.ts) | Continuous power modifiers, Power Attacker, Stealth, Slayer, Speed Attacker, Blocker, Breaker count, Wave Striker, Turbo Rush, Survivor aura sharing |
 | [replacements.ts](file:///d:/Duel_Masters/web/src/engine/replacements.ts) | Saver matching, Madness discard replacement, Shield Burn (`Bolmeteus` / `Death Phoenix`), `flattenEvolutionStack`, Vortex `separateEvolutionUnderlyingCreatures` |
 | [targeting.ts](file:///d:/Duel_Masters/web/src/engine/targeting.ts) | Declarative spell & ability target filtering and legality validation |
@@ -51,14 +51,14 @@ Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), ind
 
 ## 2. Implemented Game Rules & Interactive Pipelines
 
-### 2.1 Manual Mana Staging, Civilization Matching & Spent Lock
-- **Free Pre-Tap Staging**: In [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx), clicking or dragging across unspent mana toggles `isStaged` / `isTapped` freely before playing a card.
+### 2.1 Manual Mana Selection, Drag-to-Tap, Civilization Matching & Spent Lock
+- **Interactive Post-Select Mana Payment (No Auto-Tap)**: Selecting **Summon** (after evolution bait choice, if any) or **Cast** (after target choice, if any) in [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) never auto-taps player mana. Unless the exact required mana cards were already manually pre-staged, a compact centered **Tap Mana** prompt opens directly above the player's Shields & Mana Zone showing selected count (`selected/cost`), live per-civilization `✓`/`✗` indicators (`validateManualManaSelection`), `Confirm Summon` / `Confirm Cast`, and `Cancel`.
+- **Smooth Click-and-Drag Across Mana Cards**: In [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx), player mana cards disable native browser image dragging (`draggable={false}`, `pointer-events-none` on inner artwork/badges, `touch-none`) and use container pointer hit-testing (`data-mana-id` + `document.elementFromPoint` with per-drag deduplication) plus atomic functional state updates so clicking and dragging across cards cleanly toggles `STAGED` or `PAY` across multiple mana cards in one sweep (capped at `requiredCost` during payment).
 - **Explicit Civilization Validation**:
-  - When manually staged mana is active, summoning/casting validates staged cards + fills only if explicit staging covers cost and civilizations.
   - Mono-civilization cards require at least 1 matching civilization mana card among tapped mana.
   - **Multi-civilization cards** require **distinct tapped mana cards** satisfying each civilization independently (a single `Light/Nature` card cannot simultaneously fulfill both Light and Nature without another matching mana card).
 - **Turn Lock & Start-of-Turn Untap**:
-  - Mana spent for a summon/cast (or multi-civilization cards charged tapped) sets `isSpent: true`, locking them from manual untapping until start of turn.
+  - Mana spent for a summon/cast (or multi-civilization cards charged tapped) sets `isSpent: true`, locking them (`LOCK` badge) from manual untapping until start of turn.
   - `startTurn` automatically resets `isTapped`, `isSpent`, and `isStaged` unless prevented by an active effect such as `DM10-093 Terradragon Cusdalf`.
 
 ### 2.2 Interactive `"you may"`, `"opponent chooses"` & 6-Zone Selection
@@ -79,13 +79,21 @@ Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), ind
 - Ready creatures possessing `$tap` abilities during the `ATTACK` phase show `ATK / $TAP` badges in [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx).
 - Selecting the creature opens a choice bar in [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) to either declare an **Attack** (`DECLARE_ATTACK`) or tap the creature to resolve its **`$tap` Ability** (`ACTIVATE_TAP_ABILITY` / `resolveTapAbility`).
 
+### 2.6 Card Database Integrity, Log Ordering & Responsive Layout
+- **Keyword Flag Hygiene**: [build_card_database.js](file:///d:/Duel_Masters/scripts/build_card_database.js) uses line-anchored `checkShieldTrigger` (`/^\s*(?:■\s*)?shield\s*trigger\b/im`) across DM-01–DM-12 (`84` true Shield Trigger cards; excludes `22` rules-text reference mentions such as `Emeral` and `Cryptic Totem`).
+- **Exact Card Name Dispatching**: Engine triggers and continuous aura checks in [triggers.ts](file:///d:/Duel_Masters/web/src/engine/triggers.ts) and [continuous.ts](file:///d:/Duel_Masters/web/src/engine/continuous.ts) guard against substring collisions (e.g., `Emeral` vs `Emerald Grass`, `Überdragon Bajula` vs `Nemonex, Bajula's Robomantis`, `Gregoria` vs `Gregorian Worm`, `Überdragon Jabaha` vs `Jabaha's Automaton`).
+- **Chronological Action Logs**: `castSpell` ([spells.ts](file:///d:/Duel_Masters/web/src/engine/spells.ts)) and `resolveShieldTrigger` ([combat.ts](file:///d:/Duel_Masters/web/src/engine/combat.ts)) append cast/activation entries before `resolveSpellEffect` so card-play logs precede resolved discard or destruction logs.
+- **Responsive Viewport Support**: Desktop `lg+` preserves the persistent `w-72` [CardInspectorPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardInspectorPane.tsx) and right [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx), while `< lg` viewports switch to a compact top HUD bar + slide-over drawers, horizontal-scroll-safe [HandView.tsx](file:///d:/Duel_Masters/web/src/components/duel/HandView.tsx), wrapping [ShieldsView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsView.tsx), and responsive [App.tsx](file:///d:/Duel_Masters/web/src/App.tsx) navigation down to narrow screens (`480px`+).
+
 ---
 
 ## 3. UI Component Inventory
 
-- [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) — Master arena orchestration, Attack vs `$tap` choice bar, modal mounts, error toast surfacing.
+- [App.tsx](file:///d:/Duel_Masters/web/src/App.tsx) — Responsive top navigation bar, Card Explorer & Deck Builder layout, and full-viewport Duel Arena mount.
+- [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) — Master arena orchestration, compact centered mana payment prompt, Attack vs `$tap` choice bar, responsive `< lg` HUD & drawers, modal mounts.
 - [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx) — Creature rendering, nested evo stack count, `$TAP` & `ATK / $TAP` indicators.
-- [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx) — Drag-tap mana staging, `STAGED` vs `LOCK` visual badges.
+- [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx) — Click-and-drag mana tapping/unstaging, `STAGED` / `PAY` / `LOCK` visual badges.
+- [HandView.tsx](file:///d:/Duel_Masters/web/src/components/duel/HandView.tsx), [ShieldsRow.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsRow.tsx), [ShieldsView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsView.tsx), [CardInspectorPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardInspectorPane.tsx), [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx).
 - [ZoneSelectionModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/ZoneSelectionModal.tsx) — Multi-zone card picker (with hidden shield card backs, ordered pick badges, power constraint checks) & choose-a-race chip picker.
 - [SilentSkillModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/SilentSkillModal.tsx) — Start-of-turn Silent Skill confirmation modal.
 - [OptionalChoiceModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/OptionalChoiceModal.tsx), [DeckSearchModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/DeckSearchModal.tsx), [TriggerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/TriggerModal.tsx), [BlockerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/BlockerModal.tsx).
@@ -95,8 +103,11 @@ Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), ind
 ## 4. Verification & Knowledge Graph Maintenance
 
 ```bash
-# Run full rules engine & multi-agent simulation suite (357 tests / 105 suites)
+# Run full rules engine & multi-agent simulation suite (361 tests / 106 suites)
 node --test web/src/engine/tests/*.test.mjs
+
+# Run card database & filter integrity suite (29 tests)
+node --test web/src/data/cardLoader.test.mjs
 
 # Typecheck & Vite production bundle build
 npm --prefix web run build

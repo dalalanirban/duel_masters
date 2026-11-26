@@ -1002,7 +1002,7 @@
     "races": [
       "Cyber Virus"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -1410,7 +1410,7 @@
     "races": [
       "Pandora's Box"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -1822,7 +1822,7 @@
     "races": [
       "Dark Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -3623,7 +3623,7 @@
     "races": [
       "Zombie Dragon"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -3784,7 +3784,7 @@
     "races": [
       "Guardian"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

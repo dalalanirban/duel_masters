@@ -1782,7 +1782,7 @@
     "races": [
       "Cyber Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": true,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -1878,7 +1878,7 @@
     "races": [
       "Earth Dragon"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

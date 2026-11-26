@@ -774,7 +774,7 @@
     "races": [
       "Gel Fish"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -870,7 +870,7 @@
     "races": [
       "Chimera"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": true,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -1028,7 +1028,7 @@
     "races": [
       "Devil Mask"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -1468,7 +1468,7 @@
     "races": [
       "Mystery Totem"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

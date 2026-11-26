@@ -59,7 +59,7 @@ export const ShieldsView: React.FC<ShieldsViewProps> = ({
   }
 
   return (
-    <div className={`flex items-center justify-center gap-2 sm:gap-2.5 select-none ${className}`}>
+    <div className={`flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 max-w-full select-none ${className}`}>
       {shields.map((shield, index) => {
         const isBroken = shield.isBroken;
         const isTargeted =
