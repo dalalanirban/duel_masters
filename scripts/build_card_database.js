@@ -143,6 +143,11 @@ function checkSpeedAttacker(cardType, text) {
   return false;
 }
 
+function checkShieldTrigger(text) {
+  if (!text) return false;
+  return /^\s*(?:■\s*)?shield\s*trigger\b/im.test(text);
+}
+
 async function buildDatabase() {
   console.log('--- Duel Masters Card Database Builder (DM-01 to DM-12) ---');
 
@@ -167,6 +172,7 @@ async function buildDatabase() {
         isSurvivor: false,
         isCharger: false,
         isMultiCiv: false,
+        isShieldTrigger: checkShieldTrigger(text),
         isBlocker: checkBlocker(cardType, text),
         breakerCount: getBreakerCount(cardType, text),
         isSlayer: checkSlayer(cardType, text),
@@ -227,7 +233,7 @@ async function buildDatabase() {
         const text = cleanText(card.text || '');
         const cardName = cleanText(card.name);
 
-        const isShieldTrigger = /shield trigger/i.test(text);
+        const isShieldTrigger = checkShieldTrigger(text);
 
         let cardType = 'Creature';
         if (card.type === 'Spell') {

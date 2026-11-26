@@ -4626,7 +4626,7 @@
     "races": [
       "Dark Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -6114,7 +6114,7 @@
     "races": [
       "Cyber Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -6396,7 +6396,7 @@
     "races": [
       "Dark Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -6520,7 +6520,7 @@
     "manaNumber": 1,
     "power": null,
     "races": [],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -7818,7 +7818,7 @@
     "races": [
       "Mecha Thunder"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -8476,7 +8476,7 @@
     "races": [
       "Chimera"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -10093,7 +10093,7 @@
     "races": [
       "Cyber Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -10416,7 +10416,7 @@
     "races": [
       "Brain Jacker"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -15956,7 +15956,7 @@
     "races": [
       "Gel Fish"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -16052,7 +16052,7 @@
     "races": [
       "Chimera"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": true,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -16210,7 +16210,7 @@
     "races": [
       "Devil Mask"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -16650,7 +16650,7 @@
     "races": [
       "Mystery Totem"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -18860,7 +18860,7 @@
     "races": [
       "Cyber Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": true,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -18956,7 +18956,7 @@
     "races": [
       "Earth Dragon"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -18988,7 +18988,7 @@
     "races": [
       "Guardian"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -21866,7 +21866,7 @@
     "races": [
       "Cyber Virus"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -22274,7 +22274,7 @@
     "races": [
       "Pandora's Box"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -22686,7 +22686,7 @@
     "races": [
       "Dark Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -24487,7 +24487,7 @@
     "races": [
       "Zombie Dragon"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -24648,7 +24648,7 @@
     "races": [
       "Guardian"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -26548,7 +26548,7 @@
     "manaNumber": 1,
     "power": null,
     "races": [],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -28282,7 +28282,7 @@
     "races": [
       "Horned Beast"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

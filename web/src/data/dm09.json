@@ -14,7 +14,7 @@
     "races": [
       "Guardian"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

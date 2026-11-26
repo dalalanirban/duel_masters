@@ -2376,6 +2376,10 @@ export function castSpell(
   }
 
   const nextHand = playerState.hand.filter((_, idx) => idx !== cardIndex);
+  const isCharger = isChargerSpell(spellCard.card);
+  const spellActionLog = `${player} cast ${spellCard.card.name}${
+    isCharger ? ' (Charger -> Mana Zone)' : ''
+  }.`;
 
   const stateAfterPayment: GameState = {
     ...state,
@@ -2387,7 +2391,8 @@ export function castSpell(
         hand: nextHand,
         manaZone: updatedManaZone
       }
-    }
+    },
+    actionLog: [...state.actionLog, spellActionLog]
   };
 
   const stateAfterEffect = resolveSpellEffect(
@@ -2397,7 +2402,6 @@ export function castSpell(
     targets
   );
 
-  const isCharger = isChargerSpell(spellCard.card);
   const casterState = stateAfterEffect.players[player];
 
   let nextCasterState: PlayerState;
@@ -2419,16 +2423,11 @@ export function castSpell(
     };
   }
 
-  const spellActionLog = `${player} cast ${spellCard.card.name}${
-    isCharger ? ' (Charger -> Mana Zone)' : ''
-  }.`;
-
   return {
     ...stateAfterEffect,
     players: {
       ...stateAfterEffect.players,
       [player]: nextCasterState
-    },
-    actionLog: [...stateAfterEffect.actionLog, spellActionLog]
+    }
   };
 }

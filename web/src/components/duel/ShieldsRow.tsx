@@ -19,6 +19,9 @@ export interface ShieldsRowProps {
   canUndoMana?: boolean;
   onUndoMana?: () => void;
   onToggleManaTap?: (cardInstanceId: string, forceTapped?: boolean) => void;
+  manaPaymentMode?: boolean;
+  selectedPaymentManaIds?: string[];
+  onTogglePaymentMana?: (cardInstanceId: string, forceSelected?: boolean) => void;
   selectedTarget?: AttackTarget | null;
   selectedShieldIndices?: number[];
   requiredSelectionCount?: number;
@@ -42,6 +45,9 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
   canUndoMana = false,
   onUndoMana,
   onToggleManaTap,
+  manaPaymentMode = false,
+  selectedPaymentManaIds = [],
+  onTogglePaymentMana,
   selectedTarget = null,
   selectedShieldIndices = [],
   requiredSelectionCount = 1,
@@ -158,6 +164,9 @@ export const ShieldsRow: React.FC<ShieldsRowProps> = ({
                 canUndoMana={canUndoMana}
                 onUndoMana={onUndoMana}
                 onToggleManaTap={onToggleManaTap}
+                manaPaymentMode={manaPaymentMode}
+                selectedPaymentManaIds={selectedPaymentManaIds}
+                onTogglePaymentMana={onTogglePaymentMana}
                 onHoverCard={onHoverCard}
                 onInspectCard={onInspectCard}
               />

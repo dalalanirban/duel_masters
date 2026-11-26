@@ -70,9 +70,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - **900 Cards across 12 Sets (DM-01 through DM-12)** with localized scan assets, Search, and multi-filter Explorer (Civilization, Cost, Power, Type, Race, Keywords).
 - **Tournament Deck Builder:** Strict 40-card limit, 4-copy rule, Mana Curve, Civilization breakdown, and ready-made dual-civ/mechanics preset decks.
-- **Full Rules Engine & Interactive Duel Arena:** Manual mana staging/locking, dual-civ & Vortex Evolution (including nested stack separation), Wave Striker, Turbo Rush, Silent Skill start-of-turn choices, all 41 `$tap` abilities (`Attack` vs `$tap`), and 6-zone/optional effect prompts.
+- **Full Rules Engine & Responsive Duel Arena:** Manual post-select mana payment (`Tap N Mana` compact prompt with click-and-drag across Mana Zone cards), distinct multi-civ mana & lock rules, dual-civ & Vortex Evolution (including nested stack separation), Wave Striker, Turbo Rush, Silent Skill start-of-turn choices, all 41 `$tap` abilities (`Attack` vs `$tap`), 6-zone/optional effect prompts, and responsive `< lg` slide-over drawers for narrow/mobile viewports.
 - **Verification Suites:**
-  - Engine & Simulation Tests (`357` tests / `105` suites): `node --test web/src/engine/tests/*.test.mjs`
+  - Engine & Simulation Tests (`361` tests / `106` suites): `node --test web/src/engine/tests/*.test.mjs`
+  - Card Loader & Database Integrity (`29` tests): `node --test web/src/data/cardLoader.test.mjs`
   - TypeScript & Production Build: `npm --prefix web run build`
 
 ## Documentation

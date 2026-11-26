@@ -13,6 +13,7 @@ interface HandViewProps {
   isPlayerTurn: boolean;
   phase: Phase;
   manaChargedThisTurn: boolean;
+  pendingManaCardInstanceId?: string | null;
   onChargeMana?: (cardInstanceId: string) => void;
   onSummonCreature?: (cardInstanceId: string) => void;
   onCastSpell?: (cardInstanceId: string) => void;
@@ -29,6 +30,7 @@ export const HandView: React.FC<HandViewProps> = ({
   isPlayerTurn,
   phase,
   manaChargedThisTurn,
+  pendingManaCardInstanceId = null,
   onChargeMana,
   onSummonCreature,
   onCastSpell,
@@ -68,13 +70,14 @@ export const HandView: React.FC<HandViewProps> = ({
       title={`Your Hand: ${hand.length} cards`}
       className="relative select-none w-full shrink-0"
     >
-      <div className="h-32 sm:h-36 md:h-38 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent px-1 pt-3 sm:pt-4 pb-1 flex items-center justify-center gap-2 sm:gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="h-32 sm:h-36 md:h-38 relative rounded-lg bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent px-1 pt-3 sm:pt-4 pb-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {hand.length === 0 ? (
-          <div className="text-center py-3 text-xs text-slate-600 font-mono italic pointer-events-none">
+          <div className="h-full flex items-center justify-center text-center py-3 text-xs text-slate-600 font-mono italic pointer-events-none">
             Hand empty
           </div>
         ) : (
-          hand.map((item) => {
+          <div className="mx-auto flex w-max items-center gap-2 sm:gap-3 px-1">
+          {hand.map((item) => {
             const card = item.card;
             const isCreature = card.type.includes('Creature');
             const isSpell = card.type.includes('Spell');
@@ -95,7 +98,8 @@ export const HandView: React.FC<HandViewProps> = ({
             return (
               <div
                 key={item.instanceId}
-                className="relative flex flex-col items-center shrink-0 group transition-transform duration-200 hover:-translate-y-2 cursor-pointer z-10 hover:z-30"
+                tabIndex={0}
+                className="relative flex flex-col items-center shrink-0 group transition-transform duration-200 hover:-translate-y-2 focus:-translate-y-2 cursor-pointer z-10 hover:z-30 focus-within:z-30 outline-none"
                 onMouseEnter={() => {
                   onHoverCard?.(card);
                 }}
@@ -105,7 +109,9 @@ export const HandView: React.FC<HandViewProps> = ({
                 {/* Physical Card Scan (Prominent, spacious size utilizing reclaimed vertical pixels) */}
                 <div
                   className={`relative w-18 h-25 sm:w-20 sm:h-28 md:w-22 md:h-30.5 aspect-[491/682] rounded-md overflow-hidden shadow-md border transition-all duration-150 ${
-                    canPlay
+                    pendingManaCardInstanceId === item.instanceId
+                      ? 'border-amber-400 ring-2 ring-amber-400 shadow-amber-500/40 animate-pulse'
+                      : canPlay
                       ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-emerald-500/30'
                       : canCharge
                       ? 'border-amber-500/60 shadow-amber-500/10'
@@ -136,16 +142,22 @@ export const HandView: React.FC<HandViewProps> = ({
                     {effectiveCost}
                   </div>
 
-                  {/* Top-Left: Playable Beacon */}
-                  {canPlay && (
-                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-emerald-500 text-slate-950 font-black text-[7px] font-cinzel tracking-wider shadow z-10">
-                      PLAY
+                  {/* Top-Left: Playable / Active Payment Beacon */}
+                  {pendingManaCardInstanceId === item.instanceId ? (
+                    <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[7px] font-cinzel tracking-wider shadow z-10">
+                      MANA
                     </div>
+                  ) : (
+                    canPlay && (
+                      <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-emerald-500 text-slate-950 font-black text-[7px] font-cinzel tracking-wider shadow z-10">
+                        PLAY
+                      </div>
+                    )
                   )}
 
-                  {/* HOVER ACTION OVERLAY: ONLY visible on hover */}
+                  {/* HOVER / FOCUS ACTION OVERLAY: visible on desktop hover or tap focus */}
                   {(canPlay || canCharge) && (
-                    <div className="absolute inset-x-0 bottom-0 p-1 sm:p-1.5 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent flex flex-col gap-1 items-stretch justify-end opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150 z-20">
+                    <div className="absolute inset-x-0 bottom-0 p-1 sm:p-1.5 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent flex flex-col gap-1 items-stretch justify-end opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150 z-20">
                       {/* Summon / Cast Action Button */}
                       {canPlay && (
                         <button
@@ -183,7 +195,8 @@ export const HandView: React.FC<HandViewProps> = ({
                 </div>
               </div>
             );
-          })
+          })}
+          </div>
         )}
       </div>
     </div>

@@ -1685,7 +1685,7 @@
     "races": [
       "Horned Beast"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

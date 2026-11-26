@@ -1,10 +1,16 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, Swords, Shield, Zap, X } from 'lucide-react';
+import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, ArrowRight, Bot, CheckCircle2 } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
 import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
+import {
+  canPayManaCost,
+  getEffectiveManaCost,
+  validateManualManaSelection
+} from '../../engine/mana';
+import { getCardCivilizations } from '../../engine/cardUtils';
 import {
   isValidEvolutionBait,
   isEvolutionCreature,
@@ -86,6 +92,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // UI state
   const [selectedAttackerId, setSelectedAttackerId] = useState<string | null>(null);
   const [tapChoiceCreatureId, setTapChoiceCreatureId] = useState<string | null>(null);
+  const [activeDrawer, setActiveDrawer] = useState<'none' | 'inspector' | 'controls'>('none');
   const [isAutoPlayOpponent, setIsAutoPlayOpponent] = useState<boolean>(true);
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
@@ -127,6 +134,33 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     validTargetIds: string[];
   } | null>(null);
 
+  // Manual Mana Payment selection mode (user taps exact eligible mana cards after choosing to Summon/Cast)
+  const [manaPaymentCandidate, setManaPaymentCandidate] = useState<{
+    kind: 'creature' | 'spell';
+    cardInstanceId: string;
+    card: CardDefinition;
+    baitInstanceId?: string;
+    baitInstanceIds?: string[];
+    targets?: string[];
+    selectedManaIds: string[];
+  } | null>(null);
+
+  const manaPaymentValidation = useMemo(() => {
+    if (!manaPaymentCandidate) return null;
+    return validateManualManaSelection(
+      state.players.player.manaZone,
+      manaPaymentCandidate.card,
+      manaPaymentCandidate.selectedManaIds,
+      state.players.player.battleZone,
+      state.players.opponent.battleZone
+    );
+  }, [
+    manaPaymentCandidate,
+    state.players.player.manaZone,
+    state.players.player.battleZone,
+    state.players.opponent.battleZone
+  ]);
+
   // Multi-shield selection mode
   const [selectedShieldIndices, setSelectedShieldIndices] = useState<number[]>([]);
 
@@ -152,6 +186,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setSpellCandidate(null);
     setBlockerArenaSelection(false);
     setTriggerTargetSelection(null);
+    setManaPaymentCandidate(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
   }, [selectedPlayerDeck, selectedOpponentDeck]);
 
@@ -167,6 +202,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       setSpellCandidate(null);
       setBlockerArenaSelection(false);
       setTriggerTargetSelection(null);
+      setManaPaymentCandidate(null);
       dispatch({
         type: 'RESET_GAME',
         playerDeck: selectedPlayerDeck,
@@ -224,13 +260,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     }
   }, [isAutoPlayOpponent, state, triggerAiStep]);
 
-  // Clear selected attacker & tap choice banner if turn/phase changes
+  // Clear selected attacker & interactive candidates if turn/phase changes
   useEffect(() => {
     setSelectedAttackerId(null);
     setTapChoiceCreatureId(null);
     setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
     setSpellCandidate(null);
+    setManaPaymentCandidate(null);
   }, [state.turn, state.phase, state.activePlayer]);
 
   // Surface latest engine action error or mana lock warning in toast cleanly
@@ -243,13 +280,175 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
   // Player action: Charge Mana
   const handleChargeMana = (cardInstanceId: string) => {
+    setManaPaymentCandidate(null);
     dispatch({ type: 'CHARGE_MANA', player: 'player', cardInstanceId });
   };
+
+  // Enters manual mana tapping flow instead of auto-tapping mana when summoning/casting
+  const beginPlayWithManualMana = useCallback(
+    (payload: {
+      kind: 'creature' | 'spell';
+      cardInstanceId: string;
+      card: CardDefinition;
+      baitInstanceId?: string;
+      baitInstanceIds?: string[];
+      targets?: string[];
+    }) => {
+      const playerState = state.players.player;
+      const oppState = state.players.opponent;
+      const stagedIds = playerState.manaZone
+        .filter((m) => m.isTapped && m.isStaged && !m.isSpent)
+        .map((m) => m.instanceId);
+
+      const requiredCost = Math.max(
+        getEffectiveManaCost(payload.card, playerState.battleZone, oppState.battleZone),
+        new Set(getCardCivilizations(payload.card)).size
+      );
+
+      if (requiredCost === 0) {
+        if (payload.kind === 'creature') {
+          dispatch({
+            type: 'SUMMON_CREATURE',
+            player: 'player',
+            cardInstanceId: payload.cardInstanceId,
+            baitInstanceId: payload.baitInstanceId,
+            baitInstanceIds: payload.baitInstanceIds,
+            targets: payload.targets
+          });
+        } else {
+          dispatch({
+            type: 'CAST_SPELL',
+            player: 'player',
+            cardInstanceId: payload.cardInstanceId,
+            targets: payload.targets
+          });
+        }
+        return;
+      }
+
+      // Honor already-manually-staged exact mana selection if complete and valid; otherwise prompt user to tap mana.
+      if (
+        stagedIds.length === requiredCost &&
+        canPayManaCost(
+          playerState.manaZone,
+          payload.card,
+          playerState.battleZone,
+          oppState.battleZone,
+          stagedIds
+        )
+      ) {
+        if (payload.kind === 'creature') {
+          dispatch({
+            type: 'SUMMON_CREATURE',
+            player: 'player',
+            cardInstanceId: payload.cardInstanceId,
+            baitInstanceId: payload.baitInstanceId,
+            baitInstanceIds: payload.baitInstanceIds,
+            targets: payload.targets,
+            manaInstanceIds: stagedIds
+          });
+        } else {
+          dispatch({
+            type: 'CAST_SPELL',
+            player: 'player',
+            cardInstanceId: payload.cardInstanceId,
+            targets: payload.targets,
+            manaInstanceIds: stagedIds
+          });
+        }
+        return;
+      }
+
+      setManaPaymentCandidate({
+        ...payload,
+        selectedManaIds: stagedIds
+      });
+    },
+    [state.players.player, state.players.opponent]
+  );
+
+  const handleTogglePaymentMana = useCallback(
+    (cardInstanceId: string, forceSelected?: boolean) => {
+      const targetMana = state.players.player.manaZone.find((m) => m.instanceId === cardInstanceId);
+      if (!targetMana) return;
+
+      if (targetMana.isSpent) {
+        showToast(`${targetMana.card.name} was already spent this turn and cannot be used or untapped.`);
+        return;
+      }
+
+      if (targetMana.isStaged && forceSelected === false) {
+        dispatch({ type: 'TOGGLE_MANA_TAP', player: 'player', cardInstanceId, forceTapped: false });
+      }
+
+      setManaPaymentCandidate((prev) => {
+        if (!prev) return null;
+        const baseCost = getEffectiveManaCost(
+          prev.card,
+          state.players.player.battleZone,
+          state.players.opponent.battleZone
+        );
+        const requiredCost =
+          baseCost === 0 ? 0 : Math.max(baseCost, new Set(getCardCivilizations(prev.card)).size);
+
+        const alreadySelected = prev.selectedManaIds.includes(cardInstanceId);
+        const nextSelected = forceSelected !== undefined ? forceSelected : !alreadySelected;
+
+        if (nextSelected === alreadySelected) return prev;
+
+        if (nextSelected) {
+          if (prev.selectedManaIds.length >= requiredCost) {
+            return prev;
+          }
+          return {
+            ...prev,
+            selectedManaIds: [...prev.selectedManaIds, cardInstanceId]
+          };
+        }
+
+        return {
+          ...prev,
+          selectedManaIds: prev.selectedManaIds.filter((id) => id !== cardInstanceId)
+        };
+      });
+    },
+    [
+      state.players.player.manaZone,
+      state.players.player.battleZone,
+      state.players.opponent.battleZone,
+      showToast
+    ]
+  );
+
+  const handleConfirmManaPayment = useCallback(() => {
+    if (!manaPaymentCandidate || !manaPaymentValidation?.valid) return;
+    if (manaPaymentCandidate.kind === 'creature') {
+      dispatch({
+        type: 'SUMMON_CREATURE',
+        player: 'player',
+        cardInstanceId: manaPaymentCandidate.cardInstanceId,
+        baitInstanceId: manaPaymentCandidate.baitInstanceId,
+        baitInstanceIds: manaPaymentCandidate.baitInstanceIds,
+        targets: manaPaymentCandidate.targets,
+        manaInstanceIds: manaPaymentCandidate.selectedManaIds
+      });
+    } else {
+      dispatch({
+        type: 'CAST_SPELL',
+        player: 'player',
+        cardInstanceId: manaPaymentCandidate.cardInstanceId,
+        targets: manaPaymentCandidate.targets,
+        manaInstanceIds: manaPaymentCandidate.selectedManaIds
+      });
+    }
+    setManaPaymentCandidate(null);
+  }, [manaPaymentCandidate, manaPaymentValidation]);
 
   // Player action: Summon Creature (supports single-bait Evolution & 2-bait Vortex Evolution)
   const handleSummonCreature = (cardInstanceId: string) => {
     const cardInstance = state.players.player.hand.find((c) => c.instanceId === cardInstanceId);
     if (!cardInstance) return;
+    setManaPaymentCandidate(null);
 
     if (isEvolutionCreature(cardInstance.card)) {
       if (isVortexEvolution(cardInstance.card)) {
@@ -262,10 +461,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           return;
         }
         if (pairs.length === 1) {
-          dispatch({
-            type: 'SUMMON_CREATURE',
-            player: 'player',
+          beginPlayWithManualMana({
+            kind: 'creature',
             cardInstanceId,
+            card: cardInstance.card,
             baitInstanceIds: [pairs[0][0].instanceId, pairs[0][1].instanceId]
           });
           return;
@@ -294,10 +493,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       }
 
       if (validBaits.length === 1) {
-        dispatch({
-          type: 'SUMMON_CREATURE',
-          player: 'player',
+        beginPlayWithManualMana({
+          kind: 'creature',
           cardInstanceId,
+          card: cardInstance.card,
           baitInstanceId: validBaits[0].instanceId
         });
         return;
@@ -314,13 +513,18 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       return;
     }
 
-    dispatch({ type: 'SUMMON_CREATURE', player: 'player', cardInstanceId });
+    beginPlayWithManualMana({
+      kind: 'creature',
+      cardInstanceId,
+      card: cardInstance.card
+    });
   };
 
   // Player action: Cast Spell (delegates precondition & target resolution to engine)
   const handleCastSpell = (cardInstanceId: string) => {
     const cardInstance = state.players.player.hand.find((c) => c.instanceId === cardInstanceId);
     if (!cardInstance) return;
+    setManaPaymentCandidate(null);
 
     const precondition = canCastSpell(state, 'player', cardInstance.card);
     if (!precondition.allowed) {
@@ -338,10 +542,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
     if (req.requiresTarget && req.validTargetIds.length > 0) {
       if (req.validTargetIds.length === 1 && req.minTargets <= 1 && req.maxTargets === 1) {
-        dispatch({
-          type: 'CAST_SPELL',
-          player: 'player',
+        beginPlayWithManualMana({
+          kind: 'spell',
           cardInstanceId,
+          card,
           targets: [req.validTargetIds[0]]
         });
         return;
@@ -356,7 +560,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       return;
     }
 
-    dispatch({ type: 'CAST_SPELL', player: 'player', cardInstanceId });
+    beginPlayWithManualMana({
+      kind: 'spell',
+      cardInstanceId,
+      card
+    });
   };
 
   // Evolution bait selected (single bait or 2-step Vortex pair)
@@ -364,10 +572,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     if (!evolutionCandidate) return;
 
     if (!evolutionCandidate.isVortex) {
-      dispatch({
-        type: 'SUMMON_CREATURE',
-        player: 'player',
+      beginPlayWithManualMana({
+        kind: 'creature',
         cardInstanceId: evolutionCandidate.cardInstanceId,
+        card: evolutionCandidate.card,
         baitInstanceId
       });
       setEvolutionCandidate(null);
@@ -388,10 +596,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       );
 
       if (partnerIds.length === 1) {
-        dispatch({
-          type: 'SUMMON_CREATURE',
-          player: 'player',
+        beginPlayWithManualMana({
+          kind: 'creature',
           cardInstanceId: evolutionCandidate.cardInstanceId,
+          card: evolutionCandidate.card,
           baitInstanceIds: [baitInstanceId, partnerIds[0]]
         });
         setEvolutionCandidate(null);
@@ -407,10 +615,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       return;
     }
 
-    dispatch({
-      type: 'SUMMON_CREATURE',
-      player: 'player',
+    beginPlayWithManualMana({
+      kind: 'creature',
       cardInstanceId: evolutionCandidate.cardInstanceId,
+      card: evolutionCandidate.card,
       baitInstanceIds: [evolutionCandidate.selectedBaitIds[0], baitInstanceId]
     });
     setEvolutionCandidate(null);
@@ -419,10 +627,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // Spell target selected
   const handleSelectSpellTarget = (targetInstanceId: string) => {
     if (!spellCandidate) return;
-    dispatch({
-      type: 'CAST_SPELL',
-      player: 'player',
+    beginPlayWithManualMana({
+      kind: 'spell',
       cardInstanceId: spellCandidate.cardInstanceId,
+      card: spellCandidate.card,
       targets: [targetInstanceId]
     });
     setSpellCandidate(null);
@@ -687,10 +895,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status (Fixed 18rem width per design standard) */}
+    <div className="relative w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
+      {/* Left Column: Card Inspector & Match Status (Fixed 18rem on lg+ desktop, slide-over drawer on narrow viewports) */}
       <CardInspectorPane
-        className="w-72 2xl:w-72 shrink-0 h-full"
+        className="hidden lg:flex w-72 2xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
         friendlyBattleZone={state.players.player.battleZone}
         turn={state.turn}
@@ -704,8 +912,98 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
       <div
         onClick={() => setInspectedCard(null)}
-        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1.5 py-1 sm:py-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1 sm:px-1.5 pb-1 sm:pb-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
       >
+        {/* Compact Responsive HUD & Drawer Controls (< 1024px) */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="lg:hidden sticky top-0 z-30 -mx-1 px-2 py-1.5 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5 shrink-0"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => setActiveDrawer((d) => (d === 'inspector' ? 'none' : 'inspector'))}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-semibold text-slate-200 cursor-pointer shrink-0"
+              aria-label="Open Card Inspector"
+            >
+              <Eye className="w-3.5 h-3.5 text-sky-400" />
+              <span className="truncate max-w-[90px]">
+                {(hoveredCard || inspectedCard)?.name || 'Inspector'}
+              </span>
+            </button>
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-cinzel font-bold text-[10px] shrink-0">
+              T{state.turn}
+            </span>
+            <span
+              className={`px-1.5 py-0.5 rounded font-mono font-bold text-[10px] border shrink-0 ${
+                isPlayerTurn
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+              }`}
+            >
+              {isPlayerTurn ? 'YOUR TURN' : 'OPP'} &bull; {state.phase === 'MANA_CHARGE' ? 'MANA' : state.phase}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {isPlayerTurn && canDirectAttack ? (
+              <button
+                type="button"
+                onClick={handleDirectAttack}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
+              >
+                <Zap className="w-3 h-3" />
+                <span>Direct Atk</span>
+              </button>
+            ) : isPlayerTurn && state.phase === 'MANA_CHARGE' ? (
+              <button
+                type="button"
+                onClick={handlePassPhase}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-[10px] cursor-pointer"
+              >
+                <span>Main Phase</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            ) : isPlayerTurn && state.phase === 'MAIN' ? (
+              <button
+                type="button"
+                onClick={handlePassPhase}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
+              >
+                <Swords className="w-3 h-3" />
+                <span>Attack</span>
+              </button>
+            ) : isPlayerTurn && state.phase === 'ATTACK' ? (
+              <button
+                type="button"
+                onClick={handleEndTurn}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-cinzel font-bold text-[10px] cursor-pointer"
+              >
+                <span>End Turn</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            ) : !isPlayerTurn && !isAutoPlayOpponent ? (
+              <button
+                type="button"
+                onClick={triggerAiStep}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
+              >
+                <Bot className="w-3 h-3" />
+                <span>AI Move</span>
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setActiveDrawer((d) => (d === 'controls' ? 'none' : 'controls'))}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-semibold text-amber-300 cursor-pointer shrink-0"
+              aria-label="Open Controls and Duel Log"
+            >
+              <ScrollText className="w-3.5 h-3.5" />
+              <span className="font-mono text-[10px]">Log #{state.actionLog.length}</span>
+            </button>
+          </div>
+        </div>
         {/* Ephemeral Turn Switch Banner */}
         {turnBanner && (
           <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
@@ -928,6 +1226,70 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
         {/* ================= 3. PLAYER TERRITORY ================= */}
         <div className="shrink-0 flex flex-col gap-1 w-full">
+          {/* Manual Mana Payment Selection Prompt */}
+          {manaPaymentCandidate && manaPaymentValidation && (
+            <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-1.5 rounded-xl bg-amber-950/90 border border-amber-400/75 shadow-lg text-xs z-30">
+              <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span className="font-cinzel font-bold text-amber-100">
+                  Tap {manaPaymentValidation.requiredCost} Mana to{' '}
+                  {manaPaymentCandidate.kind === 'creature' ? 'Summon' : 'Cast'}{' '}
+                  <strong className="text-white">{manaPaymentCandidate.card.name}</strong>
+                </span>
+                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-slate-900/90 border border-amber-500/40 text-amber-300 tabular-nums">
+                  {manaPaymentValidation.selectedCount}/{manaPaymentValidation.requiredCost}
+                </span>
+                <div className="flex items-center gap-1">
+                  {manaPaymentValidation.requiredCivs.map((civ) => {
+                    const met = manaPaymentValidation.satisfiedCivs.includes(civ);
+                    return (
+                      <span
+                        key={civ}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                          met
+                            ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300'
+                            : 'bg-rose-500/20 border-rose-400/60 text-rose-300'
+                        }`}
+                      >
+                        {civ} {met ? '✓' : '✗'}
+                      </span>
+                    );
+                  })}
+                </div>
+                {!manaPaymentValidation.valid &&
+                  manaPaymentValidation.selectedCount >= manaPaymentValidation.requiredCost &&
+                  manaPaymentValidation.reason && (
+                    <span className="text-[11px] text-amber-200/90 font-sans">
+                      {manaPaymentValidation.reason}
+                    </span>
+                  )}
+              </div>
+              <div className="flex items-center justify-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={!manaPaymentValidation.valid}
+                  onClick={handleConfirmManaPayment}
+                  className={`px-3 py-1 rounded-md font-cinzel font-black text-[11px] flex items-center gap-1 transition-all ${
+                    manaPaymentValidation.valid
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer shadow-md shadow-emerald-500/30 active:scale-95'
+                      : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{manaPaymentCandidate.kind === 'creature' ? 'Confirm Summon' : 'Confirm Cast'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setManaPaymentCandidate(null)}
+                  className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Player Flanked Zone: Graveyard (L) | Shields + Mana (Center) | Deck (R) */}
           <ShieldsRow
             owner="player"
@@ -938,6 +1300,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             showDeck={true}
             canUndoMana={canUndoMana}
             onUndoMana={handleUndoChargeMana}
+            manaPaymentMode={manaPaymentCandidate !== null}
+            selectedPaymentManaIds={manaPaymentCandidate?.selectedManaIds}
+            onTogglePaymentMana={handleTogglePaymentMana}
             onToggleManaTap={(cardInstanceId, forceTapped) => {
               const targetMana = state.players.player.manaZone.find((m) => m.instanceId === cardInstanceId);
               if (targetMana?.isSpent && forceTapped === false) {
@@ -961,6 +1326,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               isPlayerTurn={isPlayerTurn}
               phase={state.phase}
               manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+              pendingManaCardInstanceId={manaPaymentCandidate?.cardInstanceId ?? null}
               onChargeMana={handleChargeMana}
               onSummonCreature={handleSummonCreature}
               onCastSpell={handleCastSpell}
@@ -971,9 +1337,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
       </div>
 
-      {/* Right Column: Duel Log & Action Controls */}
+      {/* Right Column: Duel Log & Action Controls (Desktop lg+ persistent, hidden drawer on < lg) */}
       <DuelLogPane
-        className="w-64 lg:w-72 xl:w-80 shrink-0 h-full"
+        className="hidden lg:flex lg:w-72 xl:w-80 shrink-0 h-full"
         actionLog={state.actionLog}
         activePlayer={state.activePlayer}
         phase={state.phase}
@@ -990,6 +1356,70 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onInspectCard={handleInspectCard}
         onHoverCard={handleHoverCard}
       />
+
+      {/* Slide-over Drawers for Narrow Viewports (< 1024px) */}
+      {activeDrawer !== 'none' && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 flex bg-slate-950/75 backdrop-blur-xs"
+          onClick={() => setActiveDrawer('none')}
+        >
+          {activeDrawer === 'inspector' && (
+            <div className="h-full flex" onClick={(e) => e.stopPropagation()}>
+              <CardInspectorPane
+                className="w-72 max-w-[85vw] shrink-0 h-full shadow-2xl"
+                inspectedCard={hoveredCard || inspectedCard}
+                friendlyBattleZone={state.players.player.battleZone}
+                turn={state.turn}
+                activePlayer={state.activePlayer}
+                phase={state.phase}
+                opponentDeck={selectedOpponentDeck}
+                availableOpponentDecks={availableOpponentDecks}
+                onSelectOpponentDeck={handleSelectOpponentDeck}
+                onClose={() => setActiveDrawer('none')}
+              />
+            </div>
+          )}
+
+          {activeDrawer === 'controls' && (
+            <div className="h-full flex ml-auto" onClick={(e) => e.stopPropagation()}>
+              <DuelLogPane
+                className="w-80 max-w-[90vw] shrink-0 h-full shadow-2xl"
+                actionLog={state.actionLog}
+                activePlayer={state.activePlayer}
+                phase={state.phase}
+                isAutoPlayOpponent={isAutoPlayOpponent}
+                onToggleAutoPlay={() => setIsAutoPlayOpponent(!isAutoPlayOpponent)}
+                onRestart={() => {
+                  handleRestart();
+                  setActiveDrawer('none');
+                }}
+                onExit={onNavigateToBuilder}
+                isPlayerTurn={isPlayerTurn}
+                canDirectAttack={canDirectAttack}
+                onDirectAttack={() => {
+                  setActiveDrawer('none');
+                  handleDirectAttack();
+                }}
+                onPassPhase={() => {
+                  setActiveDrawer('none');
+                  handlePassPhase();
+                }}
+                onEndTurn={() => {
+                  setActiveDrawer('none');
+                  handleEndTurn();
+                }}
+                onPlayOpponentMove={triggerAiStep}
+                onInspectCard={(c) => {
+                  handleInspectCard(c);
+                  setActiveDrawer('inspector');
+                }}
+                onHoverCard={handleHoverCard}
+                onClose={() => setActiveDrawer('none')}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modals & Overlays */}
       <TriggerModal

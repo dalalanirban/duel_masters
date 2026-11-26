@@ -343,7 +343,7 @@ export function triggerCIP(
   }
 
   // 0e. Emeral (DM-03): Add a card from hand to shields, then put a shield into hand (cannot trigger ST)
-  if (cardName.includes('emeral')) {
+  if (cardName === 'emeral' || card.id === 'DM03-014') {
     const pState = nextState.players[player];
     if (player === 'player' && nextState.interactiveHuman && !targets?.length && pState.hand.length > 0) {
       const handOpts = buildZoneOptions(nextState, 'player', ['hand']);
@@ -1166,7 +1166,7 @@ export function triggerAttack(
   }
 
   // Überdragon Bajula: "Whenever this creature attacks, choose up to 2 cards in your opponent's mana zone. Your opponent puts those cards into his graveyard."
-  if (nameLower.includes('bajula')) {
+  if (nameLower.includes('überdragon bajula') || nameLower.includes('uberdragon bajula')) {
     const oppState = nextState.players[opponent];
     const burnCount = Math.min(2, oppState.manaZone.length);
     if (burnCount > 0) {
@@ -1279,7 +1279,7 @@ export function triggerAttack(
     rules.match(
       /whenever this creature attacks.*(?:your )?opponent discards (?:a|1|(\d+)) cards?(?: at random)?/i
     ) || rules.match(/whenever this creature attacks.*opponent discards a card/i);
-  if (nameLower.includes('gregoria') || nameLower.includes('gigamantis') || Boolean(discardMatch)) {
+  if (nameLower.includes('gregoria, princess of war') || nameLower.includes('gigamantis') || Boolean(discardMatch)) {
     const discardCount = discardMatch?.[1] ? parseInt(discardMatch[1], 10) : 1;
     nextState = discardRandomHandCards(nextState, opponent, discardCount);
   }
@@ -1319,7 +1319,7 @@ export function triggerAttack(
     if (survivorAbilities.hasAttackDiscard) {
       const alreadyDiscarded =
         Boolean(discardMatch) ||
-        nameLower.includes('gregoria') ||
+        nameLower.includes('gregoria, princess of war') ||
         nameLower.includes('gigamantis');
       if (!alreadyDiscarded) {
         if (opponent === 'player' && nextState.interactiveHuman && nextState.players['player'].hand.length > 0) {

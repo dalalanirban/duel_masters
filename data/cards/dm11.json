@@ -1849,7 +1849,7 @@
     "manaNumber": 1,
     "power": null,
     "races": [],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

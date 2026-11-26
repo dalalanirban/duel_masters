@@ -59,16 +59,16 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className={`${activeTab === 'duel' ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-slate-950 text-slate-100 flex flex-col`}>
+    <div className={`${activeTab === 'duel' ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} bg-slate-950 text-slate-100 flex flex-col`}>
       {/* Top Navigation Bar */}
       <header
         className={`sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 ${
-          activeTab === 'duel' ? 'h-12 shrink-0 py-1 px-3 md:px-4' : 'px-4 md:px-8 py-2.5'
+          activeTab === 'duel' ? 'min-h-12 h-auto sm:h-12 shrink-0 py-1.5 sm:py-1 px-2.5 md:px-4' : 'px-3 md:px-8 py-2.5'
         }`}
       >
-        <div className="max-w-[1700px] mx-auto flex items-center justify-between h-full">
+        <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-2 h-full min-w-0">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <div
               className={`flex items-center justify-center ${
                 activeTab === 'duel' ? 'w-7 h-7 rounded-lg text-base' : 'w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-lg'
@@ -76,10 +76,10 @@ export const App: React.FC = () => {
             >
               <Swords className={activeTab === 'duel' ? 'w-4 h-4 fill-current' : 'w-4.5 h-4.5 fill-current'} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="hidden min-[420px]:flex items-center">
               <h1
-                className={`font-cinzel font-extrabold ${
-                  activeTab === 'duel' ? 'text-sm md:text-base' : 'text-lg sm:text-xl'
+                className={`font-cinzel font-extrabold whitespace-nowrap ${
+                  activeTab === 'duel' ? 'text-xs sm:text-sm md:text-base' : 'text-sm sm:text-lg md:text-xl'
                 } tracking-wider text-white`}
               >
                 DUEL MASTERS
@@ -88,34 +88,34 @@ export const App: React.FC = () => {
           </div>
 
           {/* Top Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner">
+          <nav className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('explorer')}
-              className={`flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all ${
                 activeTab === 'explorer'
                   ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Card Explorer & Deck Builder</span>
-              <span className="sm:hidden">Explorer</span>
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden lg:inline">Card Explorer &amp; Deck Builder</span>
+              <span className="lg:hidden">Explorer</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('duel')}
-              className={`flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-xs transition-all relative ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all relative ${
                 activeTab === 'duel'
                   ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Swords className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Duel Battle Arena</span>
-              <span className="sm:hidden">Battle Arena</span>
-              <span className="flex h-2 w-2 relative">
+              <Swords className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden lg:inline">Duel Battle Arena</span>
+              <span className="lg:hidden">Battle Arena</span>
+              <span className="flex h-2 w-2 relative shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
@@ -123,8 +123,8 @@ export const App: React.FC = () => {
           </nav>
 
           {/* Quick Stats Pill */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
               <span className="text-slate-400">Active Deck:</span>
               <span className="font-cinzel font-bold text-amber-400 truncate max-w-[160px]">
                 {activeDeck.name}
@@ -138,10 +138,11 @@ export const App: React.FC = () => {
               href="https://github.com/dalalanirban/duel_masters"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1 text-xs px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
+              title="GitHub Repository"
+              className="flex items-center gap-1 text-xs px-2.5 py-1 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors whitespace-nowrap"
             >
-              <span>GitHub</span>
-              <ExternalLink className="w-3 h-3 text-slate-500" />
+              <span className="hidden sm:inline">GitHub</span>
+              <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
             </a>
           </div>
         </div>
@@ -151,7 +152,7 @@ export const App: React.FC = () => {
       <main
         className={
           activeTab === 'duel'
-            ? 'flex-1 h-[calc(100vh-3rem)] overflow-hidden p-0 max-w-none w-full'
+            ? 'flex-1 min-h-0 overflow-hidden p-0 max-w-none w-full'
             : 'flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8'
         }
       >
@@ -177,7 +178,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Right Column: Sticky Deck Builder Sidebar */}
-            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-16 shrink-0 h-[calc(100vh-5rem)]">
+            <div className="w-full lg:w-[380px] xl:w-[420px] lg:sticky lg:top-16 shrink-0 h-[65vh] lg:h-[calc(100vh-5rem)]">
               <DeckPanel
                 items={activeDeck.items}
                 deckId={activeDeck.id}

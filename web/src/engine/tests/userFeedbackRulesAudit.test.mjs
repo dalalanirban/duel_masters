@@ -2,10 +2,11 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { step } from '../reducer.ts';
 import { triggerAttack, searchDeckForCard } from '../effects.ts';
-import { canPayManaCost, payManaCost } from '../mana.ts';
+import { canPayManaCost, payManaCost, validateManualManaSelection } from '../mana.ts';
 import { getSpellTargetRequirement } from '../targeting.ts';
 import { castSpell } from '../spells.ts';
 import { declareAttack, resolveCombat } from '../combat.ts';
+import { breakOpponentShields } from '../zones.ts';
 import allCards from '../../data/all_cards.json' with { type: 'json' };
 
 function findCard(name) {
@@ -383,6 +384,187 @@ describe('User Feedback Rules Audit: Attack Discard, Comet Missile, Deck Search 
 
       assert.strictEqual(s2.players.player.manaZone[0].isTapped, true);
       assert.strictEqual(s2.players.player.manaZone[1].isTapped, true);
+    });
+  });
+
+  // =========================================================================
+  // 5. SHIELD TRIGGER FLAG HYGIENE, SPELL LOG ORDER & MANUAL MANA VALIDATION
+  // =========================================================================
+  describe('5. Emeral Shield Trigger Fix, Spell Log Order & Manual Mana Validation', () => {
+    it('does not treat Emeral or other rules-mention cards as Shield Triggers when broken', () => {
+      const emeral = findCard('Emeral');
+      const crypticTotem = findCard('Cryptic Totem');
+      const gigabuster = findCard('Gigabuster');
+      const meltdown = findCard('Miraculous Meltdown');
+      const terrorPit = findCard('Terror Pit');
+
+      assert.strictEqual(emeral.isShieldTrigger, false);
+      assert.strictEqual(crypticTotem.isShieldTrigger, false);
+      assert.strictEqual(gigabuster.isShieldTrigger, false);
+      assert.strictEqual(meltdown.isShieldTrigger, false);
+      assert.strictEqual(terrorPit.isShieldTrigger, true);
+
+      const state = createTestState();
+      state.players.opponent.shields = [
+        { instanceId: 'sh-emeral', card: emeral, owner: 'opponent', isBroken: false }
+      ];
+
+      const afterBreak = breakOpponentShields(state, 'player', 1, [0]);
+      assert.strictEqual(afterBreak.pendingInteraction, null);
+      assert.strictEqual(afterBreak.players.opponent.hand.length, 1);
+      assert.strictEqual(afterBreak.players.opponent.hand[0].card.name, 'Emeral');
+      assert.ok(
+        !afterBreak.actionLog.some((l) => l.includes('Shield Trigger(s) detected')),
+        'Breaking Emeral must never log Shield Trigger detection'
+      );
+    });
+
+    it('logs spell cast BEFORE resolved discard/destruction effect logs (and same for Shield Trigger spells)', () => {
+      const ghostTouch = findCard('Ghost Touch');
+      const hulk = findCard('Aqua Hulcus');
+      const state = createTestState();
+      state.activePlayer = 'opponent';
+      state.phase = 'MAIN';
+      state.players.opponent.hand = [
+        { instanceId: 'op-gt', card: ghostTouch, owner: 'opponent' }
+      ];
+      state.players.opponent.manaZone = [
+        { instanceId: 'op-m1', card: ghostTouch, owner: 'opponent', isTapped: false },
+        { instanceId: 'op-m2', card: ghostTouch, owner: 'opponent', isTapped: false }
+      ];
+      state.players.player.hand = [
+        { instanceId: 'pl-hulk', card: hulk, owner: 'player' }
+      ];
+
+      const afterCast = castSpell(state, 'opponent', 'op-gt');
+      const castIdx = afterCast.actionLog.findIndex((l) => l.includes('opponent cast Ghost Touch'));
+      const discardIdx = afterCast.actionLog.findIndex((l) => l.includes('discarded'));
+      assert.ok(castIdx !== -1, 'Expected cast log entry');
+      assert.ok(discardIdx !== -1, 'Expected discard log entry');
+      assert.ok(castIdx < discardIdx, `Expected cast log (${castIdx}) before discard log (${discardIdx})`);
+
+      const terrorPit = findCard('Terror Pit');
+      let triggerState = createTestState();
+      triggerState.activePlayer = 'opponent';
+      triggerState.phase = 'ATTACK';
+      triggerState.players.opponent.battleZone = [
+        { instanceId: 'op-att', card: vorg, owner: 'opponent', isTapped: true, summonedTurn: 1, powerModifier: 0 }
+      ];
+      triggerState.players.player.hand = [
+        { instanceId: 'sh-tp', card: terrorPit, owner: 'player' }
+      ];
+      triggerState.pendingInteraction = {
+        type: 'SHIELD_TRIGGER_RESOLUTION',
+        player: 'player',
+        triggers: [{ shieldId: 'sh-tp', card: terrorPit }]
+      };
+
+      const afterTrigger = step(triggerState, {
+        type: 'RESOLVE_SHIELD_TRIGGER',
+        player: 'player',
+        shieldId: 'sh-tp',
+        activate: true,
+        targets: ['op-att']
+      });
+      const actIdx = afterTrigger.actionLog.findIndex((l) => l.includes('activated Shield Trigger spell: Terror Pit'));
+      const destroyIdx = afterTrigger.actionLog.findIndex((l) => l.includes('destroyed'));
+      assert.ok(actIdx !== -1 && destroyIdx !== -1 && actIdx < destroyIdx);
+    });
+
+    it('validates manual mana selection count and distinct dual-civ requirements accurately', () => {
+      const bat = findCard('Bronze-Arm Tribe'); // Cost 3 Nature
+      const technoTotem = findCard('Techno Totem'); // Cost 4 Light/Nature
+      const spiralGate = findCard('Spiral Gate'); // Water
+
+      const manaZone = [
+        { instanceId: 'm-f1', card: vorg, owner: 'player', isTapped: false },
+        { instanceId: 'm-f2', card: vorg, owner: 'player', isTapped: false },
+        { instanceId: 'm-w1', card: spiralGate, owner: 'player', isTapped: false },
+        { instanceId: 'm-w2', card: spiralGate, owner: 'player', isTapped: false },
+        { instanceId: 'm-n1', card: bat, owner: 'player', isTapped: false },
+        { instanceId: 'm-ln', card: technoTotem, owner: 'player', isTapped: false }
+      ];
+
+      // Under-selected & wrong civs for Bronze-Arm Tribe (Cost 3 Nature)
+      const v0 = validateManualManaSelection(manaZone, bat, []);
+      assert.strictEqual(v0.valid, false);
+      assert.strictEqual(v0.requiredCost, 3);
+      assert.deepStrictEqual(v0.missingCivs, ['Nature']);
+
+      const vWrongCiv = validateManualManaSelection(manaZone, bat, ['m-f1', 'm-f2', 'm-w1']);
+      assert.strictEqual(vWrongCiv.valid, false);
+      assert.deepStrictEqual(vWrongCiv.missingCivs, ['Nature']);
+
+      const vGoodMono = validateManualManaSelection(manaZone, bat, ['m-f1', 'm-w1', 'm-n1']);
+      assert.strictEqual(vGoodMono.valid, true);
+      assert.deepStrictEqual(vGoodMono.missingCivs, []);
+
+      // Dual-civ card requires distinct cards for Light & Nature (1 Light/Nature + 3 Water is insufficient)
+      const vDualSingle = validateManualManaSelection(manaZone, technoTotem, ['m-ln', 'm-w1', 'm-w2', 'm-f1']);
+      assert.strictEqual(vDualSingle.valid, false);
+      assert.strictEqual(vDualSingle.missingCivs.length, 1);
+
+      // 1 Light/Nature + 1 Nature + 2 Water covers both Light & Nature on distinct cards
+      const vDualValid = validateManualManaSelection(manaZone, technoTotem, ['m-ln', 'm-n1', 'm-w1', 'm-w2']);
+      assert.strictEqual(vDualValid.valid, true);
+      assert.deepStrictEqual(vDualValid.missingCivs, []);
+    });
+
+    it('prevents cardName substring collisions (Emerald Grass != Emeral, Nemonex != Bajula, Gregorian Worm != Gregoria, Automaton != Jabaha)', () => {
+      const emeraldGrass = findCard('Emerald Grass');
+      const lightCard = findCard('Holy Awe');
+      const nemonex = findCard("Nemonex, Bajula's Robomantis");
+      const gregorianWorm = findCard('Gregorian Worm');
+      const autom = findCard("Jabaha's Automaton");
+
+      // Summoning Emerald Grass (even with interactiveHuman: true) must NOT open Emeral prompt or swap shields
+      let s1 = createTestState();
+      s1.interactiveHuman = true;
+      s1.players.player.hand = [
+        { instanceId: 'h-eg', card: emeraldGrass, owner: 'player' },
+        { instanceId: 'h-extra', card: lightCard, owner: 'player' }
+      ];
+      s1.players.player.shields = [
+        { instanceId: 'sh-1', card: lightCard, owner: 'player', isBroken: false }
+      ];
+      s1.players.player.manaZone = [
+        { instanceId: 'm-1', card: emeraldGrass, owner: 'player', isTapped: false },
+        { instanceId: 'm-2', card: emeraldGrass, owner: 'player', isTapped: false }
+      ];
+
+      const afterEG = step(s1, { type: 'SUMMON_CREATURE', player: 'player', cardInstanceId: 'h-eg' });
+      assert.strictEqual(afterEG.pendingInteraction, null);
+      assert.strictEqual(afterEG.players.player.shields.length, 1);
+      assert.strictEqual(afterEG.players.player.hand.length, 1);
+      assert.ok(
+        !afterEG.actionLog.some((l) => l.includes('swapped a card from hand with a shield using Emeral')),
+        'Emerald Grass must never trigger Emeral effect'
+      );
+
+      // Attacking with Gregorian Worm must NOT discard opponent's hand
+      // Attacking with Nemonex must NOT burn 2 opponent mana (Bajula trigger)
+      let s2 = createTestState();
+      s2.phase = 'ATTACK';
+      s2.players.player.battleZone = [
+        { instanceId: 'c-gw', card: gregorianWorm, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'c-nem', card: nemonex, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'c-auto', card: autom, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 }
+      ];
+      s2.players.opponent.hand = [{ instanceId: 'op-h', card: vorg, owner: 'opponent' }];
+      s2.players.opponent.manaZone = [
+        { instanceId: 'op-m1', card: vorg, owner: 'opponent', isTapped: false },
+        { instanceId: 'op-m2', card: vorg, owner: 'opponent', isTapped: false }
+      ];
+      s2.players.opponent.shields = [
+        { instanceId: 'op-sh', card: lightCard, owner: 'opponent', isBroken: false }
+      ];
+
+      const afterGW = step(s2, { type: 'DECLARE_ATTACK', player: 'player', attackerId: 'c-gw', target: { type: 'shield', index: 0 } });
+      assert.strictEqual(afterGW.players.opponent.hand.length, 2); // 1 initial hand + 1 broken shield, zero discards!
+
+      const afterNem = step(s2, { type: 'DECLARE_ATTACK', player: 'player', attackerId: 'c-nem', target: { type: 'shield', index: 0 } });
+      assert.strictEqual(afterNem.players.opponent.manaZone.length, 1); // Nemonex's own unblocked trigger destroys 1 mana, NOT Bajula's 2 mana!
+      assert.ok(!afterNem.actionLog.some((l) => l.includes('Überdragon Bajula')));
     });
   });
 });

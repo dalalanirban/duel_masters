@@ -746,8 +746,16 @@ export function resolveShieldTrigger(
 
   // Spell Shield Trigger
   if (trigger.card.type === 'Spell') {
+    const stateBeforeSpellEffect: GameState = {
+      ...stateWithCardRemovedFromHand,
+      actionLog: [
+        ...stateWithCardRemovedFromHand.actionLog,
+        `${player} activated Shield Trigger spell: ${trigger.card.name}!`
+      ]
+    };
+
     const stateAfterEffect = resolveSpellEffect(
-      stateWithCardRemovedFromHand,
+      stateBeforeSpellEffect,
       player,
       trigger.card,
       targets
@@ -796,11 +804,7 @@ export function resolveShieldTrigger(
       players: {
         ...stateAfterEffect.players,
         [player]: nextPlayerState
-      },
-      actionLog: [
-        ...stateAfterEffect.actionLog,
-        `${player} activated Shield Trigger spell: ${trigger.card.name}!`
-      ]
+      }
     };
   }
 

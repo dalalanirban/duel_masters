@@ -617,7 +617,7 @@
     "races": [
       "Cyber Lord"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,
@@ -940,7 +940,7 @@
     "races": [
       "Brain Jacker"
     ],
-    "isShieldTrigger": true,
+    "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
     "isSpeedAttacker": false,

@@ -322,7 +322,119 @@ export function payManaCost(
     toTapSet.has(index) ? { ...m, isTapped: true, isSpent: true, isStaged: false } : m
   );
 
-  return { success: true, updatedManaZone };
+  return {
+    success: true,
+    updatedManaZone
+  };
+}
+
+export interface ManualManaValidation {
+  valid: boolean;
+  requiredCost: number;
+  selectedCount: number;
+  requiredCivs: Civilization[];
+  satisfiedCivs: Civilization[];
+  missingCivs: Civilization[];
+  excessCount: number;
+  reason?: string;
+}
+
+/**
+ * Evaluates a player's current manual mana selection for summoning a creature or casting a spell.
+ * Enforces exact mana count and distinct mana card coverage for each required civilization.
+ */
+export function validateManualManaSelection(
+  manaZone: ManaCardInstance[],
+  card: CardDefinition,
+  selectedManaIds: string[],
+  friendlyBattleZone: CreatureInstance[] = [],
+  opponentBattleZone: CreatureInstance[] = []
+): ManualManaValidation {
+  const requiredCivs = [...new Set(getCardCivilizations(card))];
+  const baseCost = getEffectiveManaCost(card, friendlyBattleZone, opponentBattleZone);
+  const requiredCost = baseCost === 0 ? 0 : Math.max(baseCost, requiredCivs.length);
+
+  const uniqueSelectedIds = Array.from(new Set(selectedManaIds));
+  const selectedPool: Array<{ instanceId: string; civs: Civilization[] }> = [];
+  for (const id of uniqueSelectedIds) {
+    const found = manaZone.find((m) => m.instanceId === id);
+    if (found && isManaCardSpendable(found)) {
+      selectedPool.push({
+        instanceId: found.instanceId,
+        civs: getCardCivilizations(found.card)
+      });
+    }
+  }
+
+  // Maximum matching from requiredCivs -> distinct selected cards
+  let bestMatched: Civilization[] = [];
+  function searchMaxMatch(civIdx: number, usedIds: Set<string>, matched: Civilization[]): void {
+    if (matched.length > bestMatched.length) {
+      bestMatched = [...matched];
+    }
+    if (bestMatched.length === requiredCivs.length || civIdx >= requiredCivs.length) {
+      return;
+    }
+    // Option A: match requiredCivs[civIdx] with an unused selected card
+    const civ = requiredCivs[civIdx];
+    for (const item of selectedPool) {
+      if (!usedIds.has(item.instanceId) && item.civs.includes(civ)) {
+        usedIds.add(item.instanceId);
+        searchMaxMatch(civIdx + 1, usedIds, [...matched, civ]);
+        usedIds.delete(item.instanceId);
+      }
+    }
+    // Option B: skip this civ (try matching later civs instead)
+    searchMaxMatch(civIdx + 1, usedIds, matched);
+  }
+
+  if (requiredCost > 0) {
+    searchMaxMatch(0, new Set(), []);
+  }
+
+  const satisfiedCivs = requiredCost === 0 ? [...requiredCivs] : bestMatched;
+  const satisfiedSet = new Set(satisfiedCivs);
+  const missingCivs = requiredCost === 0 ? [] : requiredCivs.filter((c) => !satisfiedSet.has(c));
+
+  const selectedCount = selectedPool.length;
+  const excessCount = Math.max(0, selectedCount - requiredCost);
+  const isExactPayment =
+    requiredCost === 0 ||
+    (selectedCount === requiredCost &&
+      missingCivs.length === 0 &&
+      canPayManaCost(
+        manaZone,
+        card,
+        friendlyBattleZone,
+        opponentBattleZone,
+        selectedPool.map((p) => p.instanceId)
+      ));
+
+  let reason: string | undefined;
+  if (!isExactPayment) {
+    if (excessCount > 0) {
+      reason = `Too many mana selected (${selectedCount}/${requiredCost}). Untap ${excessCount} mana card(s).`;
+    } else if (selectedCount === requiredCost && missingCivs.length > 0) {
+      reason = `Selected mana must cover all required civilizations: ${missingCivs.join(' & ')}.`;
+    } else if (selectedCount < requiredCost) {
+      const remaining = requiredCost - selectedCount;
+      reason =
+        missingCivs.length > 0
+          ? `Select ${remaining} more mana card(s) (needs ${missingCivs.join(' & ')}).`
+          : `Select ${remaining} more mana card(s).`;
+    }
+  }
+
+  return {
+    valid: isExactPayment,
+    requiredCost,
+    selectedCount,
+    requiredCivs,
+    satisfiedCivs,
+    missingCivs,
+    excessCount,
+    reason
+  };
 }
 
 /**
