@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import {
   Swords,
   RotateCcw,
@@ -8,12 +8,37 @@ import {
   Zap,
   ArrowRight,
   History,
-  X
+  X,
+  PanelRightClose,
+  PanelRightOpen
 } from 'lucide-react';
 import type { CardDefinition } from '../../types/card';
-import { parseLogTextWithCards, type LogToken } from './duelLogParser';
+import {
+  parseLogTextWithCards,
+  classifyLogSeverity,
+  type LogToken,
+  type LogSeverity
+} from './duelLogParser';
 
-export { parseLogTextWithCards, type LogToken };
+export { parseLogTextWithCards, classifyLogSeverity, type LogToken, type LogSeverity };
+
+const SEVERITY_ROW_CLASSES: Record<LogSeverity, string> = {
+  muted: 'p-1.5 rounded-md bg-slate-950/35 border border-slate-800/45 text-slate-500 text-[11px] hover:border-slate-700/60',
+  mana: 'p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/25 border-l-2 border-l-emerald-400/80 text-emerald-100/90 hover:border-emerald-400/50',
+  summon: 'p-2 rounded-lg bg-sky-950/25 border border-sky-500/30 border-l-2 border-l-sky-400 text-slate-200 hover:border-sky-400/60',
+  combat: 'p-2 rounded-lg bg-rose-950/30 border border-rose-500/35 border-l-2 border-l-rose-400 text-rose-100 hover:border-rose-400/60',
+  trigger: 'p-2 rounded-lg bg-amber-950/35 border border-amber-500/45 border-l-2 border-l-amber-400 text-amber-100 shadow-sm shadow-amber-950/25 hover:border-amber-400/75',
+  critical: 'p-2 rounded-lg bg-red-950/50 border border-red-500/60 border-l-2 border-l-red-400 text-white font-semibold shadow-md shadow-red-950/35 hover:border-red-400'
+};
+
+const SEVERITY_INDEX_CLASSES: Record<LogSeverity, string> = {
+  muted: 'text-slate-600',
+  mana: 'text-emerald-400/90',
+  summon: 'text-sky-400',
+  combat: 'text-rose-400',
+  trigger: 'text-amber-400',
+  critical: 'text-red-400'
+};
 
 export interface DuelLogPaneProps {
   actionLog: string[];
@@ -32,6 +57,8 @@ export interface DuelLogPaneProps {
   onInspectCard?: (card: CardDefinition) => void;
   onHoverCard?: (card: CardDefinition | null) => void;
   onClose?: () => void;
+  onCollapse?: () => void;
+  isCollapsed?: boolean;
   className?: string;
 }
 
@@ -52,9 +79,19 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
   onInspectCard,
   onHoverCard,
   onClose,
+  onCollapse,
+  isCollapsed = false,
   className = ''
 }) => {
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const [seenCount, setSeenCount] = useState<number>(actionLog.length);
+
+  // Sync seen cursor when log is visible or match resets
+  useEffect(() => {
+    if (!isCollapsed || actionLog.length < seenCount) {
+      setSeenCount(actionLog.length);
+    }
+  }, [isCollapsed, actionLog.length, seenCount]);
 
   // Automatically scroll to latest log message whenever new actions arrive
   useEffect(() => {
@@ -63,10 +100,101 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
     }
   }, [actionLog.length]);
 
-  // Memoize parsed logs to prevent recalculating across non-log renders
+  // Memoize parsed logs and severity classification
   const parsedLogs = useMemo(() => {
-    return actionLog.map((log) => parseLogTextWithCards(log));
+    return actionLog.map((log) => ({
+      severity: classifyLogSeverity(log),
+      tokens: parseLogTextWithCards(log)
+    }));
   }, [actionLog]);
+
+  // Highest-priority unread signal (trigger / combat / critical only; ignores muted/routine)
+  const unreadHighSeverity = useMemo<Extract<LogSeverity, 'trigger' | 'combat' | 'critical'> | null>(() => {
+    if (!isCollapsed || seenCount >= parsedLogs.length) return null;
+    let highest: Extract<LogSeverity, 'trigger' | 'combat' | 'critical'> | null = null;
+    for (let i = seenCount; i < parsedLogs.length; i++) {
+      const sev = parsedLogs[i].severity;
+      if (sev === 'critical') return 'critical';
+      if (sev === 'trigger') highest = 'trigger';
+      else if (sev === 'combat' && highest === null) highest = 'combat';
+    }
+    return highest;
+  }, [isCollapsed, seenCount, parsedLogs]);
+
+  if (isCollapsed) {
+    const badgeRingClass =
+      unreadHighSeverity === 'critical'
+        ? 'border-red-400/75 text-red-300 shadow-red-950/50'
+        : unreadHighSeverity === 'trigger'
+        ? 'border-amber-400/75 text-amber-300 shadow-amber-950/50'
+        : unreadHighSeverity === 'combat'
+        ? 'border-rose-400/70 text-rose-300'
+        : 'border-slate-800 text-amber-400';
+
+    const dotColorClass =
+      unreadHighSeverity === 'critical'
+        ? 'bg-red-500 ring-red-300/70'
+        : unreadHighSeverity === 'trigger'
+        ? 'bg-amber-400 ring-amber-200/70'
+        : 'bg-rose-500 ring-rose-300/70';
+
+    return (
+      <aside
+        className={`h-full w-11 shrink-0 flex flex-col items-center justify-between py-2.5 bg-[#080b11] border-l border-slate-800/70 text-slate-100 select-none ${className}`}
+        aria-label="Collapsed Duel Log Rail"
+      >
+        <div className="flex flex-col items-center gap-2">
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="Expand Duel Log & Controls (L)"
+              aria-label="Expand Duel Log"
+              className={`relative p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 hover:text-amber-300 border transition-colors cursor-pointer ${badgeRingClass}`}
+            >
+              <PanelRightOpen className="w-4 h-4" />
+              {unreadHighSeverity && (
+                <span
+                  data-testid="collapsed-log-unread-dot"
+                  data-severity={unreadHighSeverity}
+                  className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ring-2 animate-pulse ${dotColorClass}`}
+                />
+              )}
+            </button>
+          )}
+          <span className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-[9px] font-mono font-bold text-amber-300 tabular-nums">
+            #{actionLog.length}
+          </span>
+          <button
+            type="button"
+            onClick={onToggleAutoPlay}
+            title={isAutoPlayOpponent ? 'AI Auto-Play ON (click to pause)' : 'AI Auto-Play OFF (click to enable)'}
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+              isAutoPlayOpponent
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-200'
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="writing-mode-vertical text-[9px] font-cinzel tracking-[0.2em] uppercase text-slate-500 pointer-events-none">
+          DUEL LOG
+        </div>
+        <div className="flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onRestart}
+            title="Restart Duel"
+            aria-label="Restart Duel"
+            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-300 border border-slate-800 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -147,6 +275,18 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
             </button>
           )}
 
+          {onCollapse && !onClose && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+              title="Collapse Log Rail (L)"
+              aria-label="Collapse Duel Log Rail"
+            >
+              <PanelRightClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {onClose && (
             <button
               type="button"
@@ -175,12 +315,13 @@ export const DuelLogPane: React.FC<DuelLogPaneProps> = ({
             <p className="text-[11px] text-slate-600 mt-1">Actions and events will appear here in real-time.</p>
           </div>
         ) : (
-          parsedLogs.map((tokens, logIndex) => (
+          parsedLogs.map(({ severity, tokens }, logIndex) => (
             <div
               key={logIndex}
-              className="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 text-slate-300 leading-relaxed hover:border-slate-700/80 transition-colors"
+              data-log-severity={severity}
+              className={`${SEVERITY_ROW_CLASSES[severity]} leading-relaxed transition-colors`}
             >
-              <span className="text-amber-500/80 font-bold mr-1.5 select-none text-[10px]">
+              <span className={`${SEVERITY_INDEX_CLASSES[severity]} font-bold mr-1.5 select-none text-[10px]`}>
                 #{logIndex + 1}
               </span>
               {tokens.map((token, tokenIdx) => {

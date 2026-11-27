@@ -59,94 +59,76 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className={`${activeTab === 'duel' ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} bg-slate-950 text-slate-100 flex flex-col`}>
-      {/* Top Navigation Bar */}
-      <header
-        className={`sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 ${
-          activeTab === 'duel' ? 'min-h-12 h-auto sm:h-12 shrink-0 py-1.5 sm:py-1 px-2.5 md:px-4' : 'px-3 md:px-8 py-2.5'
-        }`}
-      >
-        <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-2 h-full min-w-0">
-          {/* Logo & Branding */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div
-              className={`flex items-center justify-center ${
-                activeTab === 'duel' ? 'w-7 h-7 rounded-lg text-base' : 'w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-lg'
-              } bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black shrink-0`}
-            >
-              <Swords className={activeTab === 'duel' ? 'w-4 h-4 fill-current' : 'w-4.5 h-4.5 fill-current'} />
+    <div className={`${activeTab === 'duel' ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} bg-[#070b14] text-slate-100 flex flex-col`}>
+      {/* Top Navigation Bar (Hidden during active duel so DuelArena owns full 100dvh + Utility Pill) */}
+      {activeTab !== 'duel' && (
+        <header className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 px-3 md:px-8 py-2.5">
+          <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-2 h-full min-w-0">
+            {/* Logo & Branding */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-lg bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 shadow-lg shadow-amber-500/20 font-black shrink-0">
+                <Swords className="w-4.5 h-4.5 fill-current" />
+              </div>
+              <div className="hidden min-[420px]:flex items-center">
+                <h1 className="font-cinzel font-extrabold whitespace-nowrap text-sm sm:text-lg md:text-xl tracking-wider text-white">
+                  DUEL MASTERS
+                </h1>
+              </div>
             </div>
-            <div className="hidden min-[420px]:flex items-center">
-              <h1
-                className={`font-cinzel font-extrabold whitespace-nowrap ${
-                  activeTab === 'duel' ? 'text-xs sm:text-sm md:text-base' : 'text-sm sm:text-lg md:text-xl'
-                } tracking-wider text-white`}
+
+            {/* Top Navigation Tabs */}
+            <nav className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('explorer')}
+                className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20"
               >
-                DUEL MASTERS
-              </h1>
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Card Explorer &amp; Deck Builder</span>
+                <span className="lg:hidden">Explorer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('duel')}
+                className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all relative text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <Swords className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Duel Battle Arena</span>
+                <span className="lg:hidden">Battle Arena</span>
+                <span className="flex h-2 w-2 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              </button>
+            </nav>
+
+            {/* Quick Stats Pill */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+                <span className="text-slate-400">Active Deck:</span>
+                <span className="font-cinzel font-bold text-amber-400 truncate max-w-[200px]">
+                  {activeDeck.name}
+                </span>
+                <span className="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-800 text-slate-200 tabular-nums">
+                  {totalCards}/40
+                </span>
+              </div>
+
+              <a
+                href="https://github.com/dalalanirban/duel_masters"
+                target="_blank"
+                rel="noreferrer"
+                title="GitHub Repository"
+                className="flex items-center gap-1 text-xs px-2.5 py-1 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors whitespace-nowrap"
+              >
+                <span className="hidden sm:inline">GitHub</span>
+                <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+              </a>
             </div>
           </div>
-
-          {/* Top Navigation Tabs */}
-          <nav className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('explorer')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all ${
-                activeTab === 'explorer'
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden lg:inline">Card Explorer &amp; Deck Builder</span>
-              <span className="lg:hidden">Explorer</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('duel')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl font-cinzel font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all relative ${
-                activeTab === 'duel'
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Swords className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden lg:inline">Duel Battle Arena</span>
-              <span className="lg:hidden">Battle Arena</span>
-              <span className="flex h-2 w-2 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-            </button>
-          </nav>
-
-          {/* Quick Stats Pill */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <span className="text-slate-400">Active Deck:</span>
-              <span className="font-cinzel font-bold text-amber-400 truncate max-w-[160px]">
-                {activeDeck.name}
-              </span>
-              <span className="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-800 text-slate-200">
-                {totalCards}/40
-              </span>
-            </div>
-
-            <a
-              href="https://github.com/dalalanirban/duel_masters"
-              target="_blank"
-              rel="noreferrer"
-              title="GitHub Repository"
-              className="flex items-center gap-1 text-xs px-2.5 py-1 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors whitespace-nowrap"
-            >
-              <span className="hidden sm:inline">GitHub</span>
-              <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
-            </a>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Main App Body */}
       <main

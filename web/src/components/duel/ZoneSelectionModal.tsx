@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Shield, Eye, Layers, Sparkles, Check, X } from 'lucide-react';
+import { Eye, Layers, Sparkles, Check, X, Maximize2 } from 'lucide-react';
 import type { CardDefinition } from '../../types/card';
 import type { ZoneKind, ZoneSelectionInteraction } from '../../engine/types';
+import { CardBack } from './CardBack.tsx';
 
 interface ZoneSelectionModalProps {
   isOpen: boolean;
@@ -27,11 +28,26 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedRace, setSelectedRace] = useState<string>('');
+  const [isPeeking, setIsPeeking] = useState<boolean>(false);
 
   useEffect(() => {
     setSelectedIds([]);
     setSelectedRace(interaction?.raceOptions?.[0] || '');
-  }, [interaction]);
+    setIsPeeking(false);
+  }, [isOpen, interaction]);
+
+  useEffect(() => {
+    if (!isOpen || !interaction) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[data-modal="graveyard"]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIsPeeking((prev) => !prev);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, interaction]);
 
   const maxTotalPower = interaction?.contextData?.maxTotalPower as number | undefined;
   const currentTotalPower = useMemo(() => {
@@ -41,6 +57,25 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
   }, [interaction, selectedIds, maxTotalPower]);
 
   if (!isOpen || !interaction) return null;
+
+  if (isPeeking) {
+    return (
+      <div className="fixed top-12 lg:top-14 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-16px)]">
+        <button
+          type="button"
+          data-testid="peek-restore-pill"
+          onClick={() => setIsPeeking(false)}
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/95 hover:bg-slate-900 border-2 border-amber-400/75 text-amber-100 shadow-2xl backdrop-blur-md text-xs font-cinzel font-bold whitespace-nowrap cursor-pointer transition-transform active:scale-95"
+        >
+          <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="truncate max-w-[220px] sm:max-w-xs">
+            {interaction.sourceCardName} Selection &mdash; Restore
+          </span>
+          <Maximize2 className="w-3 h-3 text-sky-300 shrink-0" />
+        </button>
+      </div>
+    );
+  }
 
   const isRaceMode = interaction.actionKind === 'TAP_CHOOSE_RACE';
   const powerExceeded = maxTotalPower !== undefined && currentTotalPower > maxTotalPower;
@@ -64,34 +99,54 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3">
-      <div className="w-full max-w-2xl rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/40 shadow-2xl shadow-amber-950/50 overflow-hidden flex flex-col max-h-[85vh]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-[2px] p-3"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/40 shadow-2xl shadow-amber-950/50 overflow-hidden flex flex-col max-h-[85vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-800/80 bg-slate-900/90 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-400/30">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-400/30 shrink-0">
               <Layers className="w-4 h-4 text-amber-400" />
             </div>
-            <div>
-              <h3 className="font-cinzel font-bold text-sm sm:text-base text-amber-300 tracking-wide">
+            <div className="min-w-0">
+              <h3 className="font-cinzel font-bold text-sm sm:text-base text-amber-300 tracking-wide truncate">
                 {interaction.sourceCardName}
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">{interaction.prompt}</p>
             </div>
           </div>
 
-          {!isRaceMode && (
-            <div className="shrink-0 text-right">
-              <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-slate-800 border border-slate-700 text-amber-300">
-                {selectedIds.length} / {interaction.maxSelections}
-              </span>
-              {interaction.minSelections > 0 && (
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  Min: {interaction.minSelections}
-                </div>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {!isRaceMode && (
+              <div className="text-right">
+                <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-slate-800 border border-slate-700 text-amber-300">
+                  {selectedIds.length} / {interaction.maxSelections}
+                </span>
+                {interaction.minSelections > 0 && (
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Min: {interaction.minSelections}
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              data-testid="peek-board-button"
+              onClick={() => setIsPeeking(true)}
+              title="Minimize modal to inspect the battlefield (Esc)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-sky-300 hover:text-white text-[11px] font-cinzel font-bold transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Peek Board</span>
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -158,12 +213,15 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
                     </div>
 
                     {opt.isHidden ? (
-                      <div className="aspect-[5/7] w-full rounded-lg bg-gradient-to-br from-slate-800 via-indigo-950/70 to-slate-900 border border-slate-700 flex flex-col items-center justify-center gap-1.5 p-2">
-                        <Shield className="w-7 h-7 text-amber-400/80" />
-                        <span className="text-[11px] font-cinzel font-bold text-slate-200 text-center">
+                      <CardBack
+                        variant={opt.zone === 'shields' ? 'shield' : 'default'}
+                        className="w-full"
+                        title={opt.label || 'Hidden Card'}
+                      >
+                        <div className="absolute inset-x-1 bottom-1.5 z-10 px-1.5 py-0.5 rounded bg-slate-950/85 border border-cyan-400/35 text-[10px] font-cinzel font-bold text-slate-100 text-center truncate backdrop-blur-xs">
                           {opt.label || 'Hidden Card'}
-                        </span>
-                      </div>
+                        </div>
+                      </CardBack>
                     ) : (
                       <div className="relative aspect-[5/7] w-full rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
                         {imgSrc ? (

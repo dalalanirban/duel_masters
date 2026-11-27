@@ -1,9 +1,60 @@
 import type { CardDefinition } from '../../types/card';
 import { CARD_LIST } from '../../data/cardLoader.ts';
 
+export type LogSeverity =
+  | 'muted'
+  | 'mana'
+  | 'summon'
+  | 'combat'
+  | 'trigger'
+  | 'critical';
+
 export interface LogToken {
   text: string;
   card?: CardDefinition;
+}
+
+/**
+ * Classifies a raw duel log entry into a semantic severity tier for scannable
+ * styling and collapsed-rail high-priority notifications.
+ */
+export function classifyLogSeverity(entry: string): LogSeverity {
+  const text = (entry || '').trim();
+  if (!text) return 'muted';
+
+  if (
+    /won the duel|wins the game|decked out|direct attack on|Action error|lost the game|defeated \w+ directly/i.test(
+      text
+    )
+  ) {
+    return 'critical';
+  }
+
+  if (
+    /shield trigger|triggered|silent skill|turbo rush|wave striker|activated .* ability|\$tap ability/i.test(
+      text
+    )
+  ) {
+    return 'trigger';
+  }
+
+  if (
+    /declared an attack|attacking|blocked with|chose not to block|broke .*shield|shield.*broken|destroyed|discarded|returned .* to .* hand|put .* into the graveyard|\bbattle\b/i.test(
+      text
+    )
+  ) {
+    return 'combat';
+  }
+
+  if (/summoned|evolved|cast |casts |put .* into the battle zone/i.test(text)) {
+    return 'summon';
+  }
+
+  if (/charged .* mana|mana zone|undid mana|added .* to mana/i.test(text)) {
+    return 'mana';
+  }
+
+  return 'muted';
 }
 
 /**

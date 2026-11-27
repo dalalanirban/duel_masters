@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, ShieldAlert, ArrowRight, Clock, X } from 'lucide-react';
+import { Zap, ShieldAlert, ArrowRight, Clock, X, Eye, Maximize2 } from 'lucide-react';
 import type { GameState, ShieldTriggerChoiceInteraction, CreatureInstance, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import { CivilizationIcon } from '../card/CivilizationIcon';
@@ -41,6 +41,7 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
   onStartArenaTargetSelect
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(20);
+  const [isPeeking, setIsPeeking] = useState<boolean>(false);
   const onResolveRef = useRef(onResolve);
   onResolveRef.current = onResolve;
 
@@ -48,7 +49,26 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
   const currentTrigger = triggers[0];
   const currentShieldId = currentTrigger?.shieldId;
 
-  // 20-Second Countdown Timer
+  // Auto-restore whenever a chained or new Shield Trigger begins
+  useEffect(() => {
+    setIsPeeking(false);
+  }, [isOpen, currentShieldId]);
+
+  // Escape key toggles Peek Board while interrupt is active
+  useEffect(() => {
+    if (!isOpen || !interaction || !currentShieldId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[data-modal="graveyard"]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIsPeeking((prev) => !prev);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, interaction, currentShieldId]);
+
+  // 20-Second Countdown Timer (preserved continuously while peeking)
   useEffect(() => {
     if (!isOpen || !interaction || !currentShieldId) return;
 
@@ -68,6 +88,23 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
   }, [timeLeft, isOpen, interaction, currentShieldId]);
 
   if (!isOpen || !interaction || !currentTrigger) return null;
+
+  if (isPeeking) {
+    return (
+      <div className="fixed top-12 lg:top-14 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-16px)]">
+        <button
+          type="button"
+          data-testid="peek-restore-pill"
+          onClick={() => setIsPeeking(false)}
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/95 hover:bg-slate-900 border-2 border-amber-400/80 text-amber-100 shadow-2xl shadow-amber-950/60 backdrop-blur-md text-xs font-cinzel font-bold whitespace-nowrap cursor-pointer transition-transform active:scale-95"
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-400 fill-current shrink-0" />
+          <span className="tabular-nums">Shield Trigger ({timeLeft}s) &mdash; Restore</span>
+          <Maximize2 className="w-3 h-3 text-sky-300 shrink-0" />
+        </button>
+      </div>
+    );
+  }
 
   const card = currentTrigger.card;
   const isCreature = card.type.includes('Creature');
@@ -95,9 +132,10 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-[2px] animate-fade-in"
       role="dialog"
       aria-modal="true"
+      onClick={(e) => e.stopPropagation()}
     >
       <div
         className="relative max-w-lg w-full bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-5 shadow-2xl shadow-amber-500/20 flex flex-col gap-3.5 overflow-hidden backdrop-blur-md"
@@ -106,20 +144,32 @@ export const TriggerModal: React.FC<TriggerModalProps> = ({
         {/* Glow corner element */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* 20-Second Countdown Progress Bar */}
+        {/* 20-Second Countdown Progress Bar + Peek Board */}
         <div className="w-full space-y-1">
-          <div className="flex items-center justify-between text-xs font-mono font-bold">
+          <div className="flex items-center justify-between gap-2 text-xs font-mono font-bold">
             <span className="flex items-center gap-1.5 text-amber-400">
               <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
               Shield Trigger Window:
             </span>
-            <span
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                timeLeft <= 5 ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {timeLeft}s remaining
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`px-2 py-0.5 rounded text-[11px] font-bold tabular-nums ${
+                  timeLeft <= 5 ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-slate-800 text-slate-300'
+                }`}
+              >
+                {timeLeft}s remaining
+              </span>
+              <button
+                type="button"
+                data-testid="peek-board-button"
+                onClick={() => setIsPeeking(true)}
+                title="Minimize modal to inspect the battlefield (Esc)"
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-sky-300 hover:text-white text-[10.5px] font-cinzel font-bold transition-colors cursor-pointer"
+              >
+                <Eye className="w-3 h-3" />
+                <span>Peek Board</span>
+              </button>
+            </div>
           </div>
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div

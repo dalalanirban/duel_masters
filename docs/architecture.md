@@ -13,9 +13,9 @@ Android App (Compose)  <--REST/WebSocket-->  Ktor Backend  -->  PostgreSQL
 
 ## Web client & Rules Engine (`web/`)
 
-- **UI**: React 18, TypeScript, Tailwind CSS, Vite (`web/src/components/duel/` for Battle Zone, Mana Zone, Hand, Shields, Card Inspector, and interactive `ZoneSelectionModal` / `SilentSkillModal` / `OptionalChoiceModal` / `DeckSearchModal`)
-- **Rules Engine**: Modular, acyclic TypeScript engine in `web/src/engine/` covering 900 cards across 12 sets — see [RULES_ENGINE_ARCHITECTURE.md](RULES_ENGINE_ARCHITECTURE.md)
-- **Verification**: Verified via `node --test web/src/engine/tests/*.test.mjs` and `npm --prefix web run build`
+- **UI & Presentation**: React 18, TypeScript, Tailwind CSS, Vite (`manualChunks` isolating `vendor-three` and `vendor-motion`), `motion/react` (`LazyMotion` + `domMax` strict), ref-backed Async Presentation Queue (`web/src/presentation/`), lazy WebGL2/`THREE.GLSL3` VFX (`web/src/vfx/`, 0 KB loaded in `Lite`), procedural Web Audio synthesizer (`web/src/audio/`), and responsive arena UI (`web/src/components/duel/`)
+- **Rules Engine**: Modular, acyclic TypeScript engine in `web/src/engine/` covering 900 cards across 12 sets — see [RULES_ENGINE_ARCHITECTURE.md](RULES_ENGINE_ARCHITECTURE.md) and [2026-11-27-battle-arena-ui-vfx-design.md](superpowers/specs/2026-11-27-battle-arena-ui-vfx-design.md)
+- **Verification**: Verified via `node --test web/src/engine/tests/*.test.mjs web/src/data/cardLoader.test.mjs web/src/presentation/tests/*.test.mjs web/src/audio/tests/*.test.mjs web/src/vfx/tests/*.test.mjs` (419 tests / 119 suites) and `npm --prefix web run build`
 - **Knowledge Graph**: Indexed via Graphify (`graphify-out/`, `.graphifyignore`, git hooks)
 
 ## Android client (`app/`)

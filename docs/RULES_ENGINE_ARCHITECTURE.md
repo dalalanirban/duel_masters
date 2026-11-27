@@ -86,31 +86,33 @@ Level 5  reducer.ts (master step dispatcher), ai.ts (rule-guided bot agent), ind
 - **Chronological Action Logs**: `castSpell` ([spells.ts](file:///d:/Duel_Masters/web/src/engine/spells.ts)) and `resolveShieldTrigger` ([combat.ts](file:///d:/Duel_Masters/web/src/engine/combat.ts)) append cast/activation entries before `resolveSpellEffect` so card-play logs precede resolved discard or destruction logs.
 - **Responsive Viewport Support**: Desktop `lg+` preserves the persistent `w-72` [CardInspectorPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardInspectorPane.tsx) and right [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx), while `< lg` viewports switch to a compact top HUD bar + slide-over drawers, horizontal-scroll-safe [HandView.tsx](file:///d:/Duel_Masters/web/src/components/duel/HandView.tsx), wrapping [ShieldsView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsView.tsx), and responsive [App.tsx](file:///d:/Duel_Masters/web/src/App.tsx) navigation down to narrow screens (`480px`+).
 
+### 2.7 Battle Arena v2: Async Presentation, Dual Modes, Audio, Lazy Three.js VFX & Interrupt Polish
+- **Ref-Backed Async Presentation Middleware** ([usePresentationQueue.ts](file:///d:/Duel_Masters/web/src/presentation/usePresentationQueue.ts), [compilePresentationBeats.ts](file:///d:/Duel_Masters/web/src/presentation/compilePresentationBeats.ts)): Computes `(prev, action, next)` synchronously via `dispatchWithPresentation`, splits 2-step combat cleanly without duplicate attack VFX, makes `CAST_SPELL` a first-class beat keeping targets visible prior to dissolve, holds `SHIELD_BROKEN` snapshots intact ahead of `SHIELD_TRIGGER`, supports non-leaking `Space` / skip-layer fast-forward, and keeps `TOGGLE_MANA_TAP` / `UNDO_CHARGE_MANA` strictly `0ms`.
+- **Smart Visual Modes (`Lite` + `Anime Drama`)** ([visualMode.ts](file:///d:/Duel_Masters/web/src/presentation/visualMode.ts), [vite.config.ts](file:///d:/Duel_Masters/web/vite.config.ts)): Defaults to `lite` on viewports `< 1024px`, `prefers-reduced-motion`, or missing WebGL2, and `drama` on WebGL2 desktops. `ThreeVfxStage` sits behind `React.lazy()` with `vendor-three` split out (`0 bytes` fetched in `Lite`, automatic `webglcontextlost` fallback to `Lite`).
+- **Procedural Web Audio** ([AudioEngine.ts](file:///d:/Duel_Masters/web/src/audio/AudioEngine.ts), [civilizationPatches.ts](file:///d:/Duel_Masters/web/src/audio/civilizationPatches.ts)): Five-civilization synth voices routed through master gain (`slider^2` persisted in `localStorage`) and a dynamics compressor, with `65ms` multi-break/wipe staggering, an `8`-voice cap, headless safe no-ops, and `visibilitychange` suspend/resume.
+- **`THREE.GLSL3` Shaders, Cached Anchors & Anime Cut-Ins** ([ThreeVfxStage.tsx](file:///d:/Duel_Masters/web/src/vfx/ThreeVfxStage.tsx), [shaders.ts](file:///d:/Duel_Masters/web/src/vfx/shaders.ts), [anchorRegistry.ts](file:///d:/Duel_Masters/web/src/vfx/anchorRegistry.ts), [TraumaViewport.tsx](file:///d:/Duel_Masters/web/src/components/duel/TraumaViewport.tsx), [AnimeCutInOverlay.tsx](file:///d:/Duel_Masters/web/src/components/duel/AnimeCutInOverlay.tsx)): Pooled ES 3.00 shaders (`SummonPortal`, `EnergyBeam`, `FresnelShield`, `ParticleGlow`), canvas-local `[data-vfx-id]` caching (`0` DOM layout reads in `rAF`), `hitStopMs` freeze frames, auto-sleeping `setAnimationLoop(null)`, and diagonal card-scan anime Cut-Ins.
+- **Ergonomic Arena, `Peek Board` & Log Severity Tiers**: Collapsed duel navbar + corner `UtilityCornerPill`, `MidlineControlAnchor`, reserved `PlayerClockBadge` (`--:--`), collapsible mobile Mana Strip, ornate SVG `CardBack`, timer-safe `Peek Board` restore pills with safe battlefield inspection across `BlockerModal` / `TriggerModal` / `ZoneSelectionModal` / `OptionalChoiceModal`, and `classifyLogSeverity` tiers with collapsed rail unread indicator ([duelLogParser.ts](file:///d:/Duel_Masters/web/src/components/duel/duelLogParser.ts), [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx)).
+
 ---
 
-## 3. UI Component Inventory
+## 3. UI & Presentation Component Inventory
 
-- [App.tsx](file:///d:/Duel_Masters/web/src/App.tsx) — Responsive top navigation bar, Card Explorer & Deck Builder layout, and full-viewport Duel Arena mount.
-- [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) — Master arena orchestration, compact centered mana payment prompt, Attack vs `$tap` choice bar, responsive `< lg` HUD & drawers, modal mounts.
-- [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx) — Creature rendering with live `gameState` awareness (Turbo Rush / aura power / blockers), nested evo stack count, `$TAP` & `ATK / $TAP` indicators.
-- [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx) — Click-and-drag mana tapping/unstaging, `STAGED` / `PAY` / `LOCK` visual badges.
-- [HandView.tsx](file:///d:/Duel_Masters/web/src/components/duel/HandView.tsx), [ShieldsRow.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsRow.tsx), [ShieldsView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsView.tsx), [CardInspectorPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardInspectorPane.tsx) (displays live effective `livePower`), [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx).
-- [ZoneSelectionModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/ZoneSelectionModal.tsx) — Multi-zone card picker (with hidden shield card backs, ordered pick badges, power constraint checks) & choose-a-race chip picker.
-- [SilentSkillModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/SilentSkillModal.tsx) — Start-of-turn Silent Skill confirmation modal.
-- [OptionalChoiceModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/OptionalChoiceModal.tsx), [DeckSearchModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/DeckSearchModal.tsx), [TriggerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/TriggerModal.tsx), [BlockerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/BlockerModal.tsx).
+- [App.tsx](file:///d:/Duel_Masters/web/src/App.tsx) — Collapsible site header during active duels, Card Explorer & Deck Builder layout, and full-viewport Duel Arena mount.
+- [DuelArena.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelArena.tsx) — `MotionConfig` + strict `LazyMotion (domMax)` shell, ref-backed presentation queue, audio/VFX orchestration, safe-peek board lock, keyboard shortcuts (`Space`, `Escape`, `L`).
+- [UtilityCornerPill.tsx](file:///d:/Duel_Masters/web/src/components/duel/UtilityCornerPill.tsx), [MidlineControlAnchor.tsx](file:///d:/Duel_Masters/web/src/components/duel/MidlineControlAnchor.tsx), [PlayerClockBadge.tsx](file:///d:/Duel_Masters/web/src/components/duel/PlayerClockBadge.tsx), [CardBack.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardBack.tsx) — Floating utility/audio/mode switcher, right-edge phase CTA anchor, future clock slot, and procedural vector card backs.
+- [BattleZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/BattleZoneView.tsx), [ManaZoneView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ManaZoneView.tsx), [HandView.tsx](file:///d:/Duel_Masters/web/src/components/duel/HandView.tsx), [ShieldsRow.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsRow.tsx), [ShieldsView.tsx](file:///d:/Duel_Masters/web/src/components/duel/ShieldsView.tsx), [CardInspectorPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/CardInspectorPane.tsx), [DuelLogPane.tsx](file:///d:/Duel_Masters/web/src/components/duel/DuelLogPane.tsx).
+- [ThreeVfxStage.tsx](file:///d:/Duel_Masters/web/src/vfx/ThreeVfxStage.tsx), [shaders.ts](file:///d:/Duel_Masters/web/src/vfx/shaders.ts), [anchorRegistry.ts](file:///d:/Duel_Masters/web/src/vfx/anchorRegistry.ts), [TraumaViewport.tsx](file:///d:/Duel_Masters/web/src/components/duel/TraumaViewport.tsx), [AnimeCutInOverlay.tsx](file:///d:/Duel_Masters/web/src/components/duel/AnimeCutInOverlay.tsx).
+- [BlockerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/BlockerModal.tsx), [TriggerModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/TriggerModal.tsx), [ZoneSelectionModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/ZoneSelectionModal.tsx), [OptionalChoiceModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/OptionalChoiceModal.tsx), [SilentSkillModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/SilentSkillModal.tsx), [DeckSearchModal.tsx](file:///d:/Duel_Masters/web/src/components/duel/DeckSearchModal.tsx).
 
 ---
 
 ## 4. Verification & Knowledge Graph Maintenance
 
 ```bash
-# Run full rules engine & multi-agent simulation suite (365 tests / 107 suites)
-node --test web/src/engine/tests/*.test.mjs
+# Run full test sweep (419 tests / 119 suites: engine + data + presentation + audio + VFX)
+node --test web/src/engine/tests/*.test.mjs web/src/data/cardLoader.test.mjs web/src/presentation/tests/*.test.mjs web/src/audio/tests/*.test.mjs web/src/vfx/tests/*.test.mjs
 
-# Run card database & filter integrity suite (29 tests)
-node --test web/src/data/cardLoader.test.mjs
-
-# Typecheck & Vite production bundle build
+# Typecheck & Vite production bundle build (with isolated vendor-three split)
 npm --prefix web run build
 
 # Refresh Graphify code graph after edits
