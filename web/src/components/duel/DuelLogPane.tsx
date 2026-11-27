@@ -18,7 +18,7 @@ import {
   classifyLogSeverity,
   type LogToken,
   type LogSeverity
-} from './duelLogParser';
+} from './duelLogUtils';
 
 export { parseLogTextWithCards, classifyLogSeverity, type LogToken, type LogSeverity };
 
