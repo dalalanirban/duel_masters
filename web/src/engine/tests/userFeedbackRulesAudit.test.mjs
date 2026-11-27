@@ -5,7 +5,14 @@ import { triggerAttack, searchDeckForCard } from '../effects.ts';
 import { canPayManaCost, payManaCost, validateManualManaSelection } from '../mana.ts';
 import { getSpellTargetRequirement } from '../targeting.ts';
 import { castSpell } from '../spells.ts';
-import { declareAttack, resolveCombat } from '../combat.ts';
+import {
+  declareAttack,
+  resolveCombat,
+  getCreatureEffectivePower,
+  canCreatureAttack,
+  hasCreatureSpeedAttacker,
+  isCreatureSummoningSick
+} from '../combat.ts';
 import { breakOpponentShields } from '../zones.ts';
 import allCards from '../../data/all_cards.json' with { type: 'json' };
 
@@ -565,6 +572,166 @@ describe('User Feedback Rules Audit: Attack Discard, Comet Missile, Deck Search 
       const afterNem = step(s2, { type: 'DECLARE_ATTACK', player: 'player', attackerId: 'c-nem', target: { type: 'shield', index: 0 } });
       assert.strictEqual(afterNem.players.opponent.manaZone.length, 1); // Nemonex's own unblocked trigger destroys 1 mana, NOT Bajula's 2 mana!
       assert.ok(!afterNem.actionLog.some((l) => l.includes('Überdragon Bajula')));
+    });
+  });
+
+  // =========================================================================
+  // 6. TESTER FEEDBACK REGRESSIONS (JAGALZOR, SKYTERROR, ULTIMATE DRAGON, TAP ABILITY)
+  // =========================================================================
+  describe("6. Tester Reports: Turbo Rush (Jagalzor), Scarlet Skyterror, Ultimate Dragon & Rikabu's Screwdriver", () => {
+    it('Magmadragon Jagalzor does not grant Speed Attacker until another friendly creature breaks a shield', () => {
+      const jagalzor = findCard('Magmadragon Jagalzor');
+      assert.strictEqual(jagalzor.isSpeedAttacker, false, 'Base Jagalzor must not be unconditional Speed Attacker');
+
+      let state = createTestState();
+      state.turn = 6;
+      state.phase = 'MAIN';
+      state.players.player.battleZone = [
+        { instanceId: 'att-prev', card: vorg, owner: 'player', isTapped: false, summonedTurn: 2, powerModifier: 0 },
+        { instanceId: 'jag-now', card: jagalzor, owner: 'player', isTapped: false, summonedTurn: 6, powerModifier: 0 },
+        { instanceId: 'ally-now', card: findCard('Aqua Hulcus'), owner: 'player', isTapped: false, summonedTurn: 6, powerModifier: 0 }
+      ];
+      state.players.opponent.shields = [
+        { instanceId: 'sh-1', card: findCard('Aqua Hulcus'), owner: 'opponent', isBroken: false },
+        { instanceId: 'sh-2', card: findCard('Aqua Hulcus'), owner: 'opponent', isBroken: false }
+      ];
+
+      // Before breaking a shield: Jagalzor & ally have summoning sickness
+      assert.strictEqual(
+        isCreatureSummoningSick(state.players.player.battleZone[1], 6, state.players.player.battleZone, state, 'player'),
+        true
+      );
+      assert.strictEqual(
+        canCreatureAttack(state, state.players.player.battleZone[1], undefined, 'player').valid,
+        false
+      );
+
+      // Attack and break 1 shield with Vorg -> triggers Jagalzor Turbo Rush
+      state = step(state, {
+        type: 'DECLARE_ATTACK',
+        player: 'player',
+        attackerId: 'att-prev',
+        target: { type: 'shield', index: 0, indices: [0] }
+      });
+
+      const jagInstance = state.players.player.battleZone.find((c) => c.instanceId === 'jag-now');
+      const allyInstance = state.players.player.battleZone.find((c) => c.instanceId === 'ally-now');
+      assert.strictEqual(
+        hasCreatureSpeedAttacker(jagInstance, state.players.player.battleZone, state, 'player'),
+        true
+      );
+      assert.strictEqual(
+        isCreatureSummoningSick(jagInstance, 6, state.players.player.battleZone, state, 'player'),
+        false
+      );
+      assert.strictEqual(
+        isCreatureSummoningSick(allyInstance, 6, state.players.player.battleZone, state, 'player'),
+        false
+      );
+      assert.strictEqual(canCreatureAttack(state, jagInstance, undefined, 'player').valid, true);
+      assert.strictEqual(canCreatureAttack(state, allyInstance, undefined, 'player').valid, true);
+    });
+
+    it('Scarlet Skyterror destroys all creatures that have Blocker across both battle zones on summon', () => {
+      const skyterror = findCard('Scarlet Skyterror');
+      const emeraldGrass = findCard('Emerald Grass'); // Light Blocker
+      const squito = findCard('Bloody Squito'); // Darkness Blocker
+
+      let state = createTestState();
+      state.turn = 8;
+      state.phase = 'MAIN';
+      state.players.player.hand = [
+        { instanceId: 'h-sky', card: skyterror, owner: 'player' }
+      ];
+      state.players.player.manaZone = Array.from({ length: 8 }, (_, i) => ({
+        instanceId: `m-${i}`,
+        card: skyterror,
+        owner: 'player',
+        isTapped: false
+      }));
+      state.players.player.battleZone = [
+        { instanceId: 'p-blocker', card: emeraldGrass, owner: 'player', isTapped: false, summonedTurn: 3, powerModifier: 0 },
+        { instanceId: 'p-nonblocker', card: vorg, owner: 'player', isTapped: false, summonedTurn: 3, powerModifier: 0 }
+      ];
+      state.players.opponent.battleZone = [
+        { instanceId: 'o-blocker', card: squito, owner: 'opponent', isTapped: false, summonedTurn: 3, powerModifier: 0 },
+        { instanceId: 'o-nonblocker', card: findCard('Aqua Hulcus'), owner: 'opponent', isTapped: false, summonedTurn: 3, powerModifier: 0 }
+      ];
+
+      const afterSummon = step(state, {
+        type: 'SUMMON_CREATURE',
+        player: 'player',
+        cardInstanceId: 'h-sky'
+      });
+
+      assert.strictEqual(afterSummon.players.player.battleZone.some((c) => c.instanceId === 'p-blocker'), false);
+      assert.strictEqual(afterSummon.players.player.battleZone.some((c) => c.instanceId === 'p-nonblocker'), true);
+      assert.strictEqual(afterSummon.players.player.battleZone.some((c) => c.card.name === 'Scarlet Skyterror'), true);
+      assert.strictEqual(afterSummon.players.opponent.battleZone.some((c) => c.instanceId === 'o-blocker'), false);
+      assert.strictEqual(afterSummon.players.opponent.battleZone.some((c) => c.instanceId === 'o-nonblocker'), true);
+    });
+
+    it('Ultimate Dragon gets +5000 power per other friendly Dragon (excluding Dragonoids and opponent Dragons)', () => {
+      const ultimate = findCard('Ultimate Dragon'); // Base 5000, Armored Dragon
+      const bolshack = findCard('Bolshack Dragon'); // Armored Dragon
+      const astro = findCard('Astronaut Skyterror'); // Armored Wyvern (NOT Dragon)
+      const brawler = findCard('Brawler Zyler'); // Human (NOT Dragon)
+
+      const state = createTestState();
+      state.players.player.battleZone = [
+        { instanceId: 'ult-1', card: ultimate, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'drg-1', card: bolshack, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'drg-2', card: findCard('Magmadragon Jagalzor'), owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'non-drg-1', card: astro, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 },
+        { instanceId: 'non-drg-2', card: brawler, owner: 'player', isTapped: false, summonedTurn: 1, powerModifier: 0 }
+      ];
+      state.players.opponent.battleZone = [
+        { instanceId: 'opp-drg', card: bolshack, owner: 'opponent', isTapped: false, summonedTurn: 1, powerModifier: 0 }
+      ];
+
+      const ult = state.players.player.battleZone[0];
+      const power = getCreatureEffectivePower(ult, false, state.players.player, state.players.opponent, false, state);
+      assert.strictEqual(power, 15000, 'Ultimate Dragon base 5000 + 2 other friendly Dragons * 5000 = 15000');
+    });
+
+    it("Rikabu's Screwdriver activates $tap ability in both MAIN and ATTACK phases to destroy an opponent Blocker", () => {
+      const screwdriver = findCard("Rikabu's Screwdriver");
+      const blocker = findCard('Emerald Grass');
+      const nonBlocker = findCard('Aqua Hulcus');
+
+      let state = createTestState();
+      state.interactiveHuman = true;
+      state.turn = 6;
+      state.phase = 'MAIN';
+      state.players.player.battleZone = [
+        { instanceId: 'rik-1', card: screwdriver, owner: 'player', isTapped: false, summonedTurn: 5, powerModifier: 0 }
+      ];
+      state.players.opponent.battleZone = [
+        { instanceId: 'opp-blk', card: blocker, owner: 'opponent', isTapped: false, summonedTurn: 5, powerModifier: 0 },
+        { instanceId: 'opp-hul', card: nonBlocker, owner: 'opponent', isTapped: false, summonedTurn: 5, powerModifier: 0 }
+      ];
+
+      // Activating $tap from MAIN phase transitions to ATTACK and prompts to pick opponent Blocker only
+      const afterTap = step(state, {
+        type: 'ACTIVATE_TAP_ABILITY',
+        player: 'player',
+        creatureInstanceId: 'rik-1'
+      });
+
+      assert.strictEqual(afterTap.phase, 'ATTACK');
+      assert.strictEqual(afterTap.players.player.battleZone[0].isTapped, true);
+      assert.strictEqual(afterTap.pendingInteraction?.type, 'ZONE_SELECTION');
+      assert.strictEqual(afterTap.pendingInteraction?.options.length, 1);
+      assert.strictEqual(afterTap.pendingInteraction?.options[0].instanceId, 'opp-blk');
+
+      const resolved = step(afterTap, {
+        type: 'RESOLVE_ZONE_SELECTION',
+        player: 'player',
+        selectedIds: ['opp-blk']
+      });
+      assert.strictEqual(resolved.pendingInteraction, null);
+      assert.strictEqual(resolved.players.opponent.battleZone.length, 1);
+      assert.strictEqual(resolved.players.opponent.battleZone[0].instanceId, 'opp-hul');
     });
   });
 });

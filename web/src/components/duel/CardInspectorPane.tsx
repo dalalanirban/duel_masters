@@ -18,6 +18,7 @@ import {
 
 export interface CardInspectorPaneProps {
   inspectedCard: CardDefinition | null;
+  livePower?: number | null;
   friendlyBattleZone?: CreatureInstance[];
   turn: number;
   activePlayer: 'player' | 'opponent';
@@ -69,6 +70,7 @@ const getPhaseBadgeInfo = (phase: string) => {
 
 export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   inspectedCard,
+  livePower = null,
   friendlyBattleZone = [],
   turn,
   activePlayer,
@@ -257,19 +259,28 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
               </div>
 
               {/* Power (if creature) */}
-              {inspectedCard.power !== null ? (
-                <div className="flex items-center gap-1 font-semibold text-slate-300">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">PWR:</span>
-                  <span className="text-amber-300 font-bold">
-                    {inspectedCard.power + sharedPowerBonus}
-                    {sharedPowerBonus > 0 && (
-                      <span className="text-emerald-400 text-[8.5px] ml-0.5 font-bold" title="Survivor Power Buff">
-                        (+{sharedPowerBonus})
-                      </span>
-                    )}
-                  </span>
-                </div>
-              ) : (
+              {inspectedCard.power !== null ? (() => {
+                const displayPower = livePower !== null ? livePower : inspectedCard.power + sharedPowerBonus;
+                const powerDelta = displayPower - inspectedCard.power;
+                return (
+                  <div className="flex items-center gap-1 font-semibold text-slate-300">
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">PWR:</span>
+                    <span className="text-amber-300 font-bold tabular-nums">
+                      {displayPower}
+                      {powerDelta !== 0 && (
+                        <span
+                          className={`text-[8.5px] ml-0.5 font-bold ${
+                            powerDelta > 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                          title="Live Continuous Power Modifier"
+                        >
+                          ({powerDelta > 0 ? `+${powerDelta}` : powerDelta})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })() : (
                 <div className="flex items-center gap-1 text-slate-500 text-[9.5px]">
                   <span className="text-[9px] uppercase tracking-wider text-slate-500 font-sans">Type:</span>
                   <span className="text-slate-300 font-medium font-sans">Spell</span>

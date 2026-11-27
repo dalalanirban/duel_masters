@@ -1,7 +1,7 @@
 import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, ArrowRight, Bot, CheckCircle2 } from 'lucide-react';
 import type { Deck, CardDefinition } from '../../types/card';
-import type { PlayerId, GameState, GameAction } from '../../engine/types';
+import type { PlayerId, GameState, GameAction, CreatureInstance } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
 import { step } from '../../engine/reducer';
 import { getAiAction } from '../../engine/ai';
@@ -10,14 +10,18 @@ import {
   getEffectiveManaCost,
   validateManualManaSelection
 } from '../../engine/mana';
-import { getCardCivilizations } from '../../engine/cardUtils';
+import { getCardCivilizations, getOpponentId } from '../../engine/cardUtils';
 import {
   isValidEvolutionBait,
   isEvolutionCreature,
   isVortexEvolution,
   findAllValidVortexBaitPairs
 } from '../../engine/evolution';
-import { getCreatureBreakerCount, canCreatureAttack } from '../../engine/combat';
+import {
+  getCreatureBreakerCount,
+  canCreatureAttack,
+  getCreatureEffectivePower
+} from '../../engine/combat';
 import { getSpellTargetRequirement } from '../../engine/targeting';
 import { canCastSpell } from '../../engine/spells';
 import { canActivateTapAbility, hasTapAbility } from '../../engine/tapAbilities';
@@ -96,6 +100,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [isAutoPlayOpponent, setIsAutoPlayOpponent] = useState<boolean>(true);
   const [inspectedCard, setInspectedCard] = useState<CardDefinition | null>(null);
   const [hoveredCard, setHoveredCard] = useState<CardDefinition | null>(null);
+  const [inspectedCreature, setInspectedCreature] = useState<CreatureInstance | null>(null);
+  const [hoveredCreature, setHoveredCreature] = useState<CreatureInstance | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
 
@@ -170,13 +176,42 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   }, []);
 
   // Card Inspection: Hover is transient (clears on mouse leave), click toggles sticky pin
-  const handleHoverCard = useCallback((card: CardDefinition | null) => {
+  const handleHoverCard = useCallback((card: CardDefinition | null, creature?: CreatureInstance | null) => {
     setHoveredCard(card);
+    setHoveredCreature(creature ?? null);
   }, []);
 
-  const handleInspectCard = useCallback((card: CardDefinition) => {
-    setInspectedCard((prev) => (prev?.id === card.id ? null : card));
+  const handleInspectCard = useCallback((card: CardDefinition, creature?: CreatureInstance) => {
+    setInspectedCard((prev) => {
+      const next = prev?.id === card.id && !creature ? null : card;
+      if (!next) setInspectedCreature(null);
+      else setInspectedCreature(creature ?? null);
+      return next;
+    });
   }, []);
+
+  const liveInspectedPower = useMemo(() => {
+    const activeInstance = hoveredCard
+      ? hoveredCreature
+      : inspectedCard
+      ? inspectedCreature
+      : null;
+    if (!activeInstance) return null;
+    const owner = activeInstance.owner;
+    const liveCopy = state.players[owner].battleZone.find(
+      (c) => c.instanceId === activeInstance.instanceId
+    );
+    if (!liveCopy) return null;
+    const opp = getOpponentId(owner);
+    return getCreatureEffectivePower(
+      liveCopy,
+      false,
+      state.players[owner],
+      state.players[opp],
+      state.activePlayer !== owner,
+      state
+    );
+  }, [hoveredCard, hoveredCreature, inspectedCard, inspectedCreature, state]);
 
   // Restart match handler
   const handleRestart = useCallback(() => {
@@ -187,6 +222,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setBlockerArenaSelection(false);
     setTriggerTargetSelection(null);
     setManaPaymentCandidate(null);
+    setInspectedCreature(null);
+    setHoveredCreature(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
   }, [selectedPlayerDeck, selectedOpponentDeck]);
 
@@ -647,7 +684,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
     const attacker = state.players.player.battleZone.find((c) => c.instanceId === creatureId);
     if (
-      state.phase === 'ATTACK' &&
+      (state.phase === 'ATTACK' || state.phase === 'MAIN') &&
       attacker &&
       hasTapAbility(attacker.card) &&
       canActivateTapAbility(state, attacker, 'player').valid
@@ -900,6 +937,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       <CardInspectorPane
         className="hidden lg:flex w-72 2xl:w-72 shrink-0 h-full"
         inspectedCard={hoveredCard || inspectedCard}
+        livePower={liveInspectedPower}
         friendlyBattleZone={state.players.player.battleZone}
         turn={state.turn}
         activePlayer={state.activePlayer}
@@ -911,7 +949,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
 
       {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
       <div
-        onClick={() => setInspectedCard(null)}
+        onClick={() => {
+          setInspectedCard(null);
+          setInspectedCreature(null);
+        }}
         className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1 sm:px-1.5 pb-1 sm:pb-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
       >
         {/* Compact Responsive HUD & Drawer Controls (< 1024px) */}
@@ -1134,6 +1175,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               opponentBattleZone={state.players.player.battleZone}
               playerState={state.players.opponent}
               opponentState={state.players.player}
+              gameState={state}
               owner="opponent"
               turn={state.turn}
               phase={state.phase}
@@ -1179,6 +1221,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               opponentBattleZone={state.players.opponent.battleZone}
               playerState={state.players.player}
               opponentState={state.players.opponent}
+              gameState={state}
               owner="player"
               turn={state.turn}
               phase={state.phase}
@@ -1368,6 +1411,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               <CardInspectorPane
                 className="w-72 max-w-[85vw] shrink-0 h-full shadow-2xl"
                 inspectedCard={hoveredCard || inspectedCard}
+                livePower={liveInspectedPower}
                 friendlyBattleZone={state.players.player.battleZone}
                 turn={state.turn}
                 activePlayer={state.activePlayer}
@@ -1471,6 +1515,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       {tapChoiceCreatureId && (() => {
         const tapChoiceCreature = state.players.player.battleZone.find((c) => c.instanceId === tapChoiceCreatureId);
         if (!tapChoiceCreature) return null;
+        const canAttackWithChoice = canCreatureAttack(state, tapChoiceCreature, undefined, 'player').valid;
         return (
           <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 px-4 py-3 rounded-2xl bg-slate-900/95 border border-violet-400/60 shadow-2xl flex flex-wrap items-center gap-3 backdrop-blur-md">
             <span className="text-xs font-cinzel font-bold text-slate-100">
@@ -1478,13 +1523,19 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             </span>
             <button
               type="button"
+              disabled={!canAttackWithChoice}
               onClick={() => {
                 setTapChoiceCreatureId(null);
                 setSelectedAttackerId(tapChoiceCreature.instanceId);
                 setSelectedShieldIndices([]);
                 showToast('Select an opponent shield or creature target to attack!');
               }}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950"
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                canAttackWithChoice
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'
+                  : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+              }`}
+              title={canAttackWithChoice ? 'Declare an attack' : 'Cannot attack right now'}
             >
               Attack
             </button>
@@ -1494,7 +1545,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
                 setTapChoiceCreatureId(null);
                 dispatch({ type: 'ACTIVATE_TAP_ABILITY', player: 'player', creatureInstanceId: tapChoiceCreature.instanceId });
               }}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
             >
               Use $tap Ability
             </button>

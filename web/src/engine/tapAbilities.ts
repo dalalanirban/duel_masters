@@ -58,7 +58,7 @@ const FALLBACK_RACES = [
  */
 export function hasTapAbility(card: CardDefinition): boolean {
   const rules = card.rulesText || '';
-  return rules.includes('$tap') || rules.includes('tap ability');
+  return /\$tap\b|tap ability/i.test(rules);
 }
 
 /**
@@ -77,8 +77,8 @@ export function canActivateTapAbility(
   if (state.activePlayer !== owner) {
     return { valid: false, reason: 'You can only use tap abilities on your own turn.' };
   }
-  if (!options?.ignorePhase && state.phase !== 'ATTACK') {
-    return { valid: false, reason: 'Tap abilities can only be used during the Attack phase.' };
+  if (!options?.ignorePhase && state.phase !== 'ATTACK' && state.phase !== 'MAIN') {
+    return { valid: false, reason: 'Tap abilities can only be used during the Main or Attack phase.' };
   }
   if (state.pendingInteraction) {
     return { valid: false, reason: 'Resolve pending interaction before using a tap ability.' };
@@ -167,9 +167,10 @@ export function resolveTapAbility(
   const opponent = getOpponentId(owner);
   const nameLower = getCardCapabilities(creature.card).nameLower;
 
-  // Step 1: Tap the creature immediately (e.g. Techno Totem's while-tapped PA aura turns on immediately)
+  // Step 1: Transition to ATTACK phase (using a $tap ability occurs in the attack step) & tap the creature immediately
   let nextState: GameState = {
     ...state,
+    phase: 'ATTACK',
     players: {
       ...state.players,
       [owner]: {
@@ -516,7 +517,15 @@ export function resolveTapAbility(
     const oppBlockers = oppState.battleZone.filter((c) =>
       hasCreatureBlocker(c, oppState.battleZone, pState.battleZone, oppState)
     );
-    if (oppBlockers.length === 0) return nextState;
+    if (oppBlockers.length === 0) {
+      return {
+        ...nextState,
+        actionLog: [
+          ...nextState.actionLog,
+          "Rikabu's Screwdriver found no opponent creatures with Blocker to destroy."
+        ]
+      };
+    }
     if (owner === 'player' && nextState.interactiveHuman && !targets?.length) {
       return enqueueInteraction(nextState, {
         type: 'ZONE_SELECTION',

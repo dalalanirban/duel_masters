@@ -113,7 +113,7 @@
     "isShieldTrigger": false,
     "isBlocker": false,
     "isSlayer": false,
-    "isSpeedAttacker": true,
+    "isSpeedAttacker": false,
     "isEvolution": false,
     "isSurvivor": false,
     "isCharger": false,

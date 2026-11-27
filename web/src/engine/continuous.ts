@@ -750,6 +750,18 @@ export function calculateContinuousAuraPower(
     powerBonus += otherNature * 1000;
   }
 
+  if (
+    nameLower.includes('ultimate dragon') ||
+    /this creature gets \+5000 power for each of your other creatures in the battle zone that has dragon in its race/i.test(
+      creature.card.rulesText || ''
+    )
+  ) {
+    const otherDragons = fZone.filter(
+      (c) => c.instanceId !== creature.instanceId && hasDragonRace(getCreatureRaces(c))
+    ).length;
+    powerBonus += otherDragons * 5000;
+  }
+
   // 7. Pala Olesis, Morning Guardian: During opponent's turn, each other friendly creature gets +2000
   if (isOpponentsTurn) {
     for (const c of fZone) {
