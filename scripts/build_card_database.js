@@ -131,12 +131,15 @@ function checkSpeedAttacker(cardType, text) {
     }
   }
 
-  if (/(?:Survivor|Wave striker|Silent skill)[^\n:]*:\s*(?:[a-zA-Z\s]+)?speed attacker\b/i.test(text)) {
+  if (/(?:Survivor|Silent skill)[^\n:]*:\s*(?:[a-zA-Z\s]+)?speed attacker\b/i.test(text)) {
     return true;
   }
 
   const textWithoutParens = text.replace(/\([^\)]*\)/g, '');
-  if (/Each of your creatures in the battle zone has "speed attacker\."/i.test(textWithoutParens)) {
+  if (
+    /Each of your creatures in the battle zone has "speed attacker\."/i.test(textWithoutParens) &&
+    !/Turbo rush\b[^\n:]*:/i.test(textWithoutParens)
+  ) {
     return true;
   }
 

@@ -466,6 +466,35 @@ export function triggerCIP(
     return destroyCreaturesBatch(nextState, exact1000);
   }
 
+  // 0i. Scarlet Skyterror: Destroy all creatures in both battle zones that have Blocker
+  if (
+    cardName.includes('scarlet skyterror') ||
+    /when you put this creature into the battle zone,\s*destroy all creatures that have "?blocker"?/i.test(
+      rules
+    )
+  ) {
+    const blockerIds: string[] = [];
+    for (const pid of ['player', 'opponent'] as const) {
+      const ownerState = nextState.players[pid];
+      const oppState = nextState.players[getOpponentId(pid)];
+      for (const c of ownerState.battleZone) {
+        if (hasCreatureBlocker(c, ownerState.battleZone, oppState.battleZone, ownerState)) {
+          blockerIds.push(c.instanceId);
+        }
+      }
+    }
+    if (blockerIds.length === 0) {
+      return {
+        ...nextState,
+        actionLog: [
+          ...nextState.actionLog,
+          `${card.name} entered the battle zone, but no creatures with Blocker were present.`
+        ]
+      };
+    }
+    return destroyCreaturesBatch(nextState, blockerIds);
+  }
+
   // 1. Bouncing Creature CIP Effect (Aqua Surfer, Aqua Sniper, Unicorn Fish, etc.)
   const bounceMatch = rules.match(
     /when you put this creature into the battle zone.*return (?:a|one|up to (\d+)|(\d+)) creatures? .* to (?:its|their) owner's hand/i

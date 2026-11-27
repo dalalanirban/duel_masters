@@ -9,7 +9,7 @@ import {
   Sparkles,
   Swords
 } from 'lucide-react';
-import type { CreatureInstance, PlayerId, Phase, PlayerState } from '../../engine/types';
+import type { CreatureInstance, GameState, PlayerId, Phase, PlayerState } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import {
   getCreatureEffectivePower,
@@ -27,6 +27,7 @@ interface BattleZoneViewProps {
   opponentBattleZone?: CreatureInstance[];
   playerState?: PlayerState;
   opponentState?: PlayerState;
+  gameState?: GameState;
   owner: PlayerId;
   turn: number;
   phase: Phase;
@@ -34,8 +35,8 @@ interface BattleZoneViewProps {
   selectedAttackerId?: string | null;
   onSelectAttacker?: (creatureId: string) => void;
   onSelectTargetCreature?: (creatureId: string) => void;
-  onInspectCard?: (card: CardDefinition) => void;
-  onHoverCard?: (card: CardDefinition | null) => void;
+  onInspectCard?: (card: CardDefinition, creature?: CreatureInstance) => void;
+  onHoverCard?: (card: CardDefinition | null, creature?: CreatureInstance | null) => void;
   // Evolution mode
   evolutionSelectionMode?: boolean;
   validBaitIds?: string[];
@@ -57,6 +58,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
   opponentBattleZone,
   playerState,
   opponentState,
+  gameState,
   owner,
   turn,
   phase,
@@ -103,16 +105,23 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
       {battleZone.map((creature) => {
         const card = creature.card;
         const isTapped = creature.isTapped;
-        const sick = isCreatureSummoningSick(creature, turn, battleZone, undefined, owner);
+        const sick = isCreatureSummoningSick(creature, turn, battleZone, gameState, owner);
         const isAttacker = selectedAttackerId === creature.instanceId || combatAttackerId === creature.instanceId;
         const friendlyState = playerState || ({ battleZone } as PlayerState);
         const oppState = opponentState || ({ battleZone: opponentBattleZone || [] } as PlayerState);
         const oppBZ = opponentBattleZone || oppState.battleZone || [];
         const isOpponentsTurn = activePlayer !== owner;
-        const effectivePower = getCreatureEffectivePower(creature, isAttacker, friendlyState, oppState, isOpponentsTurn);
+        const effectivePower = getCreatureEffectivePower(
+          creature,
+          isAttacker,
+          friendlyState,
+          oppState,
+          isOpponentsTurn,
+          gameState
+        );
         const isBlocker = hasCreatureBlocker(creature, battleZone, oppBZ, friendlyState);
         const isSlayer = hasCreatureSlayer(creature, battleZone, oppBZ, friendlyState);
-        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone, undefined, owner);
+        const isSpeedAttacker = hasCreatureSpeedAttacker(creature, battleZone, gameState, owner);
         const countStack = (items?: typeof creature.evolvedOn): number =>
           !items || items.length === 0
             ? 0
@@ -120,14 +129,14 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
         const isEvolution = Boolean(creature.evolvedOn && creature.evolvedOn.length > 0) || card.type === 'Evolution Creature';
         const underlyingCount = countStack(creature.evolvedOn);
 
-        // Attack eligibility (respects Nariel, can't attack, summoning sickness)
+        // Attack & $tap eligibility (respects Nariel, can't attack, summoning sickness, Turbo Rush)
         const rulesLower = (card.rulesText || '').toLowerCase();
         const cantAttack = /this creature can't attack(?!\s+players)/i.test(rulesLower) || Boolean(creature.tempCantAttack);
         const narielBlocks = [...battleZone, ...oppBZ].some((c) => c.card.name.toLowerCase().includes('nariel')) && effectivePower >= 3000;
         const canTapAbility =
           !isOpponent &&
           isPlayerTurn &&
-          phase === 'ATTACK' &&
+          (phase === 'MAIN' || phase === 'ATTACK') &&
           !isTapped &&
           (!sick || Boolean(friendlyState.tempIgnoreAttackPrevention)) &&
           !cantAttack &&
@@ -158,7 +167,7 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
               creature,
               oppBZ,
               battleZone,
-              undefined,
+              gameState,
               oppState,
               friendlyState
             ));
@@ -213,11 +222,12 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
           }
 
           if (canActivateAction && onSelectAttacker) {
+            onInspectCard?.(card, creature);
             onSelectAttacker(creature.instanceId);
             return;
           }
 
-          onInspectCard?.(card);
+          onInspectCard?.(card, creature);
         };
 
         return (
@@ -225,9 +235,9 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
             key={creature.instanceId}
             onClick={handleClick}
             onMouseEnter={() => {
-              onHoverCard?.(card);
+              onHoverCard?.(card, creature);
             }}
-            onMouseLeave={() => onHoverCard?.(null)}
+            onMouseLeave={() => onHoverCard?.(null, null)}
             className={`relative shrink-0 w-15 h-21 sm:w-17 sm:h-24 md:w-18 md:h-25 aspect-[491/682] rounded-md overflow-hidden transition-all duration-200 cursor-pointer shadow-lg group ${
               isTapped ? 'rotate-90 scale-90' : ''
             } ${
@@ -245,6 +255,8 @@ export const BattleZoneView: React.FC<BattleZoneViewProps> = ({
                 ? 'ring-2 ring-purple-400 shadow-purple-500/50 z-20 animate-pulse hover:brightness-110'
                 : canAttack
                 ? 'ring-1 ring-emerald-400/90 hover:ring-amber-400 hover:scale-105 shadow-emerald-500/20'
+                : canTapAbility
+                ? 'ring-1 ring-violet-400/90 hover:ring-amber-400 hover:scale-105 shadow-violet-500/20'
                 : isTapped
                 ? 'opacity-75 border border-slate-700 hover:border-slate-500'
                 : selectedAttackerId && !isOpponent
