@@ -53,6 +53,8 @@ export const GraveyardModal: React.FC<GraveyardModalProps> = ({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
@@ -71,6 +73,7 @@ export const GraveyardModal: React.FC<GraveyardModalProps> = ({
 
   return (
     <div
+      data-modal="graveyard"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
       role="dialog"

@@ -1,5 +1,6 @@
-import React, { useReducer, useState, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, ArrowRight, Bot, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, Bot, CheckCircle2, Layers, Volume2, VolumeX } from 'lucide-react';
+import { LazyMotion, MotionConfig, domMax, m, AnimatePresence } from 'motion/react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction, CreatureInstance } from '../../engine/types';
 import { initializeGame } from '../../engine/state';
@@ -39,6 +40,27 @@ import { OptionalChoiceModal } from './OptionalChoiceModal';
 import { DeckSearchModal } from './DeckSearchModal';
 import { ZoneSelectionModal } from './ZoneSelectionModal';
 import { SilentSkillModal } from './SilentSkillModal';
+import { MidlineControlAnchor } from './MidlineControlAnchor.tsx';
+import { UtilityCornerPill } from './UtilityCornerPill.tsx';
+import { PlayerClockBadge } from './PlayerClockBadge.tsx';
+import { TraumaViewport } from './TraumaViewport.tsx';
+import { AnimeCutInOverlay } from './AnimeCutInOverlay.tsx';
+import {
+  resolveInitialVisualMode,
+  persistVisualMode,
+  probeWebGL2
+} from '../../presentation/visualMode.ts';
+import type { VisualMode, PresentationBeat } from '../../presentation/types.ts';
+import { usePresentationQueue } from '../../presentation/usePresentationQueue.ts';
+import {
+  createAudioEngine,
+  AUDIO_VOLUME_STORAGE_KEY,
+  AUDIO_MUTED_STORAGE_KEY,
+  type AudioEngine
+} from '../../audio/AudioEngine.ts';
+import { StageAnchorRegistry } from '../../vfx/anchorRegistry.ts';
+
+const LazyThreeVfxStage = React.lazy(() => import('../../vfx/ThreeVfxStage.tsx'));
 
 interface DuelArenaProps {
   activeDeck: Deck;
@@ -86,14 +108,125 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [selectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
   const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
 
-  // Game state reducer
-  const [state, dispatch] = useReducer(
-    arenaReducer,
-    undefined,
-    () => initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player', { interactiveHuman: true })
+  // Visual mode, lazy WebGL fallback & procedural audio state
+  const supportsWebGL2 = useMemo(() => probeWebGL2(), []);
+  const [webglFailed, setWebglFailed] = useState<boolean>(false);
+  const [vfxClearSignal, setVfxClearSignal] = useState<number>(0);
+  const stageRootRef = useRef<HTMLDivElement | null>(null);
+  const anchorRegistry = useMemo(() => new StageAnchorRegistry(), []);
+  const [visualMode, setVisualMode] = useState<VisualMode>(() => resolveInitialVisualMode());
+  const [audioMuted, setAudioMuted] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem(AUDIO_MUTED_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [audioVolume, setAudioVolume] = useState<number>(() => {
+    try {
+      if (typeof window === 'undefined') return 0.75;
+      const raw = window.localStorage.getItem(AUDIO_VOLUME_STORAGE_KEY);
+      const parsed = raw !== null ? Number(raw) : 0.75;
+      return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 0.75;
+    } catch {
+      return 0.75;
+    }
+  });
+
+  const audioVolumeRef = useRef(audioVolume);
+  audioVolumeRef.current = audioVolume;
+  const audioMutedRef = useRef(audioMuted);
+  audioMutedRef.current = audioMuted;
+  const audioEngineRef = useRef<AudioEngine | null>(null);
+
+  const getAudioEngine = useCallback((): AudioEngine => {
+    if (!audioEngineRef.current) {
+      audioEngineRef.current = createAudioEngine(audioVolumeRef.current, audioMutedRef.current);
+    }
+    return audioEngineRef.current;
+  }, []);
+
+  useEffect(() => {
+    const engine = getAudioEngine();
+    return () => {
+      engine.dispose();
+      if (audioEngineRef.current === engine) {
+        audioEngineRef.current = null;
+      }
+    };
+  }, [getAudioEngine]);
+
+  useEffect(() => {
+    const engine = audioEngineRef.current;
+    if (!engine) return;
+    engine.setMuted(audioMuted);
+    engine.setMasterVolume(audioVolume);
+  }, [audioMuted, audioVolume]);
+
+  const initGameState = useCallback(
+    () => initializeGame(selectedPlayerDeck, selectedOpponentDeck, 'player', { interactiveHuman: true }),
+    [selectedPlayerDeck, selectedOpponentDeck]
   );
 
+  const handleBeatStart = useCallback(
+    (beat: PresentationBeat) => {
+      getAudioEngine().playBeat(beat);
+    },
+    [getAudioEngine]
+  );
+
+  const handleInstantUiTick = useCallback(
+    (action: ArenaAction, nextState: GameState) => {
+      const engine = getAudioEngine();
+      if (action.type === 'UNDO_CHARGE_MANA') {
+        engine.playUiTick('untap');
+        return;
+      }
+      if (action.type === 'TOGGLE_MANA_TAP') {
+        const pid: PlayerId = action.player ?? 'player';
+        const card = nextState.players[pid].manaZone.find(
+          (item) => item.instanceId === action.cardInstanceId
+        );
+        engine.playUiTick(card?.isTapped ? 'tap' : 'untap');
+      }
+    },
+    [getAudioEngine]
+  );
+
+  // Ref-backed atomic presentation middleware (canonical state vs rendered viewState)
+  const {
+    canonicalState,
+    canonicalStateRef,
+    viewState: state,
+    activeBeat,
+    isPresenting,
+    dispatchWithPresentation: dispatch,
+    fastForward,
+    flush
+  } = usePresentationQueue<ArenaAction>({
+    initialState: initGameState,
+    reducer: arenaReducer,
+    visualMode,
+    onBeatStart: handleBeatStart,
+    onInstantUiTick: handleInstantUiTick
+  });
+
+  const isPresentingRef = useRef(isPresenting);
+  isPresentingRef.current = isPresenting;
+
+  const handleFastForward = useCallback(() => {
+    setVfxClearSignal((s) => s + 1);
+    fastForward();
+  }, [fastForward]);
+
+  const handleFlush = useCallback(() => {
+    setVfxClearSignal((s) => s + 1);
+    flush();
+  }, [flush]);
+
   // UI state
+  const [isDesktopInspectorCollapsed, setIsDesktopInspectorCollapsed] = useState<boolean>(false);
+  const [isDesktopLogExpanded, setIsDesktopLogExpanded] = useState<boolean>(false);
   const [selectedAttackerId, setSelectedAttackerId] = useState<string | null>(null);
   const [tapChoiceCreatureId, setTapChoiceCreatureId] = useState<string | null>(null);
   const [activeDrawer, setActiveDrawer] = useState<'none' | 'inspector' | 'controls'>('none');
@@ -104,6 +237,100 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   const [hoveredCreature, setHoveredCreature] = useState<CreatureInstance | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [turnBanner, setTurnBanner] = useState<{ turn: number; player: PlayerId } | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  }, []);
+
+  const handleToggleVisualMode = useCallback(
+    (next: VisualMode) => {
+      if (next === 'drama' && !probeWebGL2()) {
+        showToast('WebGL2 unavailable on this device — keeping Lite VFX mode.');
+        return;
+      }
+      if (next === 'drama') {
+        setWebglFailed(false);
+      }
+      setVisualMode(next);
+      persistVisualMode(next);
+      handleFlush();
+    },
+    [handleFlush, showToast]
+  );
+
+  const handleWebglFallback = useCallback(
+    (_reason: string) => {
+      setWebglFailed(true);
+      setVisualMode('lite');
+      persistVisualMode('lite');
+      handleFlush();
+      showToast('Switched to Lite VFX mode cleanly after WebGL context loss.');
+    },
+    [handleFlush, showToast]
+  );
+
+  // Bind cached VFX slot anchor container & update on zone count / rail layout changes
+  useEffect(() => {
+    anchorRegistry.setContainer(stageRootRef.current);
+    anchorRegistry.measureSlots();
+    return () => {
+      anchorRegistry.setContainer(null);
+    };
+  }, [anchorRegistry]);
+
+  useEffect(() => {
+    if (visualMode === 'drama' && !webglFailed) {
+      anchorRegistry.measureSlots();
+    }
+  }, [
+    visualMode,
+    webglFailed,
+    anchorRegistry,
+    isDesktopInspectorCollapsed,
+    isDesktopLogExpanded,
+    state.players.player.battleZone.length,
+    state.players.opponent.battleZone.length,
+    state.players.player.manaZone.length,
+    state.players.opponent.manaZone.length,
+    state.players.player.shields.length,
+    state.players.opponent.shields.length
+  ]);
+
+  const handleToggleAudioMute = useCallback(() => {
+    getAudioEngine().unlock();
+    setAudioMuted((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(AUDIO_MUTED_STORAGE_KEY, String(next));
+      } catch {
+        // Ignore storage error cleanly
+      }
+      return next;
+    });
+  }, [getAudioEngine]);
+
+  const handleAudioVolumeChange = useCallback(
+    (nextVol: number) => {
+      const clamped = Math.min(1, Math.max(0, nextVol));
+      getAudioEngine().unlock();
+      setAudioVolume(clamped);
+      if (clamped > 0 && audioMuted) {
+        setAudioMuted(false);
+        try {
+          window.localStorage.setItem(AUDIO_MUTED_STORAGE_KEY, 'false');
+        } catch {
+          // Ignore storage error cleanly
+        }
+      }
+      try {
+        window.localStorage.setItem(AUDIO_VOLUME_STORAGE_KEY, String(clamped));
+      } catch {
+        // Ignore storage error cleanly
+      }
+    },
+    [audioMuted, getAudioEngine]
+  );
 
   // Turn change impact banner
   useEffect(() => {
@@ -170,11 +397,6 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // Multi-shield selection mode
   const [selectedShieldIndices, setSelectedShieldIndices] = useState<number[]>([]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  }, []);
-
   // Card Inspection: Hover is transient (clears on mouse leave), click toggles sticky pin
   const handleHoverCard = useCallback((card: CardDefinition | null, creature?: CreatureInstance | null) => {
     setHoveredCard(card);
@@ -213,8 +435,58 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     );
   }, [hoveredCard, hoveredCreature, inspectedCard, inspectedCreature, state]);
 
+  // Desktop & Duel keyboard shortcuts: 'Space' fast-forwards active animation, 'Escape' closes drawers/modes, 'L' toggles Log rail
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const hasDialogOrPeek = Boolean(
+        document.querySelector('[role="dialog"], [data-testid="peek-restore-pill"]')
+      );
+      if (e.code === 'Space' && !hasDialogOrPeek && isPresentingRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleFastForward();
+        return;
+      }
+      if (e.key === 'Escape' && !hasDialogOrPeek) {
+        if (activeDrawer !== 'none') {
+          setActiveDrawer('none');
+        } else if (manaPaymentCandidate) {
+          setManaPaymentCandidate(null);
+        } else if (evolutionCandidate) {
+          setEvolutionCandidate(null);
+        } else if (spellCandidate) {
+          setSpellCandidate(null);
+        } else if (tapChoiceCreatureId) {
+          setTapChoiceCreatureId(null);
+        } else if (selectedAttackerId) {
+          setSelectedAttackerId(null);
+        } else if (isDesktopLogExpanded) {
+          setIsDesktopLogExpanded(false);
+        }
+        return;
+      }
+      if (e.key === 'l' || e.key === 'L') {
+        setIsDesktopLogExpanded((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKey, true);
+    return () => window.removeEventListener('keydown', handleKey, true);
+  }, [
+    handleFastForward,
+    activeDrawer,
+    manaPaymentCandidate,
+    evolutionCandidate,
+    spellCandidate,
+    tapChoiceCreatureId,
+    selectedAttackerId,
+    isDesktopLogExpanded
+  ]);
+
   // Restart match handler
   const handleRestart = useCallback(() => {
+    setVfxClearSignal((s) => s + 1);
     setSelectedAttackerId(null);
     setSelectedShieldIndices([]);
     setEvolutionCandidate(null);
@@ -225,13 +497,14 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setInspectedCreature(null);
     setHoveredCreature(null);
     dispatch({ type: 'RESET_GAME', playerDeck: selectedPlayerDeck, opponentDeck: selectedOpponentDeck });
-  }, [selectedPlayerDeck, selectedOpponentDeck]);
+  }, [selectedPlayerDeck, selectedOpponentDeck, dispatch]);
 
   // AI Battle Deck selection handler
   const handleSelectOpponentDeck = useCallback(
     (deckId: string) => {
       const chosen = availableOpponentDecks.find((d) => d.id === deckId);
       if (!chosen) return;
+      setVfxClearSignal((s) => s + 1);
       setSelectedOpponentDeck(chosen);
       setSelectedAttackerId(null);
       setSelectedShieldIndices([]);
@@ -247,55 +520,61 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       });
       showToast(`AI Battle Deck set to: ${chosen.name}. Match restarted.`);
     },
-    [availableOpponentDecks, selectedPlayerDeck]
+    [availableOpponentDecks, selectedPlayerDeck, dispatch, showToast]
   );
 
 
-  // AI Step Trigger
+  // AI Step Trigger (reads canonicalStateRef directly to stay immune to view lag)
   const triggerAiStep = useCallback(() => {
-    if (state.winner !== null) return;
+    const current = canonicalStateRef.current;
+    if (current.winner !== null) return;
     const aiTargetPlayer: PlayerId =
-      state.pendingInteraction && 'defendingPlayer' in state.pendingInteraction
-        ? state.pendingInteraction.defendingPlayer
-        : state.pendingInteraction && 'player' in state.pendingInteraction
-        ? state.pendingInteraction.player
-        : state.activePlayer;
+      current.pendingInteraction && 'defendingPlayer' in current.pendingInteraction
+        ? current.pendingInteraction.defendingPlayer
+        : current.pendingInteraction && 'player' in current.pendingInteraction
+        ? current.pendingInteraction.player
+        : current.activePlayer;
 
     // Double-lock guard: AI must never take actions on behalf of the human player
     if (aiTargetPlayer !== 'opponent') {
       return;
     }
 
-    const action = getAiAction(state, 'opponent');
+    const action = getAiAction(current, 'opponent');
     if (action) {
       dispatch(action);
     }
-  }, [state]);
+  }, [canonicalStateRef, dispatch]);
 
-  // Auto-play timer loop for opponent
+  // Auto-play timer loop for opponent (paused while presentation beats play; brisk breather once idle)
   useEffect(() => {
-    if (!isAutoPlayOpponent || state.winner !== null) return;
+    if (!isAutoPlayOpponent || isPresenting || canonicalState.winner !== null) return;
 
     const isPlayerPendingInteraction = Boolean(
-      state.pendingInteraction &&
-        (('defendingPlayer' in state.pendingInteraction && state.pendingInteraction.defendingPlayer === 'player') ||
-         ('player' in state.pendingInteraction && state.pendingInteraction.player === 'player'))
+      canonicalState.pendingInteraction &&
+        (('defendingPlayer' in canonicalState.pendingInteraction &&
+          canonicalState.pendingInteraction.defendingPlayer === 'player') ||
+         ('player' in canonicalState.pendingInteraction &&
+          canonicalState.pendingInteraction.player === 'player'))
     );
 
-    const isOpponentTurnActive = state.activePlayer === 'opponent' && !isPlayerPendingInteraction;
+    const isOpponentTurnActive = canonicalState.activePlayer === 'opponent' && !isPlayerPendingInteraction;
     const isOpponentPendingInteraction = Boolean(
-      state.pendingInteraction &&
-        (('defendingPlayer' in state.pendingInteraction && state.pendingInteraction.defendingPlayer === 'opponent') ||
-         ('player' in state.pendingInteraction && state.pendingInteraction.player === 'opponent'))
+      canonicalState.pendingInteraction &&
+        (('defendingPlayer' in canonicalState.pendingInteraction &&
+          canonicalState.pendingInteraction.defendingPlayer === 'opponent') ||
+         ('player' in canonicalState.pendingInteraction &&
+          canonicalState.pendingInteraction.player === 'opponent'))
     );
 
     if (isOpponentTurnActive || isOpponentPendingInteraction) {
+      const breatherMs = visualMode === 'lite' ? 220 : 280;
       const timer = setTimeout(() => {
         triggerAiStep();
-      }, 700);
+      }, breatherMs);
       return () => clearTimeout(timer);
     }
-  }, [isAutoPlayOpponent, state, triggerAiStep]);
+  }, [isAutoPlayOpponent, isPresenting, canonicalState, visualMode, triggerAiStep]);
 
   // Clear selected attacker & interactive candidates if turn/phase changes
   useEffect(() => {
@@ -305,15 +584,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setEvolutionCandidate(null);
     setSpellCandidate(null);
     setManaPaymentCandidate(null);
-  }, [state.turn, state.phase, state.activePlayer]);
+  }, [canonicalState.turn, canonicalState.phase, canonicalState.activePlayer]);
 
   // Surface latest engine action error or mana lock warning in toast cleanly
   useEffect(() => {
-    const lastLog = state.actionLog[state.actionLog.length - 1];
+    const lastLog = canonicalState.actionLog[canonicalState.actionLog.length - 1];
     if (lastLog && lastLog.startsWith('Action error (')) {
       showToast(lastLog.replace(/^Action error \([^)]+\):\s*/, ''));
     }
-  }, [state.actionLog]);
+  }, [canonicalState.actionLog, showToast]);
 
   // Player action: Charge Mana
   const handleChargeMana = (cardInstanceId: string) => {
@@ -849,6 +1128,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       ? state.pendingInteraction
       : null;
 
+  // Safe peeking lock: while an interrupt interaction is pending (even minimized via Peek Board), prevent non-interrupt mutations
+  const isInterruptLocked = state.pendingInteraction !== null;
+  const disableBoardMutations =
+    isInterruptLocked && !blockerArenaSelection && !triggerTargetSelection && !pendingTargetSelection;
+
   const canUndoMana = Boolean(
     isPlayerTurn &&
     state.phase === 'MANA_CHARGE' &&
@@ -932,10 +1216,21 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full flex flex-row overflow-hidden bg-[#07090e] text-slate-100 select-none">
-      {/* Left Column: Card Inspector & Match Status (Fixed 18rem on lg+ desktop, slide-over drawer on narrow viewports) */}
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={domMax} strict>
+        <div
+          onPointerDown={() => getAudioEngine().unlock()}
+          className="relative w-full h-full flex flex-row overflow-hidden bg-[#070b14] text-slate-100 select-none"
+        >
+      {/* Left Column: Card Inspector & Match Status (Strictly 18rem w-72 when expanded; collapsible to 40px rail) */}
       <CardInspectorPane
-        className="hidden lg:flex w-72 2xl:w-72 shrink-0 h-full"
+        className={
+          isDesktopInspectorCollapsed
+            ? 'hidden lg:flex w-10 shrink-0 h-full'
+            : 'hidden lg:flex w-72 2xl:w-72 shrink-0 h-full'
+        }
+        isCollapsed={isDesktopInspectorCollapsed}
+        onCollapse={() => setIsDesktopInspectorCollapsed((c) => !c)}
         inspectedCard={hoveredCard || inspectedCard}
         livePower={liveInspectedPower}
         friendlyBattleZone={state.players.player.battleZone}
@@ -947,135 +1242,199 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         onSelectOpponentDeck={handleSelectOpponentDeck}
       />
 
-      {/* Center Column: The Unified Battle Arena (Dark Minimalist Playmat) */}
+      {/* Center Column Wrapper: Playmat, Trauma Shake, Lazy Three.js VFX Stage & Anime Cut-Ins */}
       <div
-        onClick={() => {
-          setInspectedCard(null);
-          setInspectedCreature(null);
-        }}
-        className="relative flex-1 h-full min-w-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1 sm:px-1.5 pb-1 sm:pb-0.5 bg-[radial-gradient(ellipse_at_center,_#0f141f_0%,_#07090e_100%)] border-x border-slate-800/60 shadow-2xl"
+        ref={stageRootRef}
+        className="relative flex-1 h-full min-w-0 overflow-hidden bg-[radial-gradient(ellipse_at_center,_#0f172a_0%,_#070b14_75%,_#04070e_100%)] border-x border-slate-800/60 shadow-2xl"
       >
-        {/* Compact Responsive HUD & Drawer Controls (< 1024px) */}
+        <TraumaViewport
+          visualMode={visualMode}
+          impulse={activeBeat?.trauma ?? 0}
+          impulseKey={activeBeat?.id ?? null}
+          clearSignal={vfxClearSignal}
+          className="w-full h-full"
+        >
+          {/* The Unified Responsive Playmat (72%+ viewport budget on desktop) */}
+          <m.div
+            layoutScroll
+            data-testid="arena-playmat"
+            data-visual-mode={visualMode}
+            data-webgl-failed={webglFailed ? 'true' : 'false'}
+            data-active-beat={activeBeat?.event.type ?? ''}
+            data-is-presenting={isPresenting ? 'true' : 'false'}
+            onClick={() => {
+              setInspectedCard(null);
+              setInspectedCreature(null);
+            }}
+            className="relative w-full h-full flex flex-col justify-between overflow-y-auto overflow-x-hidden custom-scrollbar px-1 sm:px-2 pb-1 sm:pb-1"
+          >
+            {/* Non-Leaking Fast-Forward Skip Layer during Async Presentation Beats */}
+            {isPresenting && (
+              <div
+                data-testid="presentation-skip-layer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleFastForward();
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                className="fixed inset-x-0 bottom-0 top-[42px] lg:absolute lg:inset-0 z-[35] cursor-pointer bg-transparent"
+                title="Click or press Space to skip animation"
+                aria-label="Fast forward duel animation"
+              />
+            )}
+
+        {/* Compact Mobile / Tablet HUD (< 1024px) */}
         <div
           onClick={(e) => e.stopPropagation()}
-          className="lg:hidden sticky top-0 z-30 -mx-1 px-2 py-1.5 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5 shrink-0"
+          className="lg:hidden sticky top-0 z-40 -mx-1 px-1.5 py-1 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between gap-1 shrink-0 overflow-hidden"
         >
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+            {onNavigateToBuilder && (
+              <button
+                type="button"
+                onClick={onNavigateToBuilder}
+                className="p-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 cursor-pointer shrink-0"
+                title="Deck Builder"
+                aria-label="Back to Deck Builder"
+              >
+                <Layers className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveDrawer((d) => (d === 'inspector' ? 'none' : 'inspector'))}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-semibold text-slate-200 cursor-pointer shrink-0"
+              className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[10px] font-semibold text-slate-200 cursor-pointer min-w-0 shrink overflow-hidden"
               aria-label="Open Card Inspector"
             >
-              <Eye className="w-3.5 h-3.5 text-sky-400" />
-              <span className="truncate max-w-[90px]">
-                {(hoveredCard || inspectedCard)?.name || 'Inspector'}
+              <Eye className="w-3 h-3 text-sky-400 shrink-0" />
+              <span className="truncate max-w-[46px] sm:max-w-[110px]">
+                {(hoveredCard || inspectedCard)?.name || 'Inspect'}
               </span>
             </button>
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-cinzel font-bold text-[10px] shrink-0">
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-cinzel font-bold text-[9.5px] shrink-0">
               T{state.turn}
             </span>
             <span
-              className={`px-1.5 py-0.5 rounded font-mono font-bold text-[10px] border shrink-0 ${
+              className={`px-1.5 py-0.5 rounded font-mono font-bold text-[9.5px] border shrink-0 whitespace-nowrap ${
                 isPlayerTurn
                   ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
                   : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
               }`}
             >
-              {isPlayerTurn ? 'YOUR TURN' : 'OPP'} &bull; {state.phase === 'MANA_CHARGE' ? 'MANA' : state.phase}
+              {isPlayerTurn ? 'YOU' : 'OPP'} &bull; {state.phase === 'MANA_CHARGE' ? 'MANA' : state.phase}
             </span>
+            <PlayerClockBadge className="inline-flex !min-w-[42px] !px-1 !text-[9px]" />
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            {isPlayerTurn && canDirectAttack ? (
-              <button
-                type="button"
-                onClick={handleDirectAttack}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
-              >
-                <Zap className="w-3 h-3" />
-                <span>Direct Atk</span>
-              </button>
-            ) : isPlayerTurn && state.phase === 'MANA_CHARGE' ? (
-              <button
-                type="button"
-                onClick={handlePassPhase}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel font-bold text-[10px] cursor-pointer"
-              >
-                <span>Main Phase</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            ) : isPlayerTurn && state.phase === 'MAIN' ? (
-              <button
-                type="button"
-                onClick={handlePassPhase}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
-              >
-                <Swords className="w-3 h-3" />
-                <span>Attack</span>
-              </button>
-            ) : isPlayerTurn && state.phase === 'ATTACK' ? (
-              <button
-                type="button"
-                onClick={handleEndTurn}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-cinzel font-bold text-[10px] cursor-pointer"
-              >
-                <span>End Turn</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            ) : !isPlayerTurn && !isAutoPlayOpponent ? (
-              <button
-                type="button"
-                onClick={triggerAiStep}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-cinzel font-bold text-[10px] cursor-pointer"
-              >
-                <Bot className="w-3 h-3" />
-                <span>AI Move</span>
-              </button>
-            ) : null}
-
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleToggleVisualMode(visualMode === 'lite' ? 'drama' : 'lite')}
+              title={`Visual Mode: ${visualMode === 'lite' ? 'Lite' : 'Anime Drama'}`}
+              aria-label="Toggle Visual Mode"
+              className={`px-1.5 py-1 rounded-md text-[9.5px] font-cinzel font-bold border cursor-pointer shrink-0 ${
+                visualMode === 'drama'
+                  ? 'bg-amber-500/20 border-amber-400/60 text-amber-300'
+                  : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              }`}
+            >
+              {visualMode === 'drama' ? 'Drama' : 'Lite'}
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleAudioMute}
+              aria-label={audioMuted ? 'Unmute Audio' : 'Mute Audio'}
+              className="p-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 cursor-pointer shrink-0"
+            >
+              {audioMuted ? <VolumeX className="w-3 h-3 text-slate-500" /> : <Volume2 className="w-3 h-3 text-amber-300" />}
+            </button>
             <button
               type="button"
               onClick={() => setActiveDrawer((d) => (d === 'controls' ? 'none' : 'controls'))}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-semibold text-amber-300 cursor-pointer shrink-0"
+              className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[10px] font-semibold text-amber-300 cursor-pointer shrink-0"
               aria-label="Open Controls and Duel Log"
             >
-              <ScrollText className="w-3.5 h-3.5" />
-              <span className="font-mono text-[10px]">Log #{state.actionLog.length}</span>
+              <ScrollText className="w-3 h-3" />
+              <span className="font-mono text-[9.5px] tabular-nums">#{state.actionLog.length}</span>
             </button>
           </div>
         </div>
-        {/* Ephemeral Turn Switch Banner */}
-        {turnBanner && (
-          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
-            <div
-              className={`px-6 py-2.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2.5 ${
-                turnBanner.player === 'player'
-                  ? 'bg-amber-950/90 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40 animate-pulse'
-                  : 'bg-indigo-950/90 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40 animate-pulse'
-              }`}
+
+        {/* Ephemeral Turn Switch Banner (Pinned cleanly at top-center away from battlefield watermarks) */}
+        <AnimatePresence>
+          {turnBanner && (
+            <m.div
+              key={`turn-${turnBanner.turn}-${turnBanner.player}`}
+              initial={{ opacity: 0, y: -10, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-11 lg:top-12 left-1/2 -translate-x-1/2 z-40 pointer-events-none"
             >
-              <Swords className={`w-4 h-4 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
-              <span className="font-cinzel font-bold text-xs sm:text-sm tracking-widest uppercase">
-                TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
-              </span>
-            </div>
-          </div>
-        )}
+              <div
+                className={`px-5 py-1.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2 ${
+                  turnBanner.player === 'player'
+                    ? 'bg-amber-950/95 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40'
+                    : 'bg-indigo-950/95 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40'
+                }`}
+              >
+                <Swords className={`w-3.5 h-3.5 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
+                <span className="font-cinzel font-bold text-[11px] sm:text-xs tracking-widest uppercase whitespace-nowrap">
+                  TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+                </span>
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
 
         {/* ================= 1. OPPONENT TERRITORY ================= */}
-        <div className="shrink-0 flex flex-col gap-1 w-full">
-          {/* Opponent Hand Tray (Compact, Centered) */}
-          <div className="w-full flex items-center justify-center">
-            <HandView
-              hand={state.players.opponent.hand}
-              owner="opponent"
-              manaZone={state.players.opponent.manaZone}
-              isPlayerTurn={isPlayerTurn}
-              phase={state.phase}
-              manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
-              onHoverCard={handleHoverCard}
-              onInspectCard={handleInspectCard}
+        <div className="shrink-0 flex flex-col gap-1 w-full pt-0.5 lg:pt-1">
+          {/* Desktop Top Strip: Opponent HUD & Clock (L) | Opponent Hand (Center) | Floating Utility Pill (R) */}
+          <div className="w-full flex items-center justify-between gap-2 min-w-0">
+            <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-950/85 border border-slate-800/80 shrink-0">
+              <Bot className="w-3 h-3 text-rose-400 shrink-0" />
+              <span className="text-[10px] font-cinzel font-bold text-slate-300 max-w-[110px] truncate">
+                {selectedOpponentDeck.name}
+              </span>
+              <PlayerClockBadge className="!min-w-[48px] !py-0 !text-[9.5px]" />
+            </div>
+
+            <div className="flex-1 min-w-0 flex items-center justify-center">
+              <HandView
+                hand={state.players.opponent.hand}
+                owner="opponent"
+                manaZone={state.players.opponent.manaZone}
+                isPlayerTurn={isPlayerTurn}
+                phase={state.phase}
+                manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
+                onHoverCard={handleHoverCard}
+                onInspectCard={handleInspectCard}
+              />
+            </div>
+
+            <div className="lg:hidden flex items-center shrink-0">
+              <PlayerClockBadge className="!min-w-[44px] !px-1 !text-[9px]" />
+            </div>
+
+            <UtilityCornerPill
+              className="hidden lg:inline-flex shrink-0 relative z-40"
+              visualMode={visualMode}
+              supportsWebGL2={supportsWebGL2}
+              onToggleVisualMode={handleToggleVisualMode}
+              audioMuted={audioMuted}
+              onToggleAudioMute={handleToggleAudioMute}
+              audioVolume={audioVolume}
+              onAudioVolumeChange={handleAudioVolumeChange}
+              onRestart={handleRestart}
+              onNavigateToBuilder={onNavigateToBuilder}
+              isInspectorCollapsed={isDesktopInspectorCollapsed}
+              onToggleInspectorRail={() => setIsDesktopInspectorCollapsed((c) => !c)}
+              isLogExpanded={isDesktopLogExpanded}
+              onToggleLogRail={() => setIsDesktopLogExpanded((e) => !e)}
+              logCount={state.actionLog.length}
             />
           </div>
 
@@ -1086,6 +1445,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             manaZone={state.players.opponent.manaZone}
             graveyard={state.players.opponent.graveyard}
             deck={state.players.opponent.deck}
+            phase={state.phase}
+            isPlayerTurn={isPlayerTurn}
+            manaChargedThisTurn={state.players.opponent.manaChargedThisTurn}
             showDeck={true}
             canTargetShields={canTargetShields}
             canDirectAttack={canDirectAttack}
@@ -1100,7 +1462,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         </div>
 
         {/* ================= 2. THE BATTLEFIELD (CENTRAL COMBAT STAGE) ================= */}
-        <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-1 relative my-0.5 px-0.5 sm:px-1">
+        <div className="flex-1 min-h-0 w-full flex flex-col justify-between py-0.5 sm:py-1 relative my-0.5 px-0.5 sm:px-1">
           {/* Action Banner: Blocker Arena Selection */}
           {blockerArenaSelection && (
             <div className="w-full flex items-center justify-between px-3 py-1.5 mb-1 rounded-lg bg-sky-950/90 border border-sky-500/60 shadow-lg text-xs animate-fade-in z-30">
@@ -1169,7 +1531,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           )}
 
           {/* Opponent Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
+          <div className="w-full flex-1 min-h-[72px] flex items-center justify-center rounded-lg border border-rose-500/15 bg-slate-950/25 backdrop-blur-xs px-1.5 py-0.5">
             <BattleZoneView
               battleZone={state.players.opponent.battleZone}
               opponentBattleZone={state.players.player.battleZone}
@@ -1182,6 +1544,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               activePlayer={state.activePlayer}
               selectedAttackerId={selectedAttackerId}
               combatAttackerId={state.combatState?.attackerId}
+              activeBeatEvent={activeBeat?.event ?? null}
               onSelectTargetCreature={handleSelectCreatureTarget}
               onInspectCard={handleInspectCard}
               onHoverCard={handleHoverCard}
@@ -1209,13 +1572,21 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             />
           </div>
 
-          {/* Minimalist Center Midline Divider */}
-          <div className="w-full flex items-center justify-center my-0.5 pointer-events-none select-none px-2">
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
-          </div>
+          {/* Center Midline Horizon Rift & Primary Phase Controls */}
+          <MidlineControlAnchor
+            phase={state.phase}
+            isPlayerTurn={isPlayerTurn}
+            canDirectAttack={canDirectAttack}
+            isAutoPlayOpponent={isAutoPlayOpponent}
+            isInterruptLocked={isInterruptLocked}
+            onDirectAttack={handleDirectAttack}
+            onPassPhase={handlePassPhase}
+            onEndTurn={handleEndTurn}
+            onPlayOpponentMove={triggerAiStep}
+          />
 
           {/* Player Field */}
-          <div className="w-full flex-1 min-h-0 flex items-center justify-center rounded-lg border border-slate-800/40 bg-slate-950/20 backdrop-blur-xs px-1.5 py-1">
+          <div className="w-full flex-1 min-h-[72px] flex items-center justify-center rounded-lg border border-amber-500/15 bg-slate-950/25 backdrop-blur-xs px-1.5 py-0.5">
             <BattleZoneView
               battleZone={state.players.player.battleZone}
               opponentBattleZone={state.players.opponent.battleZone}
@@ -1228,6 +1599,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               activePlayer={state.activePlayer}
               selectedAttackerId={selectedAttackerId}
               combatAttackerId={state.combatState?.attackerId}
+              activeBeatEvent={activeBeat?.event ?? null}
+              disableAttackSelection={disableBoardMutations}
               onSelectAttacker={handleSelectAttacker}
               onInspectCard={handleInspectCard}
               onHoverCard={handleHoverCard}
@@ -1271,10 +1644,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         <div className="shrink-0 flex flex-col gap-1 w-full">
           {/* Manual Mana Payment Selection Prompt */}
           {manaPaymentCandidate && manaPaymentValidation && (
-            <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-1.5 rounded-xl bg-amber-950/90 border border-amber-400/75 shadow-lg text-xs z-30">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-2.5 py-1 rounded-xl bg-amber-950/90 border border-amber-400/75 shadow-lg text-xs z-30"
+            >
               <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
-                <span className="font-cinzel font-bold text-amber-100">
+                <span className="font-cinzel font-bold text-amber-100 text-[11px]">
                   Tap {manaPaymentValidation.requiredCost} Mana to{' '}
                   {manaPaymentCandidate.kind === 'creature' ? 'Summon' : 'Cast'}{' '}
                   <strong className="text-white">{manaPaymentCandidate.card.name}</strong>
@@ -1315,7 +1691,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
                   className={`px-3 py-1 rounded-md font-cinzel font-black text-[11px] flex items-center gap-1 transition-all ${
                     manaPaymentValidation.valid
                       ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer shadow-md shadow-emerald-500/30 active:scale-95'
-                      : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                      : 'bg-slate-800/95 text-slate-300 border border-slate-500/80 opacity-85 cursor-not-allowed'
                   }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1333,20 +1709,24 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             </div>
           )}
 
-          {/* Player Flanked Zone: Graveyard (L) | Shields + Mana (Center) | Deck (R) */}
+          {/* Player Flanked Zone: Graveyard (L) | Shields + Collapsible Mana (Center) | Deck (R) */}
           <ShieldsRow
             owner="player"
             shields={state.players.player.shields}
             manaZone={state.players.player.manaZone}
             graveyard={state.players.player.graveyard}
             deck={state.players.player.deck}
+            phase={state.phase}
+            isPlayerTurn={isPlayerTurn}
+            manaChargedThisTurn={state.players.player.manaChargedThisTurn}
             showDeck={true}
-            canUndoMana={canUndoMana}
+            canUndoMana={canUndoMana && !isInterruptLocked}
             onUndoMana={handleUndoChargeMana}
             manaPaymentMode={manaPaymentCandidate !== null}
             selectedPaymentManaIds={manaPaymentCandidate?.selectedManaIds}
             onTogglePaymentMana={handleTogglePaymentMana}
             onToggleManaTap={(cardInstanceId, forceTapped) => {
+              if (isInterruptLocked) return;
               const targetMana = state.players.player.manaZone.find((m) => m.instanceId === cardInstanceId);
               if (targetMana?.isSpent && forceTapped === false) {
                 showToast(`${targetMana.card.name} was already spent this turn and cannot untap until start of turn.`);
@@ -1358,7 +1738,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             onInspectCard={handleInspectCard}
           />
 
-          {/* Player Hand Tray (Expanded, Prominent, Centered) */}
+          {/* Player Hand Tray */}
           <div className="w-full flex items-center justify-center">
             <HandView
               hand={state.players.player.hand}
@@ -1369,7 +1749,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               isPlayerTurn={isPlayerTurn}
               phase={state.phase}
               manaChargedThisTurn={state.players.player.manaChargedThisTurn}
+              disableActions={isInterruptLocked}
               pendingManaCardInstanceId={manaPaymentCandidate?.cardInstanceId ?? null}
+              paymentProgressLabel={
+                manaPaymentValidation
+                  ? `${manaPaymentValidation.selectedCount}/${manaPaymentValidation.requiredCost}`
+                  : undefined
+              }
               onChargeMana={handleChargeMana}
               onSummonCreature={handleSummonCreature}
               onCastSpell={handleCastSpell}
@@ -1378,11 +1764,38 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             />
           </div>
         </div>
+          </m.div>
+        </TraumaViewport>
+
+        {/* Lazy Three.js VFX Overlay Stage — Strictly 0 KB when in Lite Mode */}
+        {visualMode === 'drama' && !webglFailed && (
+          <Suspense fallback={null}>
+            <LazyThreeVfxStage
+              activeBeat={activeBeat}
+              anchorRegistry={anchorRegistry}
+              clearSignal={vfxClearSignal}
+              onWebglFallback={handleWebglFallback}
+            />
+          </Suspense>
+        )}
+
+        {/* Anime Cut-In Slash Overlay — Drama Mode Only */}
+        <AnimeCutInOverlay
+          cutIn={activeBeat?.cutIn ?? null}
+          beatId={activeBeat?.id ?? null}
+          visualMode={visualMode}
+        />
       </div>
 
-      {/* Right Column: Duel Log & Action Controls (Desktop lg+ persistent, hidden drawer on < lg) */}
+      {/* Right Column: Collapsible Duel Log Rail (44px collapsed by default on lg+ so playmat >= 76.9%) */}
       <DuelLogPane
-        className="hidden lg:flex lg:w-72 xl:w-80 shrink-0 h-full"
+        className={
+          isDesktopLogExpanded
+            ? 'hidden lg:flex lg:w-72 xl:w-80 shrink-0 h-full'
+            : 'hidden lg:flex w-11 shrink-0 h-full'
+        }
+        isCollapsed={!isDesktopLogExpanded}
+        onCollapse={() => setIsDesktopLogExpanded((e) => !e)}
         actionLog={state.actionLog}
         activePlayer={state.activePlayer}
         phase={state.phase}
@@ -1620,6 +2033,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
           <span>{toastMessage}</span>
         </div>
       )}
-    </div>
+        </div>
+      </LazyMotion>
+    </MotionConfig>
   );
 };

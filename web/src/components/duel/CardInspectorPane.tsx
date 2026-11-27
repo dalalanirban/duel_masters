@@ -13,8 +13,11 @@ import {
   Layers,
   Eye,
   Info,
-  X
+  X,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
+import { PlayerClockBadge } from './PlayerClockBadge.tsx';
 
 export interface CardInspectorPaneProps {
   inspectedCard: CardDefinition | null;
@@ -29,6 +32,8 @@ export interface CardInspectorPaneProps {
   playerDeckName?: string;
   opponentDeckName?: string;
   onClose?: () => void;
+  onCollapse?: () => void;
+  isCollapsed?: boolean;
   className?: string;
 }
 
@@ -79,10 +84,48 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
   availableOpponentDecks = [],
   onSelectOpponentDeck,
   onClose,
+  onCollapse,
+  isCollapsed = false,
   className = ''
 }) => {
   const isPlayerTurn = activePlayer === 'player';
   const phaseInfo = getPhaseBadgeInfo(phase);
+
+  if (isCollapsed) {
+    return (
+      <aside
+        className={`h-full w-10 shrink-0 flex flex-col items-center justify-between py-2.5 bg-[#080b11] border-r border-slate-800/70 text-slate-100 select-none ${className}`}
+        aria-label="Collapsed Card Inspector Rail"
+      >
+        <div className="flex flex-col items-center gap-2.5">
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="Expand Card Inspector"
+              aria-label="Expand Card Inspector"
+              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-800 transition-colors cursor-pointer"
+            >
+              <PanelLeftOpen className="w-4 h-4" />
+            </button>
+          )}
+          <div className="px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-cinzel font-bold text-[10px]">
+            T{turn}
+          </div>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isPlayerTurn ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-pulse'
+            }`}
+            title={isPlayerTurn ? 'Your Turn' : 'Opponent Turn'}
+          />
+        </div>
+        <div className="writing-mode-vertical text-[9px] font-cinzel tracking-[0.2em] uppercase text-slate-500 pointer-events-none">
+          INSPECTOR
+        </div>
+        <Eye className="w-4 h-4 text-slate-600" />
+      </aside>
+    );
+  }
 
   const isEvolution = Boolean(
     inspectedCard?.isEvolution || inspectedCard?.type === 'Evolution Creature'
@@ -169,6 +212,18 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
             {phaseInfo.label}
           </span>
 
+          {onCollapse && !onClose && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="p-1 rounded-md bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors cursor-pointer shrink-0"
+              title="Collapse Inspector Rail"
+              aria-label="Collapse Card Inspector Rail"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {onClose && (
             <button
               type="button"
@@ -182,27 +237,30 @@ export const CardInspectorPane: React.FC<CardInspectorPaneProps> = ({
           )}
         </div>
 
-        {/* AI Battle Deck Selector */}
-        {availableOpponentDecks.length > 0 && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/90 border border-slate-800/80 text-[11px] shadow-xs">
-            <div className="flex items-center gap-1 text-slate-400 shrink-0 font-medium font-sans">
-              <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-              <span className="text-[9.5px] uppercase font-bold tracking-wider text-slate-400 font-cinzel">AI Deck:</span>
+        {/* AI Battle Deck Selector + Reserved Future Clock Slot */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          {availableOpponentDecks.length > 0 && (
+            <div className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/90 border border-slate-800/80 text-[11px] shadow-xs">
+              <div className="flex items-center gap-1 text-slate-400 shrink-0 font-medium font-sans">
+                <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span className="text-[9.5px] uppercase font-bold tracking-wider text-slate-400 font-cinzel">AI:</span>
+              </div>
+              <select
+                value={opponentDeck?.id || availableOpponentDecks[0]?.id || ''}
+                onChange={(e) => onSelectOpponentDeck?.(e.target.value)}
+                className="flex-1 min-w-0 bg-slate-950 text-indigo-200 border border-indigo-500/30 rounded px-1.5 py-0.5 text-[10.5px] font-sans font-medium focus:outline-hidden focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/50 cursor-pointer transition-colors truncate"
+                title="Select AI opponent battle deck"
+              >
+                {availableOpponentDecks.map((d) => (
+                  <option key={d.id} value={d.id} className="bg-slate-950 text-slate-200 py-1">
+                    {d.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              value={opponentDeck?.id || availableOpponentDecks[0]?.id || ''}
-              onChange={(e) => onSelectOpponentDeck?.(e.target.value)}
-              className="flex-1 min-w-0 bg-slate-950 text-indigo-200 border border-indigo-500/30 rounded px-1.5 py-0.5 text-[10.5px] font-sans font-medium focus:outline-hidden focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/50 cursor-pointer transition-colors truncate"
-              title="Select AI opponent battle deck"
-            >
-              {availableOpponentDecks.map((d) => (
-                <option key={d.id} value={d.id} className="bg-slate-950 text-slate-200 py-1">
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+          )}
+          <PlayerClockBadge />
+        </div>
       </section>
 
       {/* Card Inspector Body */}

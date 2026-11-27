@@ -59,7 +59,7 @@ The server starts on `http://localhost:8080` by default.
 
 ## Web Application (Card Explorer, Deck Builder & AI Duel Arena)
 
-A modern web application built with **React**, **TypeScript**, **Vite**, and **Tailwind CSS**, powered by a modular pure-TypeScript Duel Masters rules engine.
+A modern web application built with **React**, **TypeScript**, **Vite**, **Tailwind CSS**, **`motion` (`motion/react` strict `LazyMotion`)**, lazy-loaded **Three.js (`WebGL2` / `THREE.GLSL3`)**, and zero-dependency **Web Audio API** synthesis, powered by a modular pure-TypeScript Duel Masters rules engine.
 
 ```bash
 cd web
@@ -70,14 +70,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - **900 Cards across 12 Sets (DM-01 through DM-12)** with localized scan assets, Search, and multi-filter Explorer (Civilization, Cost, Power, Type, Race, Keywords).
 - **Tournament Deck Builder:** Strict 40-card limit, 4-copy rule, Mana Curve, Civilization breakdown, and ready-made dual-civ/mechanics preset decks.
-- **Full Rules Engine & Responsive Duel Arena:** Manual post-select mana payment (`Tap N Mana` compact prompt with click-and-drag across Mana Zone cards), distinct multi-civ mana & lock rules, dual-civ & Vortex Evolution (including nested stack separation), Wave Striker, Turbo Rush (live condition unlocking without static Speed Attacker bleed, e.g., `Magmadragon Jagalzor`), Silent Skill start-of-turn choices, all 41 `$tap` abilities usable in `MAIN` or `ATTACK` phase (`Attack` vs `$tap`), `Scarlet Skyterror` blocker wipes, live continuous Dragon power bonuses (`Ultimate Dragon`), 6-zone/optional effect prompts, and responsive `< lg` slide-over drawers for narrow/mobile viewports.
+- **Full Rules Engine & Battle Arena v2 (`Lite` + `Anime Drama`):**
+  - **Ref-Backed Async Presentation Queue:** Decouples canonical `step()` state from sequenced UI beats (`DRAW`, `CHARGE_MANA`, `SUMMON_CREATURE`, `CAST_SPELL`, `EVOLVE`, `DECLARE_ATTACK`, `BLOCK`, `SHIELD_BROKEN`, `SHIELD_TRIGGER`, `CREATURE_DESTROYED`, `GAME_OVER`), supporting `Space` / click fast-forward without click-through and `0ms` instant mana tapping.
+  - **Dual Visual Modes:** Auto-selects **Lite** on narrow mobile (`< 1024px`), `prefers-reduced-motion`, or missing WebGL2 (**0 bytes** of `vendor-three` fetched) and **Anime Drama** on desktop WebGL2 (`THREE.GLSL3` summoning portals, energy beams, 3D Fresnel shield shatters, damped `trauma^2` viewport shake, and real-artwork diagonal speed-line Cut-Ins with automatic `webglcontextlost` Lite fallback). Toggle mid-turn via the top utility corner pill.
+  - **Procedural Web Audio Engine:** Zero-asset synthesizer with 5 civilization timbre signatures, pre-baked hall reverb, dynamics compressor limiter, staggered multi-break cues, `visibilitychange` suspend/resume, Mute, and squared-curve volume persistence.
+  - **Ergonomic Desktop & Mobile (`390px`) Controls:** Compact corner utility pill, collapsible desktop Inspector (`w-72`) and Duel Log rails (`#N` + high-severity unread badge + `L` / `Escape` shortcuts), Midline Phase CTA anchor, collapsible auto-expanding mobile Mana Strip with drag-to-tap, tap-to-select hand actions, ornate SVG `CardBack` art, and timer-safe `Peek Board` interrupt modals.
 - **Verification Suites:**
-  - Engine & Simulation Tests (`365` tests / `107` suites): `node --test web/src/engine/tests/*.test.mjs`
-  - Card Loader & Database Integrity (`29` tests): `node --test web/src/data/cardLoader.test.mjs`
-  - TypeScript & Production Build: `npm --prefix web run build`
+  - Full Test Sweep (`419` tests / `119` suites across engine, data, presentation, audio, and VFX): `node --test web/src/engine/tests/*.test.mjs web/src/data/cardLoader.test.mjs web/src/presentation/tests/*.test.mjs web/src/audio/tests/*.test.mjs web/src/vfx/tests/*.test.mjs`
+  - TypeScript & Production Build (isolated `vendor-three` split): `npm --prefix web run build`
 
 ## Documentation
 
+- [Battle Arena v2 (Lite + Anime Drama) Design Spec](docs/superpowers/specs/2026-11-27-battle-arena-ui-vfx-design.md)
 - [Rules Engine & Interactive UI Architecture](docs/RULES_ENGINE_ARCHITECTURE.md)
 - [Game Overview, Rules & Mechanics Specification](docs/GAME_OVERVIEW.md)
 - [Web-First Architecture & Strategy](docs/WEB_FIRST_STRATEGY.md)
