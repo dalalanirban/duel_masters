@@ -4,7 +4,7 @@ import { chargeMana, undoChargeMana, toManaCard, toggleManaTap } from './mana.ts
 import { summonCreature } from './evolution.ts';
 import { canCreatureAttack } from './continuous.ts';
 import { castSpell, resolveSpellEffect } from './spells.ts';
-import { CARD_MAP } from '../data/cardLoader.ts';
+import { getRegisteredCardById } from '../data/cardCatalogCore.ts';
 import {
   declareAttack,
   declareBlock,
@@ -18,6 +18,26 @@ import { triggerCIP } from './triggers.ts';
 import { canActivateTapAbility, resolveTapAbility } from './tapAbilities.ts';
 import { resolveZoneSelectionAction, resolveOptionalChoiceAction } from './zoneSelection.ts';
 import { enqueueInteraction } from './interactionHelpers.ts';
+
+function findCardDefInState(state: GameState, cardId: string) {
+  for (const pid of ['player', 'opponent'] as const) {
+    const p = state.players[pid];
+    for (const c of p.hand) if (c.card.id === cardId) return c.card;
+    for (const c of p.manaZone) if (c.card.id === cardId) return c.card;
+    for (const c of p.graveyard) if (c.card.id === cardId) return c.card;
+    for (const c of p.deck) if (c.card.id === cardId) return c.card;
+    for (const s of p.shields) if (s.card.id === cardId) return s.card;
+    for (const bz of p.battleZone) {
+      if (bz.card.id === cardId) return bz.card;
+      if (bz.evolvedOn) {
+        for (const base of bz.evolvedOn) {
+          if (base.card.id === cardId) return base.card;
+        }
+      }
+    }
+  }
+  return undefined;
+}
 
 /**
  * Checks whether any creature controlled by the active player in the battle zone
@@ -278,7 +298,9 @@ export function step(state: GameState, action: GameAction): GameState {
 
         let result = stateWithoutPending;
         if (interaction.actionType === 'SPELL_TARGET') {
-          const cardDef = CARD_MAP.get(interaction.sourceCardId);
+          const cardDef =
+            getRegisteredCardById(interaction.sourceCardId) ??
+            findCardDefInState(stateWithoutPending, interaction.sourceCardId);
           if (cardDef) {
             result = resolveSpellEffect(stateWithoutPending, player, cardDef, selectedIds);
           }

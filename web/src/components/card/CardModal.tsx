@@ -1,11 +1,12 @@
 import React from 'react';
-import { CardDefinition } from '../../types/card';
-import { SETS } from '../../data/cardLoader';
+import type { CardDefinition, SetDefinition } from '../../types/card';
+import { getRegisteredCardCatalog } from '../../data/cardCatalogCore';
 import { X, Plus, Minus, Info, Sparkles } from 'lucide-react';
 
 interface Props {
   card: CardDefinition | null;
   deckCount: number;
+  sets?: SetDefinition[];
   onClose: () => void;
   onAdd: (card: CardDefinition) => void;
   onRemove: (card: CardDefinition) => void;
@@ -14,14 +15,16 @@ interface Props {
 export const CardModal: React.FC<Props> = ({
   card,
   deckCount,
+  sets,
   onClose,
   onAdd,
   onRemove
 }) => {
   if (!card) return null;
 
+  const availableSets = sets ?? getRegisteredCardCatalog()?.sets ?? [];
   const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
-  const setDef = SETS.find(s => s.code === card.set || s.id === card.set);
+  const setDef = availableSets.find(s => s.code === card.set || s.id === card.set);
   const isEvolution = Boolean(card.isEvolution || card.type === 'Evolution Creature');
   const isMultiCiv = Boolean(card.isMultiCiv || card.civilizations.length > 1);
 

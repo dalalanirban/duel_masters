@@ -1,6 +1,6 @@
 import React from 'react';
-import { Civilization, CardType } from '../../types/card';
-import { CardFilterOptions, SETS, ALL_RACES } from '../../data/cardLoader';
+import type { Civilization, CardType, CardFilterOptions, SetDefinition } from '../../types/card';
+import { getRegisteredCardCatalog } from '../../data/cardCatalogCore';
 import { CivilizationIcon } from '../card/CivilizationIcon';
 import { RaceFilterSelect } from './RaceFilterSelect';
 import {
@@ -24,6 +24,8 @@ interface Props {
   onChange: (filters: CardFilterOptions) => void;
   onReset: () => void;
   totalMatches: number;
+  sets?: SetDefinition[];
+  allRaces?: string[];
 }
 
 const CIVILIZATIONS: Civilization[] = ['Light', 'Water', 'Darkness', 'Fire', 'Nature'];
@@ -55,8 +57,13 @@ export const FilterBar: React.FC<Props> = ({
   filters,
   onChange,
   onReset,
-  totalMatches
+  totalMatches,
+  sets,
+  allRaces
 }) => {
+  const catalog = getRegisteredCardCatalog();
+  const availableSets = sets ?? catalog?.sets ?? [];
+  const availableRaces = allRaces ?? catalog?.allRaces ?? [];
   const toggleCiv = (civ: Civilization) => {
     const current = filters.civilizations || [];
     const next = current.includes(civ)
@@ -160,7 +167,7 @@ export const FilterBar: React.FC<Props> = ({
               }`}
             >
               <option value="all">All Sets (900)</option>
-              {SETS.map(s => (
+              {availableSets.map(s => (
                 <option key={s.id} value={s.code}>
                   {s.code}: {s.name} ({s.cardCount})
                 </option>
@@ -172,7 +179,7 @@ export const FilterBar: React.FC<Props> = ({
           {/* Searchable Race Filter Dropdown with Text Input */}
           <RaceFilterSelect
             value={filters.race}
-            races={ALL_RACES}
+            races={availableRaces}
             onChange={race => onChange({ ...filters, race })}
           />
 

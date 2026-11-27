@@ -4,7 +4,7 @@ import { DeckCardItem } from './DeckCardItem';
 import { ManaCurve } from './ManaCurve';
 import { CivBreakdown } from './CivBreakdown';
 import { TestDrawModal } from './TestDrawModal';
-import { PRESET_DECKS } from '../../data/presets';
+import { getRegisteredCardCatalog } from '../../data/cardCatalogCore';
 import { Play, RotateCcw, Download, Sparkles, CheckCircle2, AlertTriangle, Layers, Save, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   totalCards: number;
   deckStatus: 'building' | 'legal' | 'over';
   savedDecks: Deck[];
+  presetDecks?: Deck[];
   onIncrement: (card: CardDefinition) => void;
   onDecrement: (card: CardDefinition) => void;
   onRemoveAll: (card: CardDefinition) => void;
@@ -34,6 +35,7 @@ export const DeckPanel: React.FC<Props> = ({
   totalCards,
   deckStatus,
   savedDecks,
+  presetDecks,
   onIncrement,
   onDecrement,
   onRemoveAll,
@@ -49,8 +51,9 @@ export const DeckPanel: React.FC<Props> = ({
   const [isTestDrawOpen, setIsTestDrawOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'cards' | 'stats'>('cards');
 
+  const availablePresets = presetDecks ?? getRegisteredCardCatalog()?.presetDecks ?? [];
   const isSaved = savedDecks.some(d => d.id === deckId);
-  const isPreset = PRESET_DECKS.some(p => p.id === deckId);
+  const isPreset = availablePresets.some(p => p.id === deckId);
 
   const fillPercentage = Math.min(100, Math.round((totalCards / 40) * 100));
 
@@ -100,7 +103,7 @@ export const DeckPanel: React.FC<Props> = ({
               })}
             </optgroup>
             <optgroup label="Starter Presets">
-              {PRESET_DECKS.map(p => (
+              {availablePresets.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>

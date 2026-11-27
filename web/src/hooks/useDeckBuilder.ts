@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CardDefinition, Deck, DeckItem } from '../types/card';
-import { CARD_MAP } from '../data/cardLoader';
-import { PRESET_DECKS } from '../data/presets';
+import { getRegisteredCardCatalog, type CardCatalog } from '../data/cardCatalogCore';
 import {
   loadSavedDecks,
   saveDeckToList,
@@ -14,10 +13,11 @@ import {
 
 /**
  * Rehydrates a deck object loaded from JSON / localStorage, ensuring that all
- * card definitions are authoritative instances from CARD_MAP and counts are valid.
+ * card definitions are authoritative instances from the card map and counts are valid.
  */
 export function hydrateDeck(
   raw: any,
+  cardMap: Map<string, CardDefinition> | undefined = getRegisteredCardCatalog()?.cardMap,
   fallbackId: string = 'custom-deck-1',
   fallbackName: string = 'Custom Deck'
 ): Deck {
@@ -26,12 +26,12 @@ export function hydrateDeck(
   }
 
   const hydratedItems: DeckItem[] = [];
-  if (Array.isArray(raw.items)) {
+  if (Array.isArray(raw.items) && cardMap) {
     for (const it of raw.items) {
       if (!it) continue;
       const cardId = it.card?.id || it.cardId;
       if (!cardId || typeof cardId !== 'string') continue;
-      const card = CARD_MAP.get(cardId);
+      const card = cardMap.get(cardId);
       if (card && typeof it.count === 'number' && it.count > 0) {
         hydratedItems.push({ card, count: Math.min(it.count, 4) });
       }
@@ -46,27 +46,29 @@ export function hydrateDeck(
   };
 }
 
-export function useDeckBuilder() {
+export function useDeckBuilder(catalog: CardCatalog) {
+  const { cardMap, presetDecks } = catalog;
+
   const [activeDeck, setActiveDeck] = useState<Deck>(() => {
     try {
       if (typeof localStorage !== 'undefined') {
         const saved = localStorage.getItem(ACTIVE_DECK_STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          return hydrateDeck(parsed);
+          return hydrateDeck(parsed, cardMap);
         }
       }
     } catch (e) {
       console.error('Failed to load active deck from localStorage', e);
     }
     // Default to Shobu's Beatdown starter
-    return PRESET_DECKS[0];
+    return presetDecks[0];
   });
 
   const [savedDecks, setSavedDecks] = useState<Deck[]>(() => {
     try {
       const loaded = loadSavedDecks();
-      return loaded.map(d => hydrateDeck(d));
+      return loaded.map(d => hydrateDeck(d, cardMap));
     } catch (e) {
       console.error('Failed to load saved decks', e);
       return [];
@@ -201,7 +203,7 @@ export function useDeckBuilder() {
 
   const loadDeck = useCallback(
     (deckId: string) => {
-      // Searches savedDecks first, then PRESET_DECKS
+      // Searches savedDecks first, then presetDecks
       const foundSaved = savedDecks.find(d => d.id === deckId);
       if (foundSaved) {
         setActiveDeck(foundSaved);
@@ -215,7 +217,7 @@ export function useDeckBuilder() {
         return;
       }
 
-      const foundPreset = PRESET_DECKS.find(p => p.id === deckId);
+      const foundPreset = presetDecks.find(p => p.id === deckId);
       if (foundPreset) {
         setActiveDeck(foundPreset);
         try {
@@ -227,7 +229,7 @@ export function useDeckBuilder() {
         }
       }
     },
-    [savedDecks]
+    [savedDecks, presetDecks]
   );
 
   const loadPreset = useCallback(
@@ -250,7 +252,7 @@ export function useDeckBuilder() {
       }
 
       if (activeDeck.id === deckId) {
-        const fallbackDeck = PRESET_DECKS[0];
+        const fallbackDeck = presetDecks[0];
         setActiveDeck(fallbackDeck);
         try {
           if (typeof localStorage !== 'undefined') {
@@ -261,7 +263,7 @@ export function useDeckBuilder() {
         }
       }
     },
-    [savedDecks, activeDeck.id]
+    [savedDecks, activeDeck.id, presetDecks]
   );
 
   const setDeckName = useCallback((name: string) => {

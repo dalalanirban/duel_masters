@@ -26,8 +26,10 @@ import {
 import { getSpellTargetRequirement } from '../../engine/targeting';
 import { canCastSpell } from '../../engine/spells';
 import { canActivateTapAbility, hasTapAbility } from '../../engine/tapAbilities';
-import { PRESET_DECKS } from '../../data/presets';
-import { CARD_MAP } from '../../data/cardLoader';
+import {
+  getRegisteredCardCatalog,
+  getRegisteredCardById
+} from '../../data/cardCatalogCore';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
 import { ShieldsRow } from './ShieldsRow';
@@ -65,6 +67,8 @@ const LazyThreeVfxStage = React.lazy(() => import('../../vfx/ThreeVfxStage.tsx')
 interface DuelArenaProps {
   activeDeck: Deck;
   savedDecks?: Deck[];
+  presetDecks?: Deck[];
+  cardMap?: Map<string, CardDefinition>;
   onNavigateToBuilder?: () => void;
 }
 
@@ -80,11 +84,18 @@ const arenaReducer = (currentState: GameState, action: ArenaAction): GameState =
 export const DuelArena: React.FC<DuelArenaProps> = ({
   activeDeck,
   savedDecks,
+  presetDecks,
+  cardMap,
   onNavigateToBuilder
 }) => {
+  const resolvedPresetDecks = useMemo(
+    () => presetDecks ?? getRegisteredCardCatalog()?.presetDecks ?? [],
+    [presetDecks]
+  );
+
   // Available opponent decks (presets + custom saved decks)
   const availableOpponentDecks = useMemo(() => {
-    const list: Deck[] = [...PRESET_DECKS];
+    const list: Deck[] = [...resolvedPresetDecks];
     if (savedDecks) {
       for (const deck of savedDecks) {
         if (!list.some((d) => d.id === deck.id)) {
@@ -96,17 +107,17 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
       }
     }
     return list;
-  }, [savedDecks]);
+  }, [resolvedPresetDecks, savedDecks]);
 
   // Select which deck player and opponent use
   const defaultPlayerDeck = useMemo(() => {
     // If active deck has at least 10 cards, use it; otherwise fallback to Shobu Beatdown
     const totalCards = activeDeck.items.reduce((sum, item) => sum + item.count, 0);
-    return totalCards >= 10 ? activeDeck : PRESET_DECKS[0];
-  }, [activeDeck]);
+    return totalCards >= 10 ? activeDeck : resolvedPresetDecks[0];
+  }, [activeDeck, resolvedPresetDecks]);
 
   const [selectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
-  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(PRESET_DECKS[1]); // Kokujo Control default
+  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(resolvedPresetDecks[1]); // Kokujo Control default
 
   // Visual mode, lazy WebGL fallback & procedural audio state
   const supportsWebGL2 = useMemo(() => probeWebGL2(), []);
@@ -1196,7 +1207,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     : null;
 
   const optionalSourceCard = optionalChoiceData?.sourceCardId
-    ? CARD_MAP.get(optionalChoiceData.sourceCardId)
+    ? cardMap?.get(optionalChoiceData.sourceCardId) ??
+      getRegisteredCardById(optionalChoiceData.sourceCardId)
     : null;
 
   const handleAcceptOptionalChoice = () => {
@@ -2038,3 +2050,5 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     </MotionConfig>
   );
 };
+
+export default DuelArena;
