@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
-import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, Bot, CheckCircle2, Layers, Volume2, VolumeX } from 'lucide-react';
+import { Sparkles, Swords, Shield, Zap, X, Eye, ScrollText, Bot, CheckCircle2, Layers, Volume2, VolumeX, AlertTriangle } from 'lucide-react';
 import { LazyMotion, MotionConfig, domMax, m, AnimatePresence } from 'motion/react';
 import type { Deck, CardDefinition } from '../../types/card';
 import type { PlayerId, GameState, GameAction, CreatureInstance } from '../../engine/types';
@@ -13,6 +13,7 @@ import {
 } from '../../engine/mana';
 import { getCardCivilizations, getOpponentId } from '../../engine/cardUtils';
 import {
+  canSummonCreature,
   isValidEvolutionBait,
   isEvolutionCreature,
   isVortexEvolution,
@@ -28,7 +29,8 @@ import { canCastSpell } from '../../engine/spells';
 import { canActivateTapAbility, hasTapAbility } from '../../engine/tapAbilities';
 import {
   getRegisteredCardCatalog,
-  getRegisteredCardById
+  getRegisteredCardById,
+  validateDeckLegality
 } from '../../data/cardCatalogCore';
 import { CardInspectorPane } from './CardInspectorPane';
 import { DuelLogPane } from './DuelLogPane';
@@ -93,14 +95,17 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     [presetDecks]
   );
 
-  // Available opponent decks (presets + custom saved decks)
+  // Available opponent decks (legal presets + custom saved decks respecting 4-copy canonical limit)
   const availableOpponentDecks = useMemo(() => {
-    const list: Deck[] = [...resolvedPresetDecks];
+    const list: Deck[] = resolvedPresetDecks.filter(
+      (deck) => validateDeckLegality(deck, { requiredTotalCards: null }).overLimitCards.length === 0
+    );
     if (savedDecks) {
       for (const deck of savedDecks) {
         if (!list.some((d) => d.id === deck.id)) {
           const totalCards = deck.items.reduce((sum, item) => sum + item.count, 0);
-          if (totalCards >= 10) {
+          const legality = validateDeckLegality(deck, { requiredTotalCards: null });
+          if (totalCards >= 10 && legality.overLimitCards.length === 0) {
             list.push(deck);
           }
         }
@@ -109,15 +114,42 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     return list;
   }, [resolvedPresetDecks, savedDecks]);
 
-  // Select which deck player and opponent use
-  const defaultPlayerDeck = useMemo(() => {
-    // If active deck has at least 10 cards, use it; otherwise fallback to Shobu Beatdown
-    const totalCards = activeDeck.items.reduce((sum, item) => sum + item.count, 0);
-    return totalCards >= 10 ? activeDeck : resolvedPresetDecks[0];
-  }, [activeDeck, resolvedPresetDecks]);
+  const activeDeckItemCount = useMemo(
+    () => activeDeck.items.reduce((sum, item) => sum + item.count, 0),
+    [activeDeck]
+  );
 
-  const [selectedPlayerDeck] = useState<Deck>(defaultPlayerDeck);
-  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(resolvedPresetDecks[1]); // Kokujo Control default
+  const activeDeckCopyLegality = useMemo(
+    () => validateDeckLegality(activeDeck, { requiredTotalCards: null }),
+    [activeDeck]
+  );
+
+  const isActiveDeckCopyIllegal =
+    activeDeckItemCount >= 10 && activeDeckCopyLegality.overLimitCards.length > 0;
+
+  const [usingPresetFallback, setUsingPresetFallback] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isActiveDeckCopyIllegal && usingPresetFallback) {
+      setUsingPresetFallback(false);
+    }
+  }, [isActiveDeckCopyIllegal, usingPresetFallback]);
+
+  const fallbackPresetDeck = availableOpponentDecks[0] ?? resolvedPresetDecks[0];
+  const isDeckBlocked = isActiveDeckCopyIllegal && !usingPresetFallback;
+
+  // Select which deck player and opponent use (never initialize a duel with an illegal >4-copy deck)
+  const defaultPlayerDeck = useMemo(
+    () => (activeDeckItemCount >= 10 ? activeDeck : fallbackPresetDeck),
+    [activeDeck, activeDeckItemCount, fallbackPresetDeck]
+  );
+
+  const [selectedPlayerDeck, setSelectedPlayerDeck] = useState<Deck>(() =>
+    isActiveDeckCopyIllegal ? fallbackPresetDeck : defaultPlayerDeck
+  );
+  const [selectedOpponentDeck, setSelectedOpponentDeck] = useState<Deck>(
+    () => availableOpponentDecks[1] ?? availableOpponentDecks[0] ?? resolvedPresetDecks[1]
+  ); // Kokujo Control default
 
   // Visual mode, lazy WebGL fallback & procedural audio state
   const supportsWebGL2 = useMemo(() => probeWebGL2(), []);
@@ -515,6 +547,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     (deckId: string) => {
       const chosen = availableOpponentDecks.find((d) => d.id === deckId);
       if (!chosen) return;
+      const chosenLegality = validateDeckLegality(chosen, { requiredTotalCards: null });
+      if (chosenLegality.overLimitCards.length > 0) {
+        showToast(`Cannot load "${chosen.name}": exceeds 4-copy canonical limit.`);
+        return;
+      }
       setVfxClearSignal((s) => s + 1);
       setSelectedOpponentDeck(chosen);
       setSelectedAttackerId(null);
@@ -533,6 +570,29 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     },
     [availableOpponentDecks, selectedPlayerDeck, dispatch, showToast]
   );
+
+  // Switch player's illegal >4-copy deck to a legal preset deck
+  const handleUsePresetFallback = useCallback(() => {
+    if (!fallbackPresetDeck) return;
+    setVfxClearSignal((s) => s + 1);
+    setUsingPresetFallback(true);
+    setSelectedPlayerDeck(fallbackPresetDeck);
+    setSelectedAttackerId(null);
+    setSelectedShieldIndices([]);
+    setEvolutionCandidate(null);
+    setSpellCandidate(null);
+    setBlockerArenaSelection(false);
+    setTriggerTargetSelection(null);
+    setManaPaymentCandidate(null);
+    setInspectedCreature(null);
+    setHoveredCreature(null);
+    dispatch({
+      type: 'RESET_GAME',
+      playerDeck: fallbackPresetDeck,
+      opponentDeck: selectedOpponentDeck
+    });
+    showToast(`Switched to legal preset: ${fallbackPresetDeck.name}.`);
+  }, [fallbackPresetDeck, selectedOpponentDeck, dispatch, showToast]);
 
 
   // AI Step Trigger (reads canonicalStateRef directly to stay immune to view lag)
@@ -557,9 +617,9 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     }
   }, [canonicalStateRef, dispatch]);
 
-  // Auto-play timer loop for opponent (paused while presentation beats play; brisk breather once idle)
+  // Auto-play timer loop for opponent (paused while presentation beats play or deck blocker active)
   useEffect(() => {
-    if (!isAutoPlayOpponent || isPresenting || canonicalState.winner !== null) return;
+    if (isDeckBlocked || !isAutoPlayOpponent || isPresenting || canonicalState.winner !== null) return;
 
     const isPlayerPendingInteraction = Boolean(
       canonicalState.pendingInteraction &&
@@ -778,6 +838,10 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     setManaPaymentCandidate(null);
 
     if (isEvolutionCreature(cardInstance.card)) {
+      if (!canSummonCreature(state, 'player', cardInstance.card).allowed) {
+        showToast(canSummonCreature(state, 'player', cardInstance.card).reason || `Cannot summon ${cardInstance.card.name} right now!`);
+        return;
+      }
       if (isVortexEvolution(cardInstance.card)) {
         const pairs = findAllValidVortexBaitPairs(
           cardInstance.card,
@@ -837,6 +901,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         validBaitIds: validBaits.map((b) => b.instanceId)
       });
       showToast('Select a creature in your battle zone to evolve onto.');
+      return;
+    }
+
+    const precondition = canSummonCreature(state, 'player', cardInstance.card);
+    if (!precondition.allowed) {
+      showToast(precondition.reason || `Cannot summon ${cardInstance.card.name} right now!`);
       return;
     }
 
@@ -1378,27 +1448,29 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         {/* Ephemeral Turn Switch Banner (Pinned cleanly at top-center away from battlefield watermarks) */}
         <AnimatePresence>
           {turnBanner && (
-            <m.div
-              key={`turn-${turnBanner.turn}-${turnBanner.player}`}
-              initial={{ opacity: 0, y: -10, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.96 }}
-              transition={{ duration: 0.2 }}
-              className="absolute top-11 lg:top-12 left-1/2 -translate-x-1/2 z-40 pointer-events-none"
-            >
-              <div
-                className={`px-5 py-1.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2 ${
-                  turnBanner.player === 'player'
-                    ? 'bg-amber-950/95 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40'
-                    : 'bg-indigo-950/95 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40'
-                }`}
+            <div className="absolute top-11 lg:top-12 inset-x-0 flex justify-center px-2 z-40 pointer-events-none">
+              <m.div
+                key={`turn-${turnBanner.turn}-${turnBanner.player}`}
+                initial={{ opacity: 0, y: -10, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                transition={{ duration: 0.2 }}
+                className="max-w-full"
               >
-                <Swords className={`w-3.5 h-3.5 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
-                <span className="font-cinzel font-bold text-[11px] sm:text-xs tracking-widest uppercase whitespace-nowrap">
-                  TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
-                </span>
-              </div>
-            </m.div>
+                <div
+                  className={`px-4 sm:px-5 py-1.5 rounded-full border backdrop-blur-md shadow-2xl flex items-center gap-2 max-w-full ${
+                    turnBanner.player === 'player'
+                      ? 'bg-amber-950/95 border-amber-400/80 text-amber-200 shadow-amber-500/30 ring-1 ring-amber-400/40'
+                      : 'bg-indigo-950/95 border-indigo-400/80 text-indigo-200 shadow-indigo-500/30 ring-1 ring-indigo-400/40'
+                  }`}
+                >
+                  <Swords className={`w-3.5 h-3.5 shrink-0 ${turnBanner.player === 'player' ? 'text-amber-400' : 'text-indigo-400'}`} />
+                  <span className="font-cinzel font-bold text-[10.5px] sm:text-xs tracking-wider sm:tracking-widest uppercase whitespace-nowrap truncate">
+                    TURN {turnBanner.turn} &bull; {turnBanner.player === 'player' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+                  </span>
+                </div>
+              </m.div>
+            </div>
           )}
         </AnimatePresence>
 
@@ -1484,14 +1556,19 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
                   Click any highlighted Blocker in your Battle Zone to intercept!
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDeclareBlock(null)}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-2"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>Pass / Do Not Block</span>
-              </button>
+              {!(
+                state.pendingInteraction?.type === 'BLOCK_DECLARATION' &&
+                state.pendingInteraction.isMandatory
+              ) && (
+                <button
+                  type="button"
+                  onClick={() => handleDeclareBlock(null)}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-2"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Pass / Do Not Block</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1758,6 +1835,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               manaZone={state.players.player.manaZone}
               battleZone={state.players.player.battleZone}
               opponentBattleZone={state.players.opponent.battleZone}
+              spellsCastThisTurn={state.players.player.spellsCastThisTurn ?? 0}
               isPlayerTurn={isPlayerTurn}
               phase={state.phase}
               manaChargedThisTurn={state.players.player.manaChargedThisTurn}
@@ -1917,6 +1995,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         state={state}
         onStartArenaSelect={() => setBlockerArenaSelection(true)}
         onPassBlock={() => handleDeclareBlock(null)}
+        onAutoForceBlock={(blockerId) => handleDeclareBlock(blockerId)}
       />
 
       <GameOverModal
@@ -2037,6 +2116,67 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
               Skip Ability
             </button>
           </div>
+      )}
+
+      {isDeckBlocked && (
+        <div
+          data-testid="duel-illegal-deck-blocker"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-slate-900/95 p-6 shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-cinzel text-lg font-bold text-rose-100">
+                  Illegal Deck Detected
+                </h2>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  <span className="font-semibold text-white">{activeDeck.name}</span> exceeds Duel Masters&apos; 4-copy limit per canonical card name across set printings:
+                </p>
+              </div>
+            </div>
+
+            <ul className="rounded-xl bg-slate-950/70 border border-rose-500/25 p-3 space-y-1.5 text-xs text-rose-200 max-h-40 overflow-y-auto">
+              {activeDeckCopyLegality.overLimitCards.map((v) => (
+                <li key={v.canonicalName} className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate">{v.name}</span>
+                  <span className="font-bold text-rose-300 shrink-0">
+                    {v.count} / {v.limit} copies
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-[11px] text-slate-400">
+              Trim duplicate printings in the Deck Builder or play this match with a legal preset deck instead.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              {onNavigateToBuilder && (
+                <button
+                  type="button"
+                  onClick={onNavigateToBuilder}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-cinzel text-xs font-bold shadow-lg transition-colors cursor-pointer"
+                >
+                  Fix in Deck Builder
+                </button>
+              )}
+              {fallbackPresetDeck && (
+                <button
+                  type="button"
+                  onClick={handleUsePresetFallback}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-600 font-cinzel text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Use Preset: {fallbackPresetDeck.name}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {toastMessage && (

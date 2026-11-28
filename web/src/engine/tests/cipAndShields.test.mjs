@@ -54,17 +54,8 @@ describe('Duel Masters Engine: CIP Creature Effects & Shield Actions', () => {
     rulesText: 'When you put this creature into the battle zone, add the top card of your deck to your shields face down.'
   };
 
-  // Fortress Shell (Nature, cost 9, burns opponent shields to graveyard)
-  const fortressShell = {
-    id: 'test-fortress-shell',
-    name: 'Fortress Shell',
-    civilizations: ['Nature'],
-    type: 'Creature',
-    cost: 9,
-    power: 5000,
-    races: ['Earth Colossus'],
-    rulesText: "When you put this creature into the battle zone, choose up to 2 of your opponent's shields and put them into his graveyard."
-  };
+  const fortressShell = findCard('Fortress Shell');
+  const gajirabute = findCard('Gajirabute, Vile Centurion');
 
   // Aqua Patrol (Water, cost 4, return opponent shield to deck)
   const aquaPatrol = {
@@ -269,27 +260,37 @@ describe('Duel Masters Engine: CIP Creature Effects & Shield Actions', () => {
       assert.strictEqual(nextState.players.player.deck.length, 1);
     });
 
-    it('Fortress Shell destroys opponent shield to graveyard', () => {
+    it('Fortress Shell destroys up to 2 opponent mana cards to graveyard (leaving shields untouched)', () => {
       const state = setupTestState({
         playerHand: [fortressShell],
         playerMana: Array(9).fill(bronzeArmTribe), // 9 Nature mana
-        opponentShields: [vorg, vorg, vorg, vorg, vorg] // 5 shields
+        opponentMana: [vorg, vorg, vorg],
+        opponentShields: [vorg, vorg, vorg, vorg, vorg]
       });
 
       const cardId = state.players.player.hand[0].instanceId;
       const nextState = summonCreature(state, 'player', cardId);
 
-      // Opponent shields reduced by 2 (from 5 to 3)
-      assert.strictEqual(nextState.players.opponent.shields.length, 3);
-
-      // Opponent graveyard contains the 2 burned shields
+      assert.strictEqual(nextState.players.opponent.shields.length, 5);
+      assert.strictEqual(nextState.players.opponent.manaZone.length, 1);
       assert.strictEqual(nextState.players.opponent.graveyard.length, 2);
+      assert.strictEqual(nextState.pendingInteraction, null);
+    });
+
+    it('Gajirabute destroys an opponent shield to graveyard with no Shield Trigger', () => {
+      const state = setupTestState({
+        playerHand: [gajirabute],
+        playerMana: Array(6).fill(terrorPit), // 6 Darkness mana
+        opponentShields: [vorg, vorg, vorg, vorg, vorg]
+      });
+
+      const cardId = state.players.player.hand[0].instanceId;
+      const nextState = summonCreature(state, 'player', cardId);
+
+      assert.strictEqual(nextState.players.opponent.shields.length, 4);
+      assert.strictEqual(nextState.players.opponent.graveyard.length, 1);
       assert.strictEqual(nextState.players.opponent.graveyard[0].card.name, 'Immortal Baron, Vorg');
-
-      // Opponent hand remains 0 (not broken to hand)
       assert.strictEqual(nextState.players.opponent.hand.length, 0);
-
-      // No Shield Trigger queued
       assert.strictEqual(nextState.pendingInteraction, null);
     });
 

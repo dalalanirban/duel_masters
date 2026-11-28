@@ -32,7 +32,14 @@ export function toManaCard(
 }
 
 /**
- * Computes the effective mana cost of a card taking battlefield cost-reduction auras into account:
+ * Computes the effective mana cost of a card taking battlefield cost modifiers into account:
+ * Increases (applied first, per Duel Masters rules):
+ * - Volcano Smog, Deceptive Shade (DM04-039): Each Light creature/spell costs 2 more.
+ * - Missile Boy (DM04-045): Each Light creature/spell costs 1 more.
+ * - Milieus, the Daystretcher (DM04-012): Each Darkness creature/spell costs 2 more.
+ * - Dew Mushroom (DM04-050): Each Darkness creature/spell costs 1 more.
+ * - Horned Mutant (DM05-029): Each Nature creature/spell costs 1 more.
+ * Reductions:
  * - Cocco Lupia (DM06-077): Friendly Dragons cost 2 less (min 2; Dragonoids excluded).
  * - Elf-X (DM02-046): Friendly creatures cost 1 less (min 1).
  * - Essence Elf (DM02-047): Friendly spells cost 1 less (min 1).
@@ -49,8 +56,21 @@ export function getEffectiveManaCost(
   const caps = getCardCapabilities(card);
   const isSpell = card.type === 'Spell';
   const isCreature = !isSpell;
+  const isLight = caps.civilizations.includes('Light');
+  const isDarkness = caps.civilizations.includes('Darkness');
+  const isNature = caps.civilizations.includes('Nature');
 
-  // Apply Cocco Lupia reductions first (min 2)
+  // 1. Apply global cost increases across both battle zones first
+  for (const unit of [...friendlyBattleZone, ...opponentBattleZone]) {
+    const unitName = getCardCapabilities(unit.card).nameLower;
+    if (isLight && unitName.includes('volcano smog')) cost += 2;
+    if (isLight && unitName.includes('missile boy')) cost += 1;
+    if (isDarkness && unitName.includes('milieus')) cost += 2;
+    if (isDarkness && unitName.includes('dew mushroom')) cost += 1;
+    if (isNature && unitName.includes('horned mutant')) cost += 1;
+  }
+
+  // 2. Apply Cocco Lupia reductions (min 2)
   if (isCreature && caps.hasDragonRace) {
     for (const ally of friendlyBattleZone) {
       const allyCaps = getCardCapabilities(ally.card);
@@ -63,7 +83,7 @@ export function getEffectiveManaCost(
     }
   }
 
-  // Apply Elf-X / Essence Elf / Fever Nuts reductions (min 1)
+  // 3. Apply Elf-X / Essence Elf / Fever Nuts reductions (min 1)
   for (const ally of friendlyBattleZone) {
     const allyCaps = getCardCapabilities(ally.card);
     if (isCreature && allyCaps.nameLower.includes('elf-x')) {

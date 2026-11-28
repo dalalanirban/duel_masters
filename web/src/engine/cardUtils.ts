@@ -1,5 +1,5 @@
 import type { CardDefinition, Civilization } from '../types/card.ts';
-import type { CreatureInstance, PlayerId } from './types.ts';
+import type { CreatureInstance, GameState, PlayerId } from './types.ts';
 
 export interface CardCapabilities {
   nameLower: string;
@@ -18,6 +18,7 @@ export interface CardCapabilities {
   isCharger: boolean;
   isShieldTrigger: boolean;
   isBlocker: boolean;
+  blocksIfAble: boolean;
   isSlayer: boolean;
   isSpeedAttacker: boolean;
   hasLeaveSubstitution: boolean;
@@ -263,7 +264,7 @@ export function getCardCapabilities(card: CardDefinition): CardCapabilities {
     return cached;
   }
 
-  const nameLower = (card.name || '').toLowerCase();
+  const nameLower = (card.name || '').trim().toLowerCase();
   const rules = card.rulesText || '';
   const cleanRules = rules.replace(/\([^)]*\)/g, '. ').replace(/\s+/g, ' ').trim();
   const civilizations = getCardCivilizations(card);
@@ -308,7 +309,12 @@ export function getCardCapabilities(card: CardDefinition): CardCapabilities {
   let cantAttackPlayers = false;
   let cantAttackCreatures = false;
   let onlyAttackBlockers = false;
-  let attacksIfAble = card.id === 'DM01-074';
+  let attacksIfAble = nameLower === 'deadly fighter braid claw';
+  let blocksIfAble =
+    nameLower === 'pierr, psycho doll' ||
+    nameLower === 'ardent lunatron' ||
+    nameLower === 'messa bahna, expanse guardian' ||
+    nameLower === 'belmol, the explorer';
   let cantAttackWhenNoOppShields = false;
   let cantAttackWhenOppHasMoreCreatures = false;
   let cantAttackWhenOtherUntapped = false;
@@ -352,6 +358,9 @@ export function getCardCapabilities(card: CardDefinition): CardCapabilities {
     if (/^this creature can't attack creatures$/i.test(sent)) cantAttackCreatures = true;
     if (/this creature can attack only creatures that have "?blocker"?/i.test(sent)) onlyAttackBlockers = true;
     if (/this creature attacks each turn if able/i.test(sent)) attacksIfAble = true;
+    if (/whenever an opponent's creature attacks,\s*this creature blocks if able/i.test(sent)) {
+      blocksIfAble = true;
+    }
     if (/while your opponent has no shields,\s*this creature can't attack/i.test(sent)) cantAttackWhenNoOppShields = true;
     if (/this creature can't attack while your opponent has more creatures/i.test(sent)) cantAttackWhenOppHasMoreCreatures = true;
     if (/while you have any other untapped creatures.*this creature can't attack/i.test(sent)) cantAttackWhenOtherUntapped = true;
@@ -431,6 +440,7 @@ export function getCardCapabilities(card: CardDefinition): CardCapabilities {
     isCharger: Boolean(card.isCharger || /charger/i.test(nameLower) || /\bcharger\b/i.test(cleanRules)),
     isShieldTrigger: Boolean(card.isShieldTrigger),
     isBlocker: blockerFromSentence || (Boolean(card.isBlocker) && !hasConditionalBlocker),
+    blocksIfAble,
     isSlayer: slayerFromSentence || (Boolean(card.isSlayer) && !hasConditionalSlayer),
     isSpeedAttacker: speedAttackerFromSentence || (Boolean(card.isSpeedAttacker) && !hasConditionalSpeed),
     hasLeaveSubstitution:
@@ -496,6 +506,145 @@ export function getCardCapabilities(card: CardDefinition): CardCapabilities {
 
   CAPABILITIES_CACHE.set(card, caps);
   return caps;
+}
+
+export function isGabzagulCard(card: CardDefinition): boolean {
+  const n = getCardCapabilities(card).nameLower;
+  return (
+    n.includes('gabzagul') ||
+    /^each creature attacks each turn if able/i.test((card.rulesText || '').trim())
+  );
+}
+
+export function isTauntingSkyterrorCard(card: CardDefinition): boolean {
+  const n = getCardCapabilities(card).nameLower;
+  return (
+    n.includes('taunting skyterror') ||
+    /while this creature is tapped during your opponent's turn,\s*each of his creatures attacks if able/i.test(
+      card.rulesText || ''
+    )
+  );
+}
+
+export function isBodaciousGiantCard(card: CardDefinition): boolean {
+  const n = getCardCapabilities(card).nameLower;
+  return (
+    n.includes('bodacious giant') ||
+    /while this creature is tapped during your opponent's turn.*must attack it if able/i.test(
+      card.rulesText || ''
+    )
+  );
+}
+
+/**
+ * Returns defending player's tapped, not-yet-attacked Bodacious Giant(s) forcing opponent's attacks.
+ */
+export function getActiveForcedLureTargets(
+  state: GameState,
+  attackingPlayer: PlayerId
+): CreatureInstance[] {
+  const defendingPlayer = getOpponentId(attackingPlayer);
+  return state.players[defendingPlayer].battleZone.filter(
+    (c) => c.isTapped && !c.wasAttackedThisTurn && isBodaciousGiantCard(c.card)
+  );
+}
+
+/**
+ * Returns defending player's Mystery Totems when Forbidding Totem is on the defending board:
+ * "Your opponent's attacking creatures attack Mystery Totems if able."
+ */
+export function getActiveForbiddingTotems(
+  state: GameState,
+  attackingPlayer: PlayerId
+): CreatureInstance[] {
+  const defendingPlayer = getOpponentId(attackingPlayer);
+  const defBZ = state.players[defendingPlayer].battleZone;
+  const hasForbidding = defBZ.some(
+    (c) =>
+      getCardCapabilities(c.card).nameLower.includes('forbidding totem') ||
+      /attack mystery totems if able/i.test(c.card.rulesText || '')
+  );
+  if (!hasForbidding) return [];
+  return defBZ.filter((c) =>
+    getCreatureRaces(c).some((r) => normalizeRace(r) === 'mysterytotem')
+  );
+}
+
+/**
+ * Returns true if board-wide auras or active turn spells force all legal creatures of `playerId` to attack.
+ */
+export function hasBoardForcedAttacks(state: GameState, playerId: PlayerId): boolean {
+  const playerState = state.players[playerId];
+  const oppState = state.players[getOpponentId(playerId)];
+
+  if (
+    Boolean(playerState.tempForceAllAttacksUntilNextTurn) ||
+    Boolean(playerState.tempForceAllAttacksGrantedBy)
+  ) {
+    return true;
+  }
+
+  // Gabzagul, Warlord of Pain: "Each creature attacks each turn if able."
+  if ([...playerState.battleZone, ...oppState.battleZone].some((c) => isGabzagulCard(c.card))) {
+    return true;
+  }
+
+  // Taunting Skyterror: while tapped during opponent's turn, each of opponent's creatures attacks if able
+  if (
+    state.activePlayer === playerId &&
+    oppState.battleZone.some((c) => c.isTapped && isTauntingSkyterrorCard(c.card))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Returns true if a blocker must intercept attacks when legally able
+ * (native `blocksIfAble` e.g. Pierr / Ardent Lunatron / Messa Bahna / Belmol, or Storm Wrangler target bind).
+ */
+export function isCreatureForcedBlocker(
+  creature: CreatureInstance,
+  attackerId?: string
+): boolean {
+  if (attackerId !== undefined && creature.tempMustBlockTargetId === attackerId) {
+    return true;
+  }
+  return getCardCapabilities(creature.card).blocksIfAble;
+}
+
+/**
+ * Returns true if a creature must attack this turn when legally able
+ * (native `attacksIfAble` capability, temporary forced-attack flag, forced-attack race grant, or board aura).
+ */
+export function isCreatureMandatoryAttacker(
+  creature: CreatureInstance,
+  forcedRaces?: string[],
+  state?: GameState,
+  ownerId?: PlayerId
+): boolean {
+  if (Boolean(creature.tempAttacksIfAble)) {
+    return true;
+  }
+  const caps = getCardCapabilities(creature.card);
+  if (caps.attacksIfAble || /attacks each turn if able/i.test(creature.card.rulesText || '')) {
+    return true;
+  }
+  if (forcedRaces && forcedRaces.length > 0) {
+    const normalizedSet = new Set(forcedRaces.map(normalizeRace));
+    const creatureRaces = getCreatureRaces(creature).map(normalizeRace);
+    if (creatureRaces.some((r) => normalizedSet.has(r))) {
+      return true;
+    }
+  }
+  if (state) {
+    const pid = ownerId ?? creature.owner;
+    if (hasBoardForcedAttacks(state, pid)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

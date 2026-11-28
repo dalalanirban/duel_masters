@@ -41,6 +41,9 @@ export interface CreatureInstance {
   tempCantAttack?: boolean;
   tempCantAttackPlayers?: boolean;
   tempAttacksIfAble?: boolean;
+  tempAttacksIfAbleUntilTurnOf?: PlayerId;
+  wasAttackedThisTurn?: boolean;
+  tempDestroyAfterAttack?: boolean;
   tempMustBlockTargetId?: string;
   tempDestroyAfterBattle?: boolean;
   tempUntapOnWinBattle?: boolean;
@@ -50,6 +53,8 @@ export interface CreatureInstance {
   tempManaOnDestroy?: boolean;
   tempExtraRaces?: string[];
   tempDestroyAtEndTurn?: boolean;
+  tempUntapAfterBattle?: boolean;
+  chosenRace?: string;
 }
 
 export interface ShieldInstance {
@@ -102,7 +107,13 @@ export interface PlayerState {
   tempDrawPerShieldBrokenOnAttack?: number;
   tempOppDestroyTriggerPenalties?: number;
   tempForceAllAttacksUntilNextTurn?: boolean;
+  tempForceAllAttacksGrantedBy?: PlayerId;
   tempUntapLightAtEndTurn?: boolean;
+  tempSwordMalevolentDeathCount?: number;
+  tempLiveAndBreatheCount?: number;
+  tempUnblockableCivsThisTurn?: Civilization[];
+  spellsCastThisTurn?: number;
+  cardsDrawnThisTurn?: number;
 }
 
 export type CombatStage =
@@ -125,6 +136,7 @@ export interface BlockerChoiceInteraction {
   defendingPlayer: PlayerId;
   attackerId: string;
   validBlockerIds: string[];
+  isMandatory?: boolean;
 }
 
 export interface ShieldTriggerChoiceInteraction {
@@ -178,9 +190,14 @@ export interface OptionalChoiceInteraction {
     | 'MANA_RAMP'
     | 'MANA_ADD_SHIELD_DECK'
     | 'UNTAP_ALL_EOT'
+    | 'PEEK_OPP_HAND_AND_DECK'
+    | 'CAST_FREE_SPELL'
+    | 'GIGABEROS_SACRIFICE_TWO'
     | 'CUSTOM';
   drawCount?: number;
   validTargetIds?: string[];
+  freeSpellCard?: CardDefinition;
+  freeSpellShieldId?: string;
   /** Optional contextual ids for interactive Saver / replacement / custom follow-ups */
   targetInstanceId?: string;
   saverInstanceId?: string;
@@ -246,6 +263,9 @@ export interface GameState {
   pendingInteractionQueue?: PendingInteraction[];
   pendingKeptSilentIds?: string[];
   interactiveHuman?: boolean;
+  extraTurnPlayer?: PlayerId | null;
+  pendingBombazarLossFor?: PlayerId | null;
+  loseAtEndOfTurn?: PlayerId | null;
   winner: PlayerId | null;
   actionLog: string[];
 }

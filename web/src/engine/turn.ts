@@ -42,7 +42,9 @@ function performStartTurnUntapAndDraw(
     ...curActivePlayer,
     manaZone: untappedManaZone,
     battleZone: untappedBattleZone,
-    manaChargedThisTurn: false
+    manaChargedThisTurn: false,
+    spellsCastThisTurn: 0,
+    cardsDrawnThisTurn: 0
   };
 
   const actionLogs = [...preState.actionLog];
@@ -85,7 +87,8 @@ function performStartTurnUntapAndDraw(
     newPlayerState = {
       ...newPlayerState,
       deck: remainingDeck,
-      hand: [...newPlayerState.hand, drawnCard]
+      hand: [...newPlayerState.hand, drawnCard],
+      cardsDrawnThisTurn: (newPlayerState.cardsDrawnThisTurn || 0) + 1
     };
     actionLogs.push(`${activeId} drew a card.`);
   }
@@ -130,6 +133,27 @@ export function startTurn(state: GameState): GameState {
 
   const activeId = state.activePlayer;
 
+  const clearTurnPlayerFlags = (p: GameState['players'][PlayerId]) => ({
+    ...p,
+    tempForceAllAttacksUntilNextTurn:
+      p.tempForceAllAttacksGrantedBy === activeId
+        ? undefined
+        : p.tempForceAllAttacksGrantedBy
+        ? p.tempForceAllAttacksUntilNextTurn
+        : undefined,
+    tempForceAllAttacksGrantedBy:
+      p.tempForceAllAttacksGrantedBy === activeId ? undefined : p.tempForceAllAttacksGrantedBy,
+    battleZone: p.battleZone.map((c) =>
+      c.tempAttacksIfAbleUntilTurnOf === activeId
+        ? { ...c, tempAttacksIfAble: undefined, tempAttacksIfAbleUntilTurnOf: undefined }
+        : c
+    )
+  });
+
+  const activeCleared = clearTurnPlayerFlags(state.players[activeId]);
+  const oppId = getOpponentId(activeId);
+  const oppCleared = clearTurnPlayerFlags(state.players[oppId]);
+
   // 0. Clear "until the start of your next turn" modifiers created on this player's previous turn
   let preState: GameState = {
     ...state,
@@ -137,12 +161,15 @@ export function startTurn(state: GameState): GameState {
     players: {
       ...state.players,
       [activeId]: {
-        ...state.players[activeId],
+        ...activeCleared,
         tempAllBlockersUntilNextTurn: undefined,
         tempRaceBlockersUntilNextTurn: undefined,
         tempProtectedFromAttackCivs: undefined,
-        tempForceAllAttacksUntilNextTurn: undefined
-      }
+        tempForceAllAttacksUntilNextTurn: activeCleared.tempForceAllAttacksGrantedBy
+          ? activeCleared.tempForceAllAttacksUntilNextTurn
+          : undefined
+      },
+      [oppId]: oppCleared
     }
   };
 
@@ -207,20 +234,55 @@ export function finalizeEndTurn(afterEotState: GameState): GameState {
 
   const activeId = afterEotState.activePlayer;
   const startingPlayer = afterEotState.startingPlayer || 'player';
-  const nextPlayer: PlayerId = getOpponentId(activeId);
-  const nextTurn = nextPlayer === startingPlayer ? afterEotState.turn + 1 : afterEotState.turn;
+  const opponentId = getOpponentId(activeId);
+
+  if (afterEotState.loseAtEndOfTurn === activeId) {
+    return {
+      ...afterEotState,
+      combatState: null,
+      pendingInteraction: null,
+      pendingTriggerQueue: undefined,
+      loseAtEndOfTurn: undefined,
+      winner: opponentId,
+      actionLog: [
+        ...afterEotState.actionLog,
+        `${activeId} lost the game at the end of the extra turn (Bombazar, Dragon of Destiny).`
+      ]
+    };
+  }
+
+  const grantedExtraTurn = afterEotState.extraTurnPlayer;
+  const nextPlayer: PlayerId = grantedExtraTurn || opponentId;
+  const nextTurn =
+    grantedExtraTurn
+      ? afterEotState.turn + 1
+      : nextPlayer === startingPlayer
+      ? afterEotState.turn + 1
+      : afterEotState.turn;
+  const nextLoseAtEnd =
+    grantedExtraTurn && afterEotState.pendingBombazarLossFor === grantedExtraTurn
+      ? grantedExtraTurn
+      : undefined;
 
   const intermediatePlayers = {
     ...afterEotState.players,
     [activeId]: {
       ...afterEotState.players[activeId],
-      shieldsBrokenThisTurn: []
+      shieldsBrokenThisTurn: [],
+      spellsCastThisTurn: 0,
+      cardsDrawnThisTurn: 0
     },
-    [nextPlayer]: {
-      ...afterEotState.players[nextPlayer],
-      shieldsBrokenThisTurn: []
+    [opponentId]: {
+      ...afterEotState.players[opponentId],
+      shieldsBrokenThisTurn: [],
+      spellsCastThisTurn: 0,
+      cardsDrawnThisTurn: 0
     }
   };
+
+  const extraTurnLogs = grantedExtraTurn
+    ? [`${nextPlayer} takes an extra turn!`]
+    : [];
 
   const intermediateState: GameState = {
     ...afterEotState,
@@ -230,8 +292,11 @@ export function finalizeEndTurn(afterEotState: GameState): GameState {
     combatState: null,
     pendingInteraction: null,
     pendingTriggerQueue: undefined,
+    extraTurnPlayer: undefined,
+    pendingBombazarLossFor: nextLoseAtEnd ? undefined : afterEotState.pendingBombazarLossFor,
+    loseAtEndOfTurn: nextLoseAtEnd ?? afterEotState.loseAtEndOfTurn,
     players: intermediatePlayers,
-    actionLog: [...afterEotState.actionLog, `${activeId} ended their turn.`]
+    actionLog: [...afterEotState.actionLog, `${activeId} ended their turn.`, ...extraTurnLogs]
   };
 
   return startTurn(intermediateState);

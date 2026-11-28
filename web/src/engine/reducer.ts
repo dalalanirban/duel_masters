@@ -1,5 +1,5 @@
 import type { GameState, GameAction, PlayerId, AttackTarget } from './types.ts';
-import { getOpponentId } from './cardUtils.ts';
+import { getActiveForcedLureTargets, getOpponentId, isCreatureMandatoryAttacker } from './cardUtils.ts';
 import { chargeMana, undoChargeMana, toManaCard, toggleManaTap } from './mana.ts';
 import { summonCreature } from './evolution.ts';
 import { canCreatureAttack } from './continuous.ts';
@@ -62,20 +62,16 @@ function executeMandatoryAttack(state: GameState, player: PlayerId): GameState {
 
   const forcedRaces = activePlayer.tempAttacksIfAbleRacesThisTurn || [];
 
+  const activeGiants = getActiveForcedLureTargets(state, player);
+
   const mandatoryCreature = activePlayer.battleZone.find((c) => {
-    const rules = c.card.rulesText || '';
-    const hasForcedRace =
-      forcedRaces.length > 0 &&
-      (c.card.races || []).some((r) =>
-        forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, ''))
-      );
-    const isMandatory =
-      c.card.id === 'DM01-074' ||
-      Boolean(c.tempAttacksIfAble) ||
-      hasForcedRace ||
-      /attacks each turn if able/i.test(rules);
-    if (!isMandatory) return false;
-    return canCreatureAttack(state, c, undefined, player).valid;
+    const isLured = activeGiants.some(
+      (g) => canCreatureAttack(state, c, { type: 'creature', instanceId: g.instanceId }, player).valid
+    );
+    return (
+      (isCreatureMandatoryAttacker(c, forcedRaces, state, player) || isLured) &&
+      canCreatureAttack(state, c, undefined, player).valid
+    );
   });
 
   if (!mandatoryCreature) {

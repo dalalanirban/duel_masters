@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { CardDefinition, Deck, DeckItem } from '../types/card';
 import { getRegisteredCardCatalog, type CardCatalog } from '../data/cardCatalogCore';
 import {
@@ -6,14 +6,18 @@ import {
   saveDeckToList,
   deleteDeckFromList,
   createEmptyDeck,
-  isDeckLegal,
+  validateDeckLegality,
+  getCanonicalCardName,
+  MAX_COPIES_PER_CANONICAL_NAME,
   SAVED_DECKS_STORAGE_KEY,
-  ACTIVE_DECK_STORAGE_KEY
+  ACTIVE_DECK_STORAGE_KEY,
+  type DeckLegalityResult
 } from '../utils/deckStorage';
 
 /**
  * Rehydrates a deck object loaded from JSON / localStorage, ensuring that all
- * card definitions are authoritative instances from the card map and counts are valid.
+ * card definitions are authoritative instances from the card map without silently
+ * deleting cards when an older deck exceeds the cross-set 4-copy limit.
  */
 export function hydrateDeck(
   raw: any,
@@ -33,7 +37,7 @@ export function hydrateDeck(
       if (!cardId || typeof cardId !== 'string') continue;
       const card = cardMap.get(cardId);
       if (card && typeof it.count === 'number' && it.count > 0) {
-        hydratedItems.push({ card, count: Math.min(it.count, 4) });
+        hydratedItems.push({ card, count: Math.floor(it.count) });
       }
     }
   }
@@ -101,9 +105,18 @@ export function useDeckBuilder(catalog: CardCatalog) {
 
   const addCard = useCallback((card: CardDefinition) => {
     setActiveDeck(prev => {
+      const targetCanonical = getCanonicalCardName(card.name);
+      const canonicalCount = prev.items.reduce(
+        (sum, i) =>
+          getCanonicalCardName(i.card.name) === targetCanonical ? sum + i.count : sum,
+        0
+      );
+      if (canonicalCount >= MAX_COPIES_PER_CANONICAL_NAME) {
+        return prev; // max 4 copies per canonical card name across all set printings
+      }
+
       const existing = prev.items.find(i => i.card.id === card.id);
       if (existing) {
-        if (existing.count >= 4) return prev; // max 4 copies
         return {
           ...prev,
           updatedAt: Date.now(),
@@ -174,11 +187,16 @@ export function useDeckBuilder(catalog: CardCatalog) {
     }
   }, []);
 
-  const totalCards = activeDeck.items.reduce((sum, item) => sum + item.count, 0);
+  const deckLegality: DeckLegalityResult = useMemo(
+    () => validateDeckLegality(activeDeck),
+    [activeDeck]
+  );
+
+  const totalCards = deckLegality.totalCards;
 
   const saveDeck = useCallback(
     (name: string): boolean => {
-      if (!isDeckLegal(totalCards)) {
+      if (!deckLegality.isLegal) {
         return false;
       }
       const { updatedDeck, savedDecks: newSavedDecks } = saveDeckToList(
@@ -198,7 +216,7 @@ export function useDeckBuilder(catalog: CardCatalog) {
       }
       return true;
     },
-    [totalCards, activeDeck, savedDecks]
+    [deckLegality.isLegal, activeDeck, savedDecks]
   );
 
   const loadDeck = useCallback(
@@ -270,6 +288,15 @@ export function useDeckBuilder(catalog: CardCatalog) {
     setActiveDeck(prev => ({ ...prev, name, updatedAt: Date.now() }));
   }, []);
 
+  const canonicalNameCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of activeDeck.items) {
+      const canonical = getCanonicalCardName(item.card.name);
+      map.set(canonical, (map.get(canonical) || 0) + item.count);
+    }
+    return map;
+  }, [activeDeck.items]);
+
   const getCardCountInDeck = useCallback(
     (cardId: string) => {
       const item = activeDeck.items.find(i => i.card.id === cardId);
@@ -278,9 +305,18 @@ export function useDeckBuilder(catalog: CardCatalog) {
     [activeDeck.items]
   );
 
-  // Deck status: building (<40), legal (=40), over-limit (>40)
+  const getCanonicalCardCountInDeck = useCallback(
+    (cardName: string) => canonicalNameCounts.get(getCanonicalCardName(cardName)) || 0,
+    [canonicalNameCounts]
+  );
+
+  // Deck status: building (<40), legal (=40), over-limit (>40 or >4 copies per canonical name)
   const deckStatus: 'legal' | 'building' | 'over' =
-    totalCards === 40 ? 'legal' : totalCards < 40 ? 'building' : 'over';
+    deckLegality.overLimitCards.length > 0 || totalCards > 40
+      ? 'over'
+      : totalCards === 40
+      ? 'legal'
+      : 'building';
 
   // Export JSON or Text
   const exportAsJson = useCallback(() => {
@@ -307,6 +343,7 @@ export function useDeckBuilder(catalog: CardCatalog) {
     savedDecks,
     totalCards,
     deckStatus,
+    deckLegality,
     isSaveModalOpen,
     setIsSaveModalOpen,
     addCard,
@@ -320,6 +357,7 @@ export function useDeckBuilder(catalog: CardCatalog) {
     deleteDeck,
     setDeckName,
     getCardCountInDeck,
+    getCanonicalCardCountInDeck,
     exportAsJson,
     exportAsText
   };

@@ -8,11 +8,14 @@ import type {
   PlayerState
 } from './types.ts';
 import {
+  getActiveForbiddingTotems,
+  getActiveForcedLureTargets,
   getCardCapabilities,
   getCardCivilizations,
   getCreatureRaces,
   getOpponentId,
   hasDragonRace,
+  isCreatureForcedBlocker,
   isSurvivorCard,
   normalizeRace
 } from './cardUtils.ts';
@@ -536,9 +539,19 @@ export function getCreatureBreakerCount(
   state?: GameState,
   playerId?: PlayerId
 ): number {
-  let count = Math.max(1, creature.card.breakerCount || 1);
   const caps = getCardCapabilities(creature.card);
   const owner = playerId ?? creature.owner;
+  // Raging Dash-Horn stores breakerCount=2 in JSON, but only gains Double Breaker while all mana cards are Nature
+  let count = caps.nameLower.includes('raging dash-horn')
+    ? 1
+    : Math.max(1, creature.card.breakerCount || 1);
+
+  if (caps.nameLower.includes('raging dash-horn')) {
+    const pMana = state?.players?.[owner]?.manaZone || [];
+    if (pMana.length > 0 && pMana.every((m) => getCardCivilizations(m.card).includes('Nature'))) {
+      count = Math.max(count, 2);
+    }
+  }
 
   if (creature.tempDoubleBreaker) count = Math.max(count, 2);
   if (creature.tempTripleBreaker) count = Math.max(count, 3);
@@ -677,6 +690,7 @@ export function calculateContinuousAuraPower(
   // 5. Global Both-Sides Auras: Re Bil (Light +2000), Shadow Moon (Darkness +2000), Pippie Kuppie (Armored Dragon +1000), Chaotic Skyterror (Demon Command +4000 PA)
   const isLight = civs.includes('Light');
   const isDarkness = civs.includes('Darkness');
+  const isAngelCommand = normRaces.includes('angelcommand');
   const isArmoredDragon = normRaces.includes('armoreddragon');
   const isDemonCommand = normRaces.includes('demoncommand');
 
@@ -695,7 +709,29 @@ export function calculateContinuousAuraPower(
       if (isAttacking && isDemonCommand && cName.includes('chaotic skyterror')) {
         powerAttackerBonus += 4000;
       }
+      if ((isAngelCommand || isDemonCommand) && cName.includes('aquakamui')) {
+        powerBonus += 2000;
+      }
+      if ((isLight || isDarkness) && cName.includes('keeper of the sunlit abyss')) {
+        powerBonus += 1000;
+      }
+      if (
+        c.chosenRace &&
+        cName.includes('petrova') &&
+        normRaces.includes(normalizeRace(c.chosenRace))
+      ) {
+        powerBonus += 4000;
+      }
     }
+  }
+
+  // Sword of Malevolent Death: while attacking, +1000 per Darkness card in mana zone
+  if (isAttacking && playerState?.tempSwordMalevolentDeathCount) {
+    const darkManaCount = (playerState.manaZone || []).filter((m) =>
+      getCardCivilizations(m.card).includes('Darkness')
+    ).length;
+    powerAttackerBonus +=
+      darkManaCount * 1000 * playerState.tempSwordMalevolentDeathCount;
   }
 
   // 6. Self conditional auras (Blasto, Exploding Cactus, Angler Cluster, Cannon Shell, Masked Pomegranate)
@@ -741,6 +777,66 @@ export function calculateContinuousAuraPower(
 
   if (nameLower.includes('cannon shell') && playerState) {
     powerBonus += playerState.shields.filter((s) => !s.isBroken).length * 1000;
+  }
+
+  if (nameLower.includes('razorpine tree') && playerState) {
+    powerBonus += playerState.shields.filter((s) => !s.isBroken).length * 2000;
+  }
+
+  if (nameLower.includes('ur pale') && playerState && playerState.manaZone.length > 0) {
+    if (playerState.manaZone.every((m) => getCardCivilizations(m.card).includes('Light'))) {
+      powerBonus += 2000;
+    }
+  }
+
+  if (nameLower.includes('mudman') && playerState && playerState.manaZone.length > 0) {
+    if (playerState.manaZone.every((m) => getCardCivilizations(m.card).includes('Darkness'))) {
+      powerBonus += 2000;
+    }
+  }
+
+  if (nameLower.includes('baby zoppe') && playerState && playerState.manaZone.length > 0) {
+    if (playerState.manaZone.every((m) => getCardCivilizations(m.card).includes('Fire'))) {
+      powerBonus += 2000;
+    }
+  }
+
+  if (nameLower.includes('raging dash-horn') && playerState && playerState.manaZone.length > 0) {
+    if (playerState.manaZone.every((m) => getCardCivilizations(m.card).includes('Nature'))) {
+      powerBonus += 3000;
+    }
+  }
+
+  if (nameLower.includes('spinning terror')) {
+    powerBonus += oZone.filter((c) => c.isTapped).length * 2000;
+  }
+
+  if (nameLower.includes('ryudmila')) {
+    powerBonus += fZone.filter((c) => c.instanceId !== creature.instanceId && !c.isTapped).length * 2000;
+  }
+
+  if (
+    isAttacking &&
+    nameLower.includes('urherion') &&
+    fZone.some(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        getCreatureRaces(c).some((r) => normalizeRace(r) === 'human')
+    )
+  ) {
+    powerAttackerBonus += 2000;
+  }
+
+  if (
+    isAttacking &&
+    nameLower.includes('horvath') &&
+    fZone.some(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        getCreatureRaces(c).some((r) => normalizeRace(r) === 'armorloid')
+    )
+  ) {
+    powerAttackerBonus += 2000;
   }
 
   if (nameLower.includes('masked pomegranate')) {
@@ -925,7 +1021,14 @@ export function canCreatureAttackUntapped(
     return true;
   }
 
-  if (caps.canAttackAllUntapped || attacker.tempCanAttackUntapped || attackerState?.tempAttackUntappedAllThisTurn) {
+  if (
+    caps.canAttackAllUntapped ||
+    caps.nameLower.includes('nomad hero gigio') ||
+    caps.nameLower.includes('cavalry general curatops') ||
+    caps.nameLower.includes("muramasa's knife") ||
+    attacker.tempCanAttackUntapped ||
+    attackerState?.tempAttackUntappedAllThisTurn
+  ) {
     return true;
   }
 
@@ -986,6 +1089,13 @@ export function isCreatureUnblockable(
     return true;
   }
   if (
+    attackerState?.tempUnblockableCivsThisTurn &&
+    attackerState.tempUnblockableCivsThisTurn.length > 0 &&
+    getCardCivilizations(attacker.card).some((c) => attackerState.tempUnblockableCivsThisTurn!.includes(c))
+  ) {
+    return true;
+  }
+  if (
     attackerState?.tempUnblockableRacesThisTurn &&
     creatureHasAnyNormalizedRace(attacker, attackerState.tempUnblockableRacesThisTurn)
   ) {
@@ -1033,11 +1143,10 @@ export function isCreatureUnblockable(
 }
 
 /**
- * Per-blocker check: determines whether a specific untapped blocker can legally block `attacker`.
- * Handles power thresholds (Stampeding Longhorn, Tower Shell, Ninja Pumpkin <= 5000, Calgo >= 4000),
- * civilization restrictions (Gulan Rias, Purple Piercer, Ancient Giant), and Storm Wrangler forced blocks.
+ * Checks whether `blocker` satisfies intrinsic & attacker evasion rules to block `attacker`
+ * (ignoring forced-block exclusivity).
  */
-export function canBeBlockedBy(
+export function canCreatureIndividuallyBlock(
   attacker: CreatureInstance,
   blocker: CreatureInstance,
   target: AttackTarget,
@@ -1120,16 +1229,36 @@ export function canBeBlockedBy(
     return false;
   }
 
-  // Storm Wrangler forced-blocker exclusivity: if an untapped eligible blocker is forced onto this attacker,
-  // other blockers cannot intercept.
+  return true;
+}
+
+/**
+ * Per-blocker check: determines whether a specific untapped blocker can legally block `attacker`.
+ * Handles power thresholds (Stampeding Longhorn, Tower Shell, Ninja Pumpkin <= 5000, Calgo >= 4000),
+ * civilization restrictions (Gulan Rias, Purple Piercer, Ancient Giant), Storm Wrangler forced blocks,
+ * and `blocksIfAble` forced blockers (Pierr, Ardent Lunatron, Messa Bahna, Belmol).
+ */
+export function canBeBlockedBy(
+  attacker: CreatureInstance,
+  blocker: CreatureInstance,
+  target: AttackTarget,
+  state: GameState
+): boolean {
+  if (!canCreatureIndividuallyBlock(attacker, blocker, target, state)) {
+    return false;
+  }
+
+  const attackingId = state.activePlayer;
+  const defendingId = getOpponentId(attackingId);
+  const defenderState = state.players[defendingId];
+
   const forcedBlockers = defenderState.battleZone.filter(
     (c) =>
-      !c.isTapped &&
-      c.tempMustBlockTargetId === attacker.instanceId &&
-      hasCreatureBlocker(c, defenderState.battleZone, attackerState.battleZone, defenderState)
+      isCreatureForcedBlocker(c, attacker.instanceId) &&
+      canCreatureIndividuallyBlock(attacker, c, target, state)
   );
-  if (forcedBlockers.length > 0 && blocker.tempMustBlockTargetId !== attacker.instanceId) {
-    return false;
+  if (forcedBlockers.length > 0) {
+    return forcedBlockers.some((fb) => fb.instanceId === blocker.instanceId);
   }
 
   return true;
@@ -1144,14 +1273,17 @@ export function canCreatureBeAttackedBy(
   state?: GameState
 ): { allowed: boolean; reason?: string } {
   const defCaps = getCardCapabilities(defender.card);
-  if (defCaps.cantBeAttacked) {
+  if (defCaps.cantBeAttacked || defCaps.nameLower.includes('kooc pollon')) {
     return { allowed: false, reason: `${defender.card.name} cannot be attacked.` };
   }
 
   const attCivs = getCardCivilizations(attacker.card);
   if (
-    defCaps.cantBeAttackedByCivs.length > 0 &&
-    attCivs.some((c) => defCaps.cantBeAttackedByCivs.includes(c))
+    (defCaps.cantBeAttackedByCivs.length > 0 &&
+      attCivs.some((c) => defCaps.cantBeAttackedByCivs.includes(c))) ||
+    ((defCaps.nameLower.includes('steel-turret cluster') ||
+      defCaps.nameLower.includes('typhoon crawler')) &&
+      attCivs.some((c) => c === 'Fire' || c === 'Nature'))
   ) {
     return {
       allowed: false,
@@ -1277,6 +1409,61 @@ export function canCreatureAttack(
 
   const cantAttackPlayers = (caps.cantAttackPlayers || Boolean(attacker.tempCantAttackPlayers)) && !ignorePreventionForPlayers;
   const cantAttackCreatures = caps.cantAttackCreatures;
+
+  const canAttackCreatureTarget = (def: CreatureInstance): boolean => {
+    if (hasSickness || caps.cantAttack || attacker.tempCantAttack || cantAttackCreatures) {
+      return false;
+    }
+    if (
+      caps.onlyAttackBlockers &&
+      !hasCreatureBlocker(def, defendingPlayer.battleZone, activePlayer.battleZone, defendingPlayer)
+    ) {
+      return false;
+    }
+    if (!canCreatureBeAttackedBy(def, attacker, state).allowed) return false;
+    return (
+      def.isTapped ||
+      canCreatureAttackUntapped(
+        attacker,
+        def,
+        activePlayer.battleZone,
+        defendingPlayer.battleZone,
+        state,
+        activePlayer,
+        defendingPlayer
+      )
+    );
+  };
+
+  // Bodacious Giant lure: while tapped & not yet attacked this turn, opponent's creatures must attack it if able
+  const forcedLureGiants = getActiveForcedLureTargets(state, activeId).filter((giant) =>
+    canAttackCreatureTarget(giant)
+  );
+  if (
+    forcedLureGiants.length > 0 &&
+    target &&
+    (target.type !== 'creature' || !forcedLureGiants.some((g) => g.instanceId === target.instanceId))
+  ) {
+    return {
+      valid: false,
+      reason: `${attacker.card.name} must attack ${forcedLureGiants[0].card.name} if able.`
+    };
+  }
+
+  // Forbidding Totem: opponent's attacking creatures must attack Mystery Totems if able
+  const forcedTotems = getActiveForbiddingTotems(state, activeId).filter((totem) =>
+    canAttackCreatureTarget(totem)
+  );
+  if (
+    forcedTotems.length > 0 &&
+    target &&
+    (target.type !== 'creature' || !forcedTotems.some((t) => t.instanceId === target.instanceId))
+  ) {
+    return {
+      valid: false,
+      reason: `${attacker.card.name} must attack a Mystery Totem if able (Forbidding Totem).`
+    };
+  }
 
   // Validate against specific target if given
   if (target) {

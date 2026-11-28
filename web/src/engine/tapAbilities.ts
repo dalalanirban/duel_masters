@@ -97,6 +97,18 @@ export function canActivateTapAbility(
     return { valid: false, reason: `${creature.card.name} cannot attack, so it cannot use its tap ability.` };
   }
 
+  // Lockdown Lizard: "Players can't use the Tap abilities of their creatures."
+  const allBZ = [...state.players.player.battleZone, ...state.players.opponent.battleZone];
+  if (
+    allBZ.some(
+      (c) =>
+        getCardCapabilities(c.card).nameLower.includes('lockdown lizard') ||
+        /players can't use the\s*(?:\$tap)?\s*abilities of their creatures/i.test(c.card.rulesText || '')
+    )
+  ) {
+    return { valid: false, reason: 'Lockdown Lizard prevents players from using tap abilities.' };
+  }
+
   const isEvolution = creature.card.isEvolution || creature.card.type === 'Evolution Creature';
   const hasSA = hasCreatureSpeedAttacker(
     creature,
@@ -660,7 +672,14 @@ export function resolveTapAbility(
         maxSelections: 1
       });
     }
-    return nextState;
+    const peeked = allShields.find((s) => targets?.includes(s.instanceId)) || allShields[0];
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${owner} looked at a shield of ${peeked.owner} (${peeked.card.name}) using ${creature.card.name}.`
+      ]
+    };
   }
 
   if (nameLower.includes('garatyano')) {
@@ -685,7 +704,30 @@ export function resolveTapAbility(
         maxSelections: top3.length
       });
     }
-    return nextState;
+    if (targets?.length) {
+      const reordered = [
+        ...targets.map((id) => top3.find((c) => c.instanceId === id)).filter((x): x is typeof top3[number] => Boolean(x)),
+        ...top3.filter((c) => !targets.includes(c.instanceId))
+      ];
+      return {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [owner]: { ...pState, deck: [...reordered, ...pState.deck.slice(top3.length)] }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${owner} looked at and reordered the top ${top3.length} cards of deck using Garatyano.`
+        ]
+      };
+    }
+    return {
+      ...nextState,
+      actionLog: [
+        ...nextState.actionLog,
+        `${owner} looked at the top ${top3.length} cards of deck (${top3.map((c) => c.card.name).join(', ')}) using Garatyano.`
+      ]
+    };
   }
 
   if (nameLower.includes('cosmogold')) {
@@ -876,7 +918,7 @@ export function resolveTapAbility(
         maxSelections: Math.min(3, pState.hand.length)
       });
     }
-    const chosen = (targets?.length ? pState.hand.filter((h) => targets.includes(h.instanceId)) : []).slice(0, 3);
+    const chosen = (targets?.length ? pState.hand.filter((h) => targets.includes(h.instanceId)) : pState.hand).slice(0, 3);
     if (chosen.length === 0) return nextState;
     const chosenIds = new Set(chosen.map((h) => h.instanceId));
     return {

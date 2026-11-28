@@ -6,6 +6,7 @@ import { SearchX } from 'lucide-react';
 interface Props {
   cards: CardDefinition[];
   getDeckCount: (cardId: string) => number;
+  getCanonicalDeckCount?: (cardName: string) => number;
   onAdd: (card: CardDefinition) => void;
   onRemove: (card: CardDefinition) => void;
   onInspect: (card: CardDefinition) => void;
@@ -15,6 +16,7 @@ interface Props {
 export const CardGrid: React.FC<Props> = ({
   cards,
   getDeckCount,
+  getCanonicalDeckCount,
   onAdd,
   onRemove,
   onInspect,
@@ -39,12 +41,13 @@ export const CardGrid: React.FC<Props> = ({
   }
 
   return (
-    <div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 sm:gap-5 justify-items-center">
+    <div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3 sm:gap-5 justify-items-center">
       {cards.map(card => (
         <DuelCard
           key={card.id}
           card={card}
           deckCount={getDeckCount(card.id)}
+          canonicalCount={getCanonicalDeckCount?.(card.name)}
           onAdd={onAdd}
           onRemove={onRemove}
           onClick={onInspect}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { CardDefinition, CardFilterOptions, Deck } from '../../types/card';
-import { filterCardList, type CardCatalog } from '../../data/cardCatalogCore';
+import { filterCardList, type CardCatalog, type DeckCopyViolation } from '../../data/cardCatalogCore';
 import { FilterBar } from './FilterBar';
 import { CardGrid } from './CardGrid';
 import { DeckPanel } from '../deck/DeckPanel';
@@ -13,6 +13,7 @@ export interface ExplorerWorkspaceProps {
   savedDecks: Deck[];
   totalCards: number;
   deckStatus: 'legal' | 'building' | 'over';
+  overLimitCards?: DeckCopyViolation[];
   isSaveModalOpen: boolean;
   setIsSaveModalOpen: (open: boolean) => void;
   addCard: (card: CardDefinition) => void;
@@ -25,6 +26,7 @@ export interface ExplorerWorkspaceProps {
   deleteDeck: (deckId: string) => void;
   setDeckName: (name: string) => void;
   getCardCountInDeck: (cardId: string) => number;
+  getCanonicalCardCountInDeck?: (cardName: string) => number;
   onExportText: () => void;
   onNotify: (message: string) => void;
 }
@@ -35,6 +37,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
   savedDecks,
   totalCards,
   deckStatus,
+  overLimitCards = [],
   isSaveModalOpen,
   setIsSaveModalOpen,
   addCard,
@@ -47,6 +50,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
   deleteDeck,
   setDeckName,
   getCardCountInDeck,
+  getCanonicalCardCountInDeck,
   onExportText,
   onNotify
 }) => {
@@ -80,6 +84,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
           <CardGrid
             cards={displayedCards}
             getDeckCount={getCardCountInDeck}
+            getCanonicalDeckCount={getCanonicalCardCountInDeck}
             onAdd={addCard}
             onRemove={removeCard}
             onInspect={setInspectedCard}
@@ -95,6 +100,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
             deckName={activeDeck.name}
             totalCards={totalCards}
             deckStatus={deckStatus}
+            overLimitCards={overLimitCards}
             savedDecks={savedDecks}
             presetDecks={catalog.presetDecks}
             onIncrement={addCard}
@@ -117,6 +123,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
         card={inspectedCard}
         sets={catalog.sets}
         deckCount={inspectedCard ? getCardCountInDeck(inspectedCard.id) : 0}
+        canonicalCount={inspectedCard ? getCanonicalCardCountInDeck?.(inspectedCard.name) : 0}
         onClose={() => setInspectedCard(null)}
         onAdd={addCard}
         onRemove={removeCard}
@@ -127,6 +134,7 @@ export const ExplorerWorkspace: React.FC<ExplorerWorkspaceProps> = ({
         isOpen={isSaveModalOpen}
         deckName={activeDeck.name}
         totalCards={totalCards}
+        hasCopyViolations={overLimitCards.length > 0}
         onClose={() => setIsSaveModalOpen(false)}
         onSave={(name) => {
           const ok = saveDeck(name);

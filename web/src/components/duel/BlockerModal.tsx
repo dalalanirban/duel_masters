@@ -9,6 +9,7 @@ interface BlockerModalProps {
   state: GameState;
   onStartArenaSelect: () => void;
   onPassBlock: () => void;
+  onAutoForceBlock?: (blockerId: string) => void;
 }
 
 export const BlockerModal: React.FC<BlockerModalProps> = ({
@@ -16,12 +17,15 @@ export const BlockerModal: React.FC<BlockerModalProps> = ({
   interaction,
   state,
   onStartArenaSelect,
-  onPassBlock
+  onPassBlock,
+  onAutoForceBlock
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const [isPeeking, setIsPeeking] = useState<boolean>(false);
   const onPassBlockRef = useRef(onPassBlock);
   onPassBlockRef.current = onPassBlock;
+  const onAutoForceBlockRef = useRef(onAutoForceBlock);
+  onAutoForceBlockRef.current = onAutoForceBlock;
 
   // Auto-restore whenever a new blocker interrupt begins
   useEffect(() => {
@@ -54,10 +58,14 @@ export const BlockerModal: React.FC<BlockerModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, interaction?.attackerId]);
 
-  // Handle timeout expiration purely in effect
+  // Handle timeout expiration purely in effect (never pass null if forced blocker is mandatory)
   useEffect(() => {
     if (timeLeft === 0 && isOpen && interaction) {
-      onPassBlockRef.current();
+      if (interaction.isMandatory && interaction.validBlockerIds.length > 0 && onAutoForceBlockRef.current) {
+        onAutoForceBlockRef.current(interaction.validBlockerIds[0]);
+      } else {
+        onPassBlockRef.current();
+      }
     }
   }, [timeLeft, isOpen, interaction]);
 
@@ -120,9 +128,9 @@ export const BlockerModal: React.FC<BlockerModalProps> = ({
               <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
               Action Window:
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span
-                className={`px-2 py-0.5 rounded text-[11px] font-bold tabular-nums ${
+                className={`px-2 py-0.5 rounded text-[11px] font-bold tabular-nums whitespace-nowrap ${
                   timeLeft <= 5 ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-slate-800 text-slate-300'
                 }`}
               >
@@ -133,9 +141,9 @@ export const BlockerModal: React.FC<BlockerModalProps> = ({
                 data-testid="peek-board-button"
                 onClick={() => setIsPeeking(true)}
                 title="Minimize modal to inspect the battlefield (Esc)"
-                className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-sky-300 hover:text-white text-[10.5px] font-cinzel font-bold transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-sky-300 hover:text-white text-[10.5px] font-cinzel font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                <Eye className="w-3 h-3" />
+                <Eye className="w-3 h-3 shrink-0" />
                 <span>Peek Board</span>
               </button>
             </div>
@@ -214,32 +222,46 @@ export const BlockerModal: React.FC<BlockerModalProps> = ({
             <Shield className="w-4 h-4" />
           </div>
           <div className="text-xs text-slate-200">
-            You have <strong className="text-amber-300">{validBlockers.length} Blocker(s)</strong> ready on the battlefield.
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              Do you want to intercept this attack with a blocker?
-            </div>
+            {interaction.isMandatory ? (
+              <>
+                <span className="text-rose-300 font-bold">Forced Block Active:</span> You have{' '}
+                <strong className="text-amber-300">{validBlockers.length} Forced Blocker(s)</strong> that must block if able.
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Choose which forced blocker intercepts this attack.
+                </div>
+              </>
+            ) : (
+              <>
+                You have <strong className="text-amber-300">{validBlockers.length} Blocker(s)</strong> ready on the battlefield.
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Do you want to intercept this attack with a blocker?
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Two Clear Choices */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        {/* Action Buttons */}
+        <div className={`grid gap-3 pt-1 ${interaction.isMandatory ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <button
             type="button"
             onClick={onStartArenaSelect}
             className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-cinzel font-bold text-xs sm:text-sm bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-500 hover:to-teal-500 text-white shadow-lg shadow-sky-950/50 transition-all border border-sky-400/50 cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>Yes, Choose Blocker</span>
+            <span>{interaction.isMandatory ? 'Choose Forced Blocker' : 'Yes, Choose Blocker'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={onPassBlock}
-            className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-cinzel font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-            <span>Pass / Do Not Block</span>
-          </button>
+          {!interaction.isMandatory && (
+            <button
+              type="button"
+              onClick={onPassBlock}
+              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-cinzel font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+              <span>Pass / Do Not Block</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

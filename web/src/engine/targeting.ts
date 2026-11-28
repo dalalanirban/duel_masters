@@ -167,12 +167,20 @@ export function getSpellTargetRequirement(
       .filter((c) => effPower(c, opponentState, casterState) <= maxPower)
       .map((c) => c.instanceId);
 
+    const isClonedBlade = nameLower.includes('cloned blade');
+    const clonedCopies = isClonedBlade
+      ? [...(casterState.graveyard || []), ...(opponentState.graveyard || [])].filter(
+          (g) => g.card.name.trim().toLowerCase() === 'cloned blade'
+        ).length
+      : 0;
+    const maxTargets = isClonedBlade ? Math.min(valid.length, 1 + clonedCopies) || 1 : 1;
+
     return {
       requiresTarget: valid.length > 0,
       minTargets: valid.length > 0 ? 1 : 0,
-      maxTargets: 1,
+      maxTargets,
       validTargetIds: valid,
-      prompt: `Choose 1 opponent creature with power ${maxPower} or less to destroy.`
+      prompt: `Choose ${maxTargets > 1 ? `up to ${maxTargets} ` : '1 '}opponent creature${maxTargets > 1 ? 's' : ''} with power ${maxPower} or less to destroy.`
     };
   }
 
@@ -388,6 +396,17 @@ export function getSpellTargetRequirement(
       maxTargets: 1,
       validTargetIds: valid,
       prompt: 'Choose 1 untapped opponent creature so your creatures can attack it as if tapped.'
+    };
+  }
+
+  if (nameLower.includes('infernal command')) {
+    const valid = choosableOpp.map((c) => c.instanceId);
+    return {
+      requiresTarget: valid.length > 0,
+      minTargets: valid.length > 0 ? 1 : 0,
+      maxTargets: 1,
+      validTargetIds: valid,
+      prompt: 'Choose 1 opponent creature to attack each turn if able.'
     };
   }
 

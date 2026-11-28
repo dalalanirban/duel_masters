@@ -5,6 +5,7 @@ interface Props {
   isOpen: boolean;
   deckName: string;
   totalCards: number;
+  hasCopyViolations?: boolean;
   onClose: () => void;
   onSave: (name: string) => void;
 }
@@ -13,6 +14,7 @@ export const SaveDeckModal: React.FC<Props> = ({
   isOpen,
   deckName,
   totalCards,
+  hasCopyViolations = false,
   onClose,
   onSave
 }) => {
@@ -51,7 +53,7 @@ export const SaveDeckModal: React.FC<Props> = ({
 
   const trimmedName = name.trim();
   const isNameValid = trimmedName.length > 0;
-  const isLegalSize = totalCards === 40;
+  const isLegalSize = totalCards === 40 && !hasCopyViolations;
   const canSave = isNameValid && isLegalSize;
 
   const handleSubmit = (e: React.FormEvent) => {

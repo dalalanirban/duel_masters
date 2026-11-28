@@ -10,13 +10,16 @@ import type {
 import {
   getCardCapabilities,
   getCardCivilizations,
+  getCardRaces,
   getCreatureRaces,
   getOpponentId,
+  hasDragonRace,
   isSurvivorCard,
   normalizeRace
 } from './cardUtils.ts';
 import { isMultiCivilization, toManaCard } from './mana.ts';
 import { isWaveStrikerConditionMet } from './continuous.ts';
+import { shuffleCards } from './state.ts';
 import { buildZoneOptions, enqueueInteraction } from './interactionHelpers.ts';
 import {
   findSaverInBattleZone,
@@ -25,12 +28,15 @@ import {
   separateEvolutionUnderlyingCreatures
 } from './replacements.ts';
 import {
+  discardHandCardsByIndices,
   discardRandomHandCards,
   drawCards,
   findCreature,
   makeShieldId,
-  salvageFromGraveyard
+  salvageFromGraveyard,
+  sendOwnShieldToGraveyard
 } from './zoneOps.ts';
+import { runRegisteredCipHook } from './cardEffectRegistry.ts';
 
 function isMultiCiv(c: CardDefinition): boolean {
   return isMultiCivilization(c);
@@ -231,26 +237,18 @@ export function triggerDestroyed(
     const count = numMatch && numMatch[1] ? parseInt(numMatch[1], 10) : 1;
     nextState = discardRandomHandCards(nextState, opponent, count);
   } else if (
+    cardName.includes('schuka') ||
     /when(?:ever)? this creature is destroyed, each player discards (?:his|their) hand/i.test(rules)
   ) {
     for (const pid of ['player', 'opponent'] as const) {
       const p = nextState.players[pid];
       if (p.hand.length > 0) {
-        nextState = {
-          ...nextState,
-          players: {
-            ...nextState.players,
-            [pid]: {
-              ...p,
-              hand: [],
-              graveyard: [...p.graveyard, ...p.hand]
-            }
-          },
-          actionLog: [
-            ...nextState.actionLog,
-            `${pid} discarded their entire hand to the graveyard.`
-          ]
-        };
+        nextState = discardHandCardsByIndices(
+          nextState,
+          pid,
+          p.hand.map((_, idx) => idx),
+          `discarded by ${creature.card.name}`
+        );
       }
     }
   }
@@ -560,6 +558,152 @@ export function triggerDestroyed(
     }
   }
 
+  // 7b. Shield to Graveyard on Death (Bruiser Dragon)
+  if (
+    cardName.includes('bruiser dragon') ||
+    /when(?:ever)? this creature is destroyed,\s*choose one of your shields and put it into your graveyard/i.test(
+      rules
+    )
+  ) {
+    nextState = sendOwnShieldToGraveyard(nextState, owner, creature.card);
+  }
+
+  // 7c. Kyrstron, Lair Delver: When destroyed, you may put a Dragon from hand into battle zone
+  if (
+    cardName.includes('kyrstron') ||
+    /when(?:ever)? this creature is destroyed, you may put a creature that has dragon in its race from your hand into the battle zone/i.test(
+      rules
+    )
+  ) {
+    const pS = nextState.players[owner];
+    const dragonHand = pS.hand.filter(
+      (h) => h.card.type === 'Creature' && !h.card.isEvolution && hasDragonRace(getCardRaces(h.card))
+    );
+    if (dragonHand.length > 0) {
+      if (owner === 'player' && nextState.interactiveHuman) {
+        const dSet = new Set(dragonHand.map((d) => d.instanceId));
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: creature.card.id,
+          sourceCardName: creature.card.name,
+          actionKind: 'PLAYER_PUT_CREATURES_HAND_TO_BZ',
+          prompt: `${creature.card.name}: Put a Dragon creature from your hand into the battle zone?`,
+          options: buildZoneOptions(nextState, 'player', ['hand'], (o) => dSet.has(o.instanceId)),
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        const picked = [...dragonHand].sort((a, b) => (b.card.power ?? 0) - (a.card.power ?? 0))[0];
+        const placed: CreatureInstance = {
+          instanceId: picked.instanceId,
+          card: picked.card,
+          owner,
+          isTapped: false,
+          summonedTurn: nextState.turn,
+          powerModifier: 0
+        };
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [owner]: {
+              ...pS,
+              hand: pS.hand.filter((h) => h.instanceId !== picked.instanceId),
+              battleZone: [...pS.battleZone, placed]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${creature.card.name}: ${owner} put ${picked.card.name} from hand into the battle zone!`
+          ]
+        };
+        nextState = runRegisteredCipHook(nextState, owner, placed);
+      }
+    }
+  }
+
+  // 7d. Obsidian Scarab / Ambush Scorpion: put matching copy from mana zone into battle zone
+  if (cardName.includes('obsidian scarab') || cardName.includes('ambush scorpion')) {
+    const matchTarget = cardName.includes('obsidian scarab') ? 'obsidian scarab' : 'ambush scorpion';
+    const pS = nextState.players[owner];
+    const manaCopies = pS.manaZone.filter((m) =>
+      getCardCapabilities(m.card).nameLower.includes(matchTarget)
+    );
+    if (manaCopies.length > 0) {
+      if (owner === 'player' && nextState.interactiveHuman) {
+        const mSet = new Set(manaCopies.map((m) => m.instanceId));
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: creature.card.id,
+          sourceCardName: creature.card.name,
+          actionKind: 'PUT_MANA_CREATURE_TO_BZ',
+          prompt: `${creature.card.name}: Put ${manaCopies[0].card.name} from your mana zone into the battle zone?`,
+          options: buildZoneOptions(nextState, 'player', ['manaZone'], (o) => mSet.has(o.instanceId)),
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        const picked = manaCopies[0];
+        const placed: CreatureInstance = {
+          instanceId: picked.instanceId,
+          card: picked.card,
+          owner,
+          isTapped: false,
+          summonedTurn: nextState.turn,
+          powerModifier: 0
+        };
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [owner]: {
+              ...pS,
+              manaZone: pS.manaZone.filter((m) => m.instanceId !== picked.instanceId),
+              battleZone: [...pS.battleZone, placed]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${creature.card.name}: ${owner} put ${picked.card.name} from mana zone into the battle zone!`
+          ]
+        };
+      }
+    }
+  }
+
+  // 7e. Lamiel, Destiny Enforcer (Wave Striker): during opponent's turn, whenever one of your creatures is destroyed, may draw 1
+  if (state.activePlayer !== owner) {
+    const wsActiveBefore = isWaveStrikerConditionMet([
+      state.players.player.battleZone,
+      state.players.opponent.battleZone
+    ]);
+    const wsActiveNow = isWaveStrikerConditionMet([
+      nextState.players.player.battleZone,
+      nextState.players.opponent.battleZone
+    ]);
+    const survivingLamiels = nextState.players[owner].battleZone.filter((c) =>
+      getCardCapabilities(c.card).nameLower.includes('lamiel')
+    ).length;
+    const lamielCount = (wsActiveNow ? survivingLamiels : 0) + (cardName.includes('lamiel') && wsActiveBefore ? 1 : 0);
+    if (lamielCount > 0) {
+      if (owner === 'player' && nextState.interactiveHuman && nextState.players[owner].deck.length > 0) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'OPTIONAL_CHOICE',
+          player: 'player',
+          sourceCardId: 'lamiel-destiny-enforcer',
+          abilityName: 'Lamiel, Destiny Enforcer',
+          effectType: 'DRAW',
+          drawCount: lamielCount,
+          prompt: `Lamiel, Destiny Enforcer: Your creature was destroyed during opponent's turn. Draw ${lamielCount} card(s)?`
+        });
+      } else {
+        nextState = drawCards(nextState, owner, lamielCount);
+      }
+    }
+  }
+
   // 8. Board-wide watchers on any creature destroyed: Mongrel Man, Simian Warrior Grash, Slash and Burn
   for (const pid of ['player', 'opponent'] as const) {
     const mongrelCount = nextState.players[pid].battleZone.filter((c) =>
@@ -711,13 +855,41 @@ function checkDestroyZoneReplacement(
   state: GameState,
   owner: PlayerId,
   creature: CreatureInstance
-): 'hand' | 'manaZone' | 'shields' | null {
+): 'hand' | 'manaZone' | 'shields' | 'deck' | 'dracodanceMana' | null {
   const ownerState = state.players[owner];
   const rules = creature.card.rulesText || '';
   const nameLower = getCardCapabilities(creature.card).nameLower;
 
-  // Mihail, Celestial Elemental: "Whenever another creature would be destroyed, it stays in the battle zone instead."
-  // Checked BEFORE call or directly handled in destroyCreature.
+  // 0a. Conditional self-replacement: Kalute, Vizier of Eternity (only when another Kalute is in BZ)
+  const isKalute = nameLower.includes('kalute');
+  if (isKalute) {
+    const hasOtherKalute = [
+      ...state.players.player.battleZone,
+      ...state.players.opponent.battleZone
+    ].some(
+      (c) =>
+        c.instanceId !== creature.instanceId &&
+        getCardCapabilities(c.card).nameLower.includes('kalute')
+    );
+    return hasOtherKalute ? 'hand' : null;
+  }
+
+  // 0b. Conditional Dracodance Totem (only when owner has a Dragon in mana zone)
+  const isDracodance = nameLower.includes('dracodance totem');
+  if (isDracodance) {
+    const hasDragonInMana = ownerState.manaZone.some((m) => hasDragonRace(getCardRaces(m.card)));
+    return hasDragonInMana ? 'dracodanceMana' : null;
+  }
+
+  // 0c. Shuffle into deck replacement (Ryudmila, Channeler of Suns)
+  if (
+    nameLower.includes('ryudmila') ||
+    /when(?:ever)? this creature (?:would be|is) destroyed.*shuffle it into your deck instead/i.test(
+      rules
+    )
+  ) {
+    return 'deck';
+  }
 
   // 1. Return to hand replacement
   const bounceMatch =
@@ -808,12 +980,12 @@ function checkDestroyZoneReplacement(
     return 'manaZone';
   }
 
-  // 3. Add to shields replacement (e.g. Ouks)
+  // 3. Add to shields replacement (e.g. Ouks, Aless, the Oracle)
   const shieldMatch =
-    /when(?:ever)? this creature (?:would be|is) destroyed.*add (?:it|this creature) to (?:your|its owner's) shields.*instead/i.test(
+    /(?:when(?:ever)? this creature (?:would be|is) destroyed|when this creature would be put into your graveyard from the battle zone).*add (?:it|this creature) to (?:your|its owner's) shields.*instead/i.test(
       rules
     );
-  if (shieldMatch || nameLower.includes('ouks')) {
+  if (shieldMatch || nameLower.includes('ouks') || nameLower.includes('aless')) {
     return 'shields';
   }
 
@@ -838,7 +1010,7 @@ function isOptionalDestroyReplacement(
   state: GameState,
   owner: PlayerId,
   creature: CreatureInstance,
-  replacementDest: 'hand' | 'manaZone' | 'shields' | null
+  replacementDest: 'hand' | 'manaZone' | 'shields' | 'deck' | 'dracodanceMana' | null
 ): boolean {
   if (replacementDest !== 'hand') return false;
   const rules = creature.card.rulesText || '';
@@ -1017,6 +1189,90 @@ export function destroyCreature(
         `${creature.card.name} was put into the mana zone instead of being destroyed.`
       ]
     };
+  }
+
+  if (replacementDest === 'deck') {
+    const cardsToDeck: CardInstance[] = [
+      { instanceId: creature.instanceId, card: creature.card, owner },
+      ...flattenEvolutionStack(creature.evolvedOn)
+    ];
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+          deck: shuffleCards([...ownerState.deck, ...cardsToDeck])
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name} was shuffled into ${owner}'s deck instead of being destroyed.`
+      ]
+    };
+  }
+
+  if (replacementDest === 'dracodanceMana') {
+    const cardsToMana: ManaCardInstance[] = [
+      toManaCard(creature),
+      ...flattenEvolutionStack(creature.evolvedOn).map((uc) => toManaCard(uc))
+    ];
+    let afterPut = {
+      ...state,
+      players: {
+        ...state.players,
+        [owner]: {
+          ...ownerState,
+          battleZone: ownerState.battleZone.filter((c) => c.instanceId !== creatureInstanceId),
+          manaZone: [...ownerState.manaZone, ...cardsToMana]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${creature.card.name} was put into the mana zone instead of being destroyed.`
+      ]
+    };
+    const dragonsInMana = afterPut.players[owner].manaZone.filter((m) =>
+      hasDragonRace(getCardRaces(m.card))
+    );
+    if (dragonsInMana.length > 0) {
+      if (owner === 'player' && afterPut.interactiveHuman) {
+        const dSet = new Set(dragonsInMana.map((d) => d.instanceId));
+        return enqueueInteraction(afterPut, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: creature.card.id,
+          sourceCardName: creature.card.name,
+          actionKind: 'PLAYER_MANA_RECOVERY',
+          prompt: `${creature.card.name}: Choose a Dragon in your mana zone to return to your hand.`,
+          options: buildZoneOptions(afterPut, 'player', ['manaZone'], (o) => dSet.has(o.instanceId)),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      }
+      const retDragon = dragonsInMana[0];
+      const curOwnerState = afterPut.players[owner];
+      afterPut = {
+        ...afterPut,
+        players: {
+          ...afterPut.players,
+          [owner]: {
+            ...curOwnerState,
+            manaZone: curOwnerState.manaZone.filter((m) => m.instanceId !== retDragon.instanceId),
+            hand: [
+              ...curOwnerState.hand,
+              { instanceId: retDragon.instanceId, card: retDragon.card, owner }
+            ]
+          }
+        },
+        actionLog: [
+          ...afterPut.actionLog,
+          `${creature.card.name} returned Dragon ${retDragon.card.name} from mana zone to hand.`
+        ]
+      };
+    }
+    return afterPut;
   }
 
   if (replacementDest === 'shields') {
@@ -1228,6 +1484,67 @@ export function sendCreatureToManaZone(state: GameState, creatureInstanceId: str
   };
 
   return triggerLeavesBattleZone(nextState, owner, creature);
+}
+
+/**
+ * Removes ONLY the top Evolution card from an Evolution creature and places it into `destination`,
+ * leaving the underlying bait creature(s) in the battle zone (e.g. Pouch Shell, Pangaea's Will).
+ */
+export function deEvolveCreature(
+  state: GameState,
+  creatureInstanceId: string,
+  destination: 'graveyard' | 'manaZone',
+  sourceName: string
+): GameState {
+  const found = findCreature(state, creatureInstanceId);
+  if (!found) return state;
+
+  const { creature, owner } = found;
+  const ownerState = state.players[owner];
+  const stack = creature.evolvedOn || [];
+  const restored: CreatureInstance[] = stack.map((b) => ({
+    instanceId: b.instanceId,
+    card: b.card,
+    owner,
+    isTapped: creature.isTapped,
+    summonedTurn: b.summonedTurn ?? state.turn,
+    powerModifier: 0,
+    ...(b.evolvedOn && b.evolvedOn.length > 0 ? { evolvedOn: b.evolvedOn } : {})
+  }));
+
+  const nextBZ: CreatureInstance[] = [];
+  for (const c of ownerState.battleZone) {
+    if (c.instanceId === creatureInstanceId) {
+      nextBZ.push(...restored);
+    } else {
+      nextBZ.push(c);
+    }
+  }
+
+  const nextState: GameState = {
+    ...state,
+    players: {
+      ...state.players,
+      [owner]: {
+        ...ownerState,
+        battleZone: nextBZ,
+        ...(destination === 'manaZone'
+          ? { manaZone: [...ownerState.manaZone, toManaCard(creature)] }
+          : {
+              graveyard: [
+                ...ownerState.graveyard,
+                { instanceId: creature.instanceId, card: creature.card, owner }
+              ]
+            })
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${sourceName}: put top card of ${creature.card.name} into ${owner}'s ${destination === 'manaZone' ? 'mana zone' : 'graveyard'}.`
+    ]
+  };
+
+  return triggerLeavesBattleZone(nextState, owner, { ...creature, evolvedOn: [] });
 }
 
 /**

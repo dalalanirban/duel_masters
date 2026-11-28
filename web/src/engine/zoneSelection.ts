@@ -1,5 +1,6 @@
 import type {
   CardInstance,
+  CreatureInstance,
   GameState,
   OptionalChoiceInteraction,
   PlayerId,
@@ -9,22 +10,36 @@ import type {
 } from './types.ts';
 import { getCreatureRaces, getOpponentId, normalizeRace } from './cardUtils.ts';
 import { toManaCard } from './mana.ts';
+import { shuffleCards } from './state.ts';
+import { isUntargetableByOpponent } from './targeting.ts';
 import { isMadnessDiscardReplacement } from './replacements.ts';
 import {
   addShieldFromDeck,
   bounceCreature,
   breakOpponentShields,
+  deEvolveCreature,
   destroyCreature,
   destroyCreaturesBatch,
+  discardRandomHandCards,
   drawCards,
   findCreature,
   makeShieldId,
+  moveOwnShieldsToHand,
   rampTopDeckToManaZone,
   searchDeckForCard,
   sendCreatureToManaZone,
   sendCreatureToShields,
   sendCreatureToTopOfDeck
 } from './zones.ts';
+import {
+  applySoulswapStep2,
+  executeMechadragonsBreath,
+  executeRouletteOfRuin,
+  executeStaticWarpKeep,
+  resolveTransmogrifyReveal,
+  runRegisteredCipHook,
+  runRegisteredSpellHook
+} from './cardEffectRegistry.ts';
 
 import { buildZoneOptions, enqueueInteraction } from './interactionHelpers.ts';
 
@@ -51,7 +66,12 @@ export function resolveZoneSelectionAction(
     }
   }
 
-  if (interaction.actionKind !== 'TAP_CHOOSE_RACE') {
+  if (
+    interaction.actionKind !== 'TAP_CHOOSE_RACE' &&
+    interaction.actionKind !== 'SPELL_CHOOSE_RACE' &&
+    interaction.actionKind !== 'CIP_CHOOSE_RACE' &&
+    interaction.actionKind !== 'CHOOSE_NUMBER'
+  ) {
     if (selectedIds.length < interaction.minSelections || selectedIds.length > interaction.maxSelections) {
       throw new Error(
         `Expected between ${interaction.minSelections} and ${interaction.maxSelections} selections, got ${selectedIds.length}.`
@@ -71,6 +91,7 @@ export function resolveZoneSelectionAction(
   const opp = getOpponentId(player);
 
   switch (interaction.actionKind) {
+    case 'PLAYER_SACRIFICE_BZ':
     case 'OPPONENT_SACRIFICE_BZ': {
       const maxTotalPower = interaction.contextData?.maxTotalPower as number | undefined;
       if (maxTotalPower !== undefined && selectedIds.length > 0) {
@@ -85,12 +106,36 @@ export function resolveZoneSelectionAction(
       if (selectedIds.length > 0) {
         nextState = destroyCreaturesBatch(nextState, selectedIds);
       }
+      if (interaction.contextData?.drawPerSelection && selectedIds.length > 0) {
+        nextState = drawCards(nextState, player, selectedIds.length);
+      }
+      if (interaction.contextData?.thenManaCreatureToHand && selectedIds.length > 0) {
+        const manaCreatureOpts = buildZoneOptions(nextState, player, ['manaZone'], (o) =>
+          o.card.type.includes('Creature')
+        );
+        if (manaCreatureOpts.length > 0) {
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'PLAYER_MANA_RECOVERY',
+            prompt: `${interaction.sourceCardName}: Choose 1 creature from your mana zone to return to your hand.`,
+            options: manaCreatureOpts,
+            minSelections: 1,
+            maxSelections: 1
+          });
+        }
+      }
       if (interaction.contextData?.thenOppWeakestDestroy) {
         const oppBZ = nextState.players[opp].battleZone;
         if (oppBZ.length > 0) {
           const weakest = [...oppBZ].sort((a, b) => (a.card.power ?? 0) - (b.card.power ?? 0))[0];
           nextState = destroyCreature(nextState, weakest.instanceId);
         }
+      }
+      if (interaction.contextData?.thenOppRandomDiscard) {
+        nextState = discardRandomHandCards(nextState, opp, 1);
       }
       break;
     }
@@ -166,6 +211,48 @@ export function resolveZoneSelectionAction(
       if (interaction.contextData?.drawPerDiscard && discarded.length > 0) {
         nextState = drawCards(nextState, targetOwner, discarded.length);
       }
+      if (interaction.contextData?.thenGrantDoubleBreaker && discarded.length > 0) {
+        const bzOpts = buildZoneOptions(nextState, targetOwner, ['battleZone']);
+        const pickCount = Math.min(discarded.length, bzOpts.length);
+        if (pickCount > 0) {
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player: targetOwner,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'GRANT_DOUBLE_BREAKER_BZ',
+            prompt: `${interaction.sourceCardName}: Choose ${pickCount} of your creature(s) to gain Double Breaker until end of turn.`,
+            options: bzOpts,
+            minSelections: pickCount,
+            maxSelections: pickCount
+          });
+        }
+      }
+      if (interaction.contextData?.thenBounceSameCount && discarded.length > 0) {
+        const oppId = getOpponentId(targetOwner);
+        const choosableOpp = nextState.players[oppId].battleZone.filter(
+          (c) => !isUntargetableByOpponent(c)
+        );
+        const oppIds = new Set(choosableOpp.map((c) => c.instanceId));
+        const bzOpts = [
+          ...buildZoneOptions(nextState, oppId, ['battleZone'], (o) => oppIds.has(o.instanceId)),
+          ...buildZoneOptions(nextState, targetOwner, ['battleZone'])
+        ];
+        const count = Math.min(discarded.length, bzOpts.length);
+        if (count > 0) {
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player: targetOwner,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'OPPONENT_BOUNCE_BZ',
+            prompt: `${interaction.sourceCardName}: Choose ${count} creature(s) in the battle zone to return to hand.`,
+            options: bzOpts,
+            minSelections: count,
+            maxSelections: count
+          });
+        }
+      }
       break;
     }
 
@@ -193,6 +280,9 @@ export function resolveZoneSelectionAction(
           `${targetOwner} put ${lostCards.map((m) => m.card.name).join(', ')} from mana zone into graveyard (${interaction.sourceCardName}).`
         ]
       };
+      if (interaction.contextData?.drawPerSelection && lostCards.length > 0) {
+        nextState = drawCards(nextState, targetOwner, lostCards.length);
+      }
       if (interaction.contextData?.rampCaster) {
         const caster = interaction.contextData.rampCaster as PlayerId;
         nextState = rampTopDeckToManaZone(nextState, caster, 1);
@@ -256,6 +346,19 @@ export function resolveZoneSelectionAction(
           `${targetOwner} returned ${recovered.map((m) => m.card.name).join(', ')} from mana zone to hand (${interaction.sourceCardName}).`
         ]
       };
+      if (interaction.contextData?.thenHandToMana && nextState.players[targetOwner].hand.length > 0) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: targetOwner,
+          sourceCardId: interaction.sourceCardId,
+          sourceCardName: interaction.sourceCardName,
+          actionKind: 'PLAYER_HAND_TO_MANA',
+          prompt: `${interaction.sourceCardName}: Choose 1 card from your hand to put into your mana zone.`,
+          options: buildZoneOptions(nextState, targetOwner, ['hand']),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      }
       break;
     }
 
@@ -345,24 +448,13 @@ export function resolveZoneSelectionAction(
 
     case 'PLAYER_SHIELD_TO_HAND': {
       const targetOwner = interaction.options[0]?.owner ?? player;
-      for (const sid of selectedIds) {
-        const pS = nextState.players[targetOwner];
-        const s = pS.shields.find((x) => x.id === sid);
-        if (s) {
-          nextState = {
-            ...nextState,
-            players: {
-              ...nextState.players,
-              [targetOwner]: {
-                ...pS,
-                shields: pS.shields.filter((x) => x.id !== sid),
-                hand: [...pS.hand, { instanceId: s.id, card: s.card, owner: targetOwner }]
-              }
-            },
-            actionLog: [...nextState.actionLog, `${targetOwner} returned a shield to hand (${interaction.sourceCardName}).`]
-          };
-        }
-      }
+      nextState = moveOwnShieldsToHand(
+        nextState,
+        targetOwner,
+        selectedIds,
+        Boolean(interaction.contextData?.allowShieldTrigger),
+        interaction.sourceCardName
+      );
       break;
     }
 
@@ -466,13 +558,17 @@ export function resolveZoneSelectionAction(
     case 'PLAYER_SHIELD_PEEK': {
       if (selectedIds.length > 0) {
         const targetOwner = interaction.options[0]?.owner ?? opp;
-        const s = nextState.players[targetOwner].shields.find((x) => x.id === selectedIds[0]);
-        if (s) {
+        const revealedNames: string[] = [];
+        for (const sid of selectedIds) {
+          const s = nextState.players[targetOwner].shields.find((x) => x.id === sid);
+          if (s) revealedNames.push(s.card.name);
+        }
+        if (revealedNames.length > 0) {
           nextState = {
             ...nextState,
             actionLog: [
               ...nextState.actionLog,
-              `${player} peeked at ${targetOwner}'s shield (${interaction.sourceCardName}): revealed ${s.card.name}.`
+              `${player} peeked at ${revealedNames.length} shield(s) of ${targetOwner} (${interaction.sourceCardName}): revealed ${revealedNames.join(', ')}.`
             ]
           };
         }
@@ -596,6 +692,30 @@ export function resolveZoneSelectionAction(
       break;
     }
 
+    case 'PLAYER_GY_TO_MANA': {
+      const pS = nextState.players[player];
+      const selSet = new Set(selectedIds);
+      const chosen = pS.graveyard.filter((g) => selSet.has(g.instanceId));
+      if (chosen.length > 0) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              graveyard: pS.graveyard.filter((g) => !selSet.has(g.instanceId)),
+              manaZone: [...pS.manaZone, ...chosen.map((c) => toManaCard(c))]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${player} put ${chosen.map((c) => c.card.name).join(', ')} from graveyard into mana zone (${interaction.sourceCardName}).`
+          ]
+        };
+      }
+      break;
+    }
+
     case 'PLAYER_SALVAGE_ALL_BY_NAME': {
       if (selectedIds.length > 0) {
         const picked = optionById.get(selectedIds[0]);
@@ -623,9 +743,13 @@ export function resolveZoneSelectionAction(
       break;
     }
 
-    case 'GARATYANO_TOP3': {
+    case 'GARATYANO_TOP3':
+    case 'REORDER_TOP_N': {
       const pS = nextState.players[player];
-      const topCount = Math.min(3, pS.deck.length);
+      const topCount = Math.min(
+        (interaction.contextData?.count as number) || 3,
+        pS.deck.length
+      );
       const topCards = pS.deck.slice(0, topCount);
       const restDeck = pS.deck.slice(topCount);
       const reordered: CardInstance[] = [];
@@ -649,7 +773,10 @@ export function resolveZoneSelectionAction(
             deck: [...reordered, ...restDeck]
           }
         },
-        actionLog: [...nextState.actionLog, `${player} reordered the top ${topCount} cards of deck with Garatyano.`]
+        actionLog: [
+          ...nextState.actionLog,
+          `${player} looked at and reordered the top ${topCount} cards of deck (${interaction.sourceCardName}).`
+        ]
       };
       break;
     }
@@ -759,6 +886,145 @@ export function resolveZoneSelectionAction(
             `${targetOwner} put ${moved.map((m) => m.card.name).join(', ')} from hand into battle zone (${interaction.sourceCardName}).`
           ]
         };
+        for (const s of summoned) {
+          nextState = runRegisteredCipHook(nextState, targetOwner, s);
+        }
+      }
+      break;
+    }
+
+    case 'PUT_MANA_CREATURE_TO_BZ': {
+      const targetOwner = interaction.options[0]?.owner ?? player;
+      const pS = nextState.players[targetOwner];
+      const selSet = new Set(selectedIds);
+      const moved = pS.manaZone.filter((m) => selSet.has(m.instanceId));
+      if (moved.length > 0) {
+        const summoned: CreatureInstance[] = moved.map((m) => ({
+          instanceId: m.instanceId,
+          card: m.card,
+          owner: targetOwner,
+          isTapped: false,
+          summonedTurn: nextState.turn,
+          powerModifier: 0
+        }));
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [targetOwner]: {
+              ...pS,
+              manaZone: pS.manaZone.filter((m) => !selSet.has(m.instanceId)),
+              battleZone: [...pS.battleZone, ...summoned]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${targetOwner} put ${moved.map((m) => m.card.name).join(', ')} from mana zone into the battle zone (${interaction.sourceCardName}).`
+          ]
+        };
+        for (const s of summoned) {
+          nextState = runRegisteredCipHook(nextState, targetOwner, s);
+        }
+      }
+      break;
+    }
+
+    case 'CHARGE_WHIPPER_HAND_TO_SHIELD': {
+      if (selectedIds.length > 0) {
+        const pS = nextState.players[player];
+        const chosen = pS.hand.find((h) => h.instanceId === selectedIds[0]);
+        if (chosen) {
+          const sid = makeShieldId(player, pS.shields.length);
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [player]: {
+                ...pS,
+                hand: pS.hand.filter((h) => h.instanceId !== chosen.instanceId),
+                shields: [
+                  ...pS.shields,
+                  { id: sid, shieldId: sid, card: chosen.card, isBroken: false }
+                ]
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${interaction.sourceCardName}: ${player} added a card from hand to shields face down.`
+            ]
+          };
+          const shieldOpts = buildZoneOptions(nextState, player, ['shields'], undefined, {
+            hideCards: true
+          });
+          if (shieldOpts.length > 0) {
+            nextState = enqueueInteraction(nextState, {
+              type: 'ZONE_SELECTION',
+              player,
+              sourceCardId: interaction.sourceCardId,
+              sourceCardName: interaction.sourceCardName,
+              actionKind: 'PLAYER_SHIELD_TO_HAND',
+              prompt: `${interaction.sourceCardName}: Choose 1 of your shields to put into your hand (without Shield Trigger).`,
+              options: shieldOpts,
+              minSelections: 1,
+              maxSelections: 1,
+              contextData: { allowShieldTrigger: false }
+            });
+          }
+        }
+      }
+      break;
+    }
+
+    case 'IKAZ_MARK_UNTAP_AFTER_BATTLE': {
+      if (selectedIds.length > 0) {
+        const idSet = new Set(selectedIds);
+        const pS = nextState.players[player];
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              battleZone: pS.battleZone.map((c) =>
+                idSet.has(c.instanceId) ? { ...c, tempUntapAfterBattle: true } : c
+              )
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${interaction.sourceCardName}: marked friendly creature to untap after battle.`
+          ]
+        };
+      }
+      break;
+    }
+
+    case 'LOOK_TOP_N_PICK_HAND_REST_BOTTOM': {
+      const pS = nextState.players[player];
+      const topCount = Math.min(
+        (interaction.contextData?.count as number) || 4,
+        pS.deck.length
+      );
+      if (topCount > 0) {
+        const topCards = pS.deck.slice(0, topCount);
+        const restDeck = pS.deck.slice(topCount);
+        const picked = topCards.find((c) => selectedIds.includes(c.instanceId)) || topCards[0];
+        const remainingTop = topCards.filter((c) => c.instanceId !== picked.instanceId);
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              hand: [...pS.hand, picked],
+              deck: [...restDeck, ...remainingTop]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${interaction.sourceCardName}: ${player} looked at top ${topCount} card(s) of deck, put 1 into hand, and put the rest on the bottom.`
+          ]
+        };
       }
       break;
     }
@@ -849,6 +1115,648 @@ export function resolveZoneSelectionAction(
       break;
     }
 
+    case 'SPELL_CHOOSE_RACE': {
+      const race = selectedRace || selectedIds[0];
+      if (!race) break;
+      const norm = normalizeRace(race);
+      const pS = nextState.players[player];
+      const srcLower = interaction.sourceCardName.toLowerCase();
+      if (srcLower.includes('relentless blitz')) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              tempAttackUntappedRacesThisTurn: [...(pS.tempAttackUntappedRacesThisTurn || []), norm],
+              tempUnblockableVsCreaturesRacesThisTurn: [
+                ...(pS.tempUnblockableVsCreaturesRacesThisTurn || []),
+                norm
+              ]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${player} cast ${interaction.sourceCardName} naming "${race}".`
+          ]
+        };
+      } else if (srcLower.includes('dance of the sproutlings')) {
+        const handOpts = buildZoneOptions(nextState, player, ['hand'], (o) =>
+          o.card.type.includes('Creature') &&
+          (o.card.races || []).some((r) => normalizeRace(r) === norm)
+        );
+        if (handOpts.length > 0 && nextState.interactiveHuman) {
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'PLAYER_HAND_TO_MANA',
+            prompt: `${interaction.sourceCardName}: Put any number of ${race} creatures from hand into mana zone.`,
+            options: handOpts,
+            minSelections: 0,
+            maxSelections: handOpts.length
+          });
+        } else {
+          const moved = pS.hand.filter(
+            (h) =>
+              h.card.type.includes('Creature') &&
+              (h.card.races || []).some((r) => normalizeRace(r) === norm)
+          );
+          if (moved.length > 0) {
+            const mSet = new Set(moved.map((m) => m.instanceId));
+            nextState = {
+              ...nextState,
+              players: {
+                ...nextState.players,
+                [player]: {
+                  ...pS,
+                  hand: pS.hand.filter((h) => !mSet.has(h.instanceId)),
+                  manaZone: [...pS.manaZone, ...moved.map((m) => toManaCard(m))]
+                }
+              },
+              actionLog: [
+                ...nextState.actionLog,
+                `${player} put ${moved.length} ${race} creature(s) into mana (${interaction.sourceCardName}).`
+              ]
+            };
+          }
+        }
+      }
+      break;
+    }
+
+    case 'CIP_CHOOSE_RACE': {
+      const race = selectedRace || selectedIds[0];
+      const creatureId = interaction.contextData?.creatureInstanceId as string | undefined;
+      if (race && creatureId) {
+        if (normalizeRace(race) === 'mechadelsol') {
+          throw new Error('Petrova cannot choose Mecha del Sol.');
+        }
+        const pS = nextState.players[player];
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              battleZone: pS.battleZone.map((c) =>
+                c.instanceId === creatureId ? { ...c, chosenRace: race } : c
+              )
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${interaction.sourceCardName}: chose "${race}" (+4000 power aura active).`
+          ]
+        };
+      }
+      break;
+    }
+
+    case 'CHOOSE_NUMBER': {
+      const val = parseInt(selectedRace || selectedIds[0] || '', 10);
+      if (Number.isFinite(val)) {
+        const srcLower = interaction.sourceCardName.toLowerCase();
+        if (srcLower.includes('mechadragon')) {
+          nextState = executeMechadragonsBreath(nextState, val, interaction.sourceCardName);
+        } else if (srcLower.includes('roulette of ruin')) {
+          nextState = executeRouletteOfRuin(nextState, player, val, interaction.sourceCardName);
+        }
+      }
+      break;
+    }
+
+    case 'PLAYER_SHIELD_TO_MANA': {
+      const targetOwner = interaction.options[0]?.owner ?? player;
+      const pS = nextState.players[targetOwner];
+      const selSet = new Set(selectedIds);
+      const moved = pS.shields.filter((s) => selSet.has(s.id));
+      if (moved.length > 0) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [targetOwner]: {
+              ...pS,
+              shields: pS.shields.filter((s) => !selSet.has(s.id)),
+              manaZone: [
+                ...pS.manaZone,
+                ...moved.map((s) => toManaCard({ instanceId: s.id, card: s.card }))
+              ]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${targetOwner} put ${moved.length} shield(s) into mana zone (${interaction.sourceCardName}).`
+          ]
+        };
+      }
+      break;
+    }
+
+    case 'TRENCHDIVE_HAND_TO_SHIELD': {
+      const pS = nextState.players[player];
+      const selSet = new Set(selectedIds);
+      const added = pS.hand.filter((h) => selSet.has(h.instanceId));
+      if (added.length > 0) {
+        const newShields = added.map((h, idx) => {
+          const sid = makeShieldId(player, pS.shields.length + idx);
+          return { id: sid, shieldId: sid, card: h.card, isBroken: false };
+        });
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...pS,
+              hand: pS.hand.filter((h) => !selSet.has(h.instanceId)),
+              shields: [...pS.shields, ...newShields]
+            }
+          }
+        };
+        const shieldOpts = buildZoneOptions(nextState, player, ['shields'], undefined, { hideCards: true });
+        const pickCount = Math.min(added.length, shieldOpts.length);
+        if (pickCount > 0) {
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'PLAYER_SHIELD_TO_HAND',
+            prompt: `${interaction.sourceCardName}: Put ${pickCount} shield(s) into your hand (no Shield Trigger).`,
+            options: shieldOpts,
+            minSelections: pickCount,
+            maxSelections: pickCount,
+            contextData: { allowShieldTrigger: false }
+          });
+        }
+      }
+      break;
+    }
+
+    case 'GRANT_DOUBLE_BREAKER_BZ': {
+      const selSet = new Set(selectedIds);
+      const pS = nextState.players[player];
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...pS,
+            battleZone: pS.battleZone.map((c) =>
+              selSet.has(c.instanceId) ? { ...c, tempDoubleBreaker: true } : c
+            )
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${interaction.sourceCardName}: granted Double Breaker to ${selSet.size} creature(s).`
+        ]
+      };
+      break;
+    }
+
+    case 'PLAYER_BOUNCE_OWN_FOR_OPP': {
+      for (const id of selectedIds) {
+        nextState = bounceCreature(nextState, id);
+      }
+      if (selectedIds.length > 0) {
+        const choosableOpp = nextState.players[opp].battleZone.filter(
+          (c) => !isUntargetableByOpponent(c)
+        );
+        if (choosableOpp.length > 0) {
+          const idSet = new Set(choosableOpp.map((c) => c.instanceId));
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player,
+            sourceCardId: interaction.sourceCardId,
+            sourceCardName: interaction.sourceCardName,
+            actionKind: 'OPPONENT_BOUNCE_BZ',
+            prompt: `${interaction.sourceCardName}: Choose up to ${selectedIds.length} opponent creature(s) to return to hand.`,
+            options: buildZoneOptions(nextState, opp, ['battleZone'], (o) => idSet.has(o.instanceId)),
+            minSelections: 0,
+            maxSelections: Math.min(selectedIds.length, choosableOpp.length)
+          });
+        }
+      }
+      break;
+    }
+
+    case 'PLAYER_DECK_TO_HAND_MULTI': {
+      const pS = nextState.players[player];
+      const selSet = new Set(selectedIds);
+      const taken = pS.deck.filter((d) => selSet.has(d.instanceId));
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...pS,
+            deck: shuffleCards(pS.deck.filter((d) => !selSet.has(d.instanceId))),
+            hand: [...pS.hand, ...taken]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${player} took ${taken.length} card(s) from deck to hand (${interaction.sourceCardName}) and shuffled.`
+        ]
+      };
+      break;
+    }
+
+    case 'OPPONENT_DECK_TO_GY': {
+      const pOpp = nextState.players[opp];
+      const selSet = new Set(selectedIds);
+      const taken = pOpp.deck.filter((d) => selSet.has(d.instanceId));
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [opp]: {
+            ...pOpp,
+            deck: shuffleCards(pOpp.deck.filter((d) => !selSet.has(d.instanceId))),
+            graveyard: [...pOpp.graveyard, ...taken]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${player} put ${taken.length} card(s) from ${opp}'s deck into graveyard (${interaction.sourceCardName}).`
+        ]
+      };
+      break;
+    }
+
+    case 'SEARCH_DECK_TO_GY': {
+      if (selectedIds.length > 0) {
+        const opt = optionById.get(selectedIds[0]);
+        if (opt) {
+          const deckOwner = opt.owner;
+          const pOwner = nextState.players[deckOwner];
+          const card = pOwner.deck.find((d) => d.instanceId === selectedIds[0]);
+          if (card) {
+            nextState = {
+              ...nextState,
+              players: {
+                ...nextState.players,
+                [deckOwner]: {
+                  ...pOwner,
+                  deck: shuffleCards(pOwner.deck.filter((d) => d.instanceId !== card.instanceId)),
+                  graveyard: [...pOwner.graveyard, card]
+                }
+              },
+              actionLog: [
+                ...nextState.actionLog,
+                `${interaction.sourceCardName}: put ${card.card.name} from ${deckOwner}'s deck into graveyard.`
+              ]
+            };
+          }
+        }
+      }
+      break;
+    }
+
+    case 'DE_EVOLVE_TO_GY': {
+      for (const id of selectedIds) {
+        nextState = deEvolveCreature(nextState, id, 'graveyard', interaction.sourceCardName);
+      }
+      break;
+    }
+
+    case 'DE_EVOLVE_TO_MANA': {
+      for (const id of selectedIds) {
+        nextState = deEvolveCreature(nextState, id, 'manaZone', interaction.sourceCardName);
+      }
+      break;
+    }
+
+    case 'RAPID_REINCARNATION_SACRIFICE': {
+      if (selectedIds.length > 0) {
+        const sacId = selectedIds[0];
+        nextState = destroyCreature(nextState, sacId);
+        if (!findCreature(nextState, sacId)) {
+          const maxCost = nextState.players[player].manaZone.length;
+          const handOpts = buildZoneOptions(
+            nextState,
+            player,
+            ['hand'],
+            (o) => o.card.type === 'Creature' && !o.card.isEvolution && o.card.manaCost <= maxCost
+          );
+          if (handOpts.length > 0) {
+            nextState = enqueueInteraction(nextState, {
+              type: 'ZONE_SELECTION',
+              player,
+              sourceCardId: interaction.sourceCardId,
+              sourceCardName: interaction.sourceCardName,
+              actionKind: 'RAPID_REINCARNATION_HAND_TO_BZ',
+              prompt: `${interaction.sourceCardName}: Choose 1 creature in hand costing ${maxCost} or less to put into the battle zone.`,
+              options: handOpts,
+              minSelections: 1,
+              maxSelections: 1
+            });
+          }
+        }
+      }
+      break;
+    }
+
+    case 'RAPID_REINCARNATION_HAND_TO_BZ': {
+      if (selectedIds.length > 0) {
+        const chosen = nextState.players[player].hand.find((h) => h.instanceId === selectedIds[0]);
+        if (chosen) {
+          const pS = nextState.players[player];
+          const newC = {
+            instanceId: chosen.instanceId,
+            card: chosen.card,
+            owner: player,
+            isTapped: false,
+            summonedTurn: nextState.turn,
+            powerModifier: 0
+          };
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [player]: {
+                ...pS,
+                hand: pS.hand.filter((h) => h.instanceId !== chosen.instanceId),
+                battleZone: [...pS.battleZone, newC]
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${interaction.sourceCardName}: ${player} put ${chosen.card.name} from hand into the battle zone.`
+            ]
+          };
+          nextState = runRegisteredCipHook(nextState, player, newC);
+        }
+      }
+      break;
+    }
+
+    case 'STATIC_WARP_KEEP': {
+      nextState = executeStaticWarpKeep(nextState, player, selectedIds[0]);
+      break;
+    }
+
+    case 'TRANSMOGRIFY_DESTROY': {
+      if (selectedIds.length > 0) {
+        const tid = selectedIds[0];
+        const found = findCreature(nextState, tid);
+        if (found) {
+          const targetOwner = found.owner;
+          nextState = destroyCreature(nextState, tid);
+          if (!findCreature(nextState, tid)) {
+            nextState = resolveTransmogrifyReveal(
+              nextState,
+              targetOwner,
+              interaction.sourceCardName
+            );
+          }
+        }
+      }
+      break;
+    }
+
+    case 'SOULSWAP_BZ_TO_MANA': {
+      if (selectedIds.length > 0) {
+        const tid = selectedIds[0];
+        const found = findCreature(nextState, tid);
+        if (found) {
+          const targetOwner = found.owner;
+          nextState = sendCreatureToManaZone(nextState, tid);
+          if (!findCreature(nextState, tid)) {
+            const maxCost = nextState.players[targetOwner].manaZone.length;
+            const manaOpts = buildZoneOptions(
+              nextState,
+              targetOwner,
+              ['manaZone'],
+              (o) => o.card.type === 'Creature' && !o.card.isEvolution && o.card.manaCost <= maxCost
+            );
+            if (manaOpts.length > 0) {
+              nextState = enqueueInteraction(nextState, {
+                type: 'ZONE_SELECTION',
+                player,
+                sourceCardId: interaction.sourceCardId,
+                sourceCardName: interaction.sourceCardName,
+                actionKind: 'SOULSWAP_MANA_TO_BZ',
+                prompt: `${interaction.sourceCardName}: Choose 1 non-evolution creature costing <= ${maxCost} in ${targetOwner}'s mana zone to put into play.`,
+                options: manaOpts,
+                minSelections: 1,
+                maxSelections: 1,
+                contextData: { targetOwner }
+              });
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case 'SOULSWAP_MANA_TO_BZ': {
+      const targetOwner = (interaction.contextData?.targetOwner as PlayerId) || opp;
+      nextState = applySoulswapStep2(
+        nextState,
+        player,
+        targetOwner,
+        selectedIds[0],
+        interaction.sourceCardName
+      );
+      break;
+    }
+
+    case 'MIRACULOUS_PLAGUE_OPP_CREATURES': {
+      if (selectedIds.length === 2) {
+        const [idA, idB] = selectedIds;
+        // Opponent chooses 1 to put to hand and destroys other (unless opp === 'player' & interactive)
+        const cA = findCreature(nextState, idA)?.creature;
+        const cB = findCreature(nextState, idB)?.creature;
+        const keepId =
+          cA && cB && (cB.card.power ?? 0) > (cA.card.power ?? 0) ? idB : idA;
+        const killId = keepId === idA ? idB : idA;
+        nextState = bounceCreature(nextState, keepId);
+        nextState = destroyCreature(nextState, killId);
+      } else if (selectedIds.length === 1) {
+        nextState = bounceCreature(nextState, selectedIds[0]);
+      }
+      const oppManaOpts = buildZoneOptions(nextState, opp, ['manaZone']);
+      if (oppManaOpts.length >= 2) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player,
+          sourceCardId: interaction.sourceCardId,
+          sourceCardName: interaction.sourceCardName,
+          actionKind: 'MIRACULOUS_PLAGUE_OPP_MANA',
+          prompt: `${interaction.sourceCardName}: Choose 2 cards in opponent's mana zone (opponent puts 1 to hand, 1 to graveyard).`,
+          options: oppManaOpts,
+          minSelections: 2,
+          maxSelections: 2
+        });
+      }
+      break;
+    }
+
+    case 'MIRACULOUS_PLAGUE_OPP_MANA': {
+      if (selectedIds.length >= 2) {
+        const [toHandId, toGyId] = selectedIds;
+        const pOpp = nextState.players[opp];
+        const mHand = pOpp.manaZone.find((m) => m.instanceId === toHandId);
+        const mGy = pOpp.manaZone.find((m) => m.instanceId === toGyId);
+        if (mHand && mGy) {
+          const rem = new Set([toHandId, toGyId]);
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [opp]: {
+                ...pOpp,
+                manaZone: pOpp.manaZone.filter((m) => !rem.has(m.instanceId)),
+                hand: [...pOpp.hand, { instanceId: mHand.instanceId, card: mHand.card, owner: opp }],
+                graveyard: [...pOpp.graveyard, { instanceId: mGy.instanceId, card: mGy.card, owner: opp }]
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${interaction.sourceCardName}: ${opp} returned ${mHand.card.name} to hand and put ${mGy.card.name} into graveyard.`
+            ]
+          };
+        }
+      }
+      break;
+    }
+
+    case 'COSMIC_DARTS_PICK_SHIELD': {
+      const caster = (interaction.contextData?.caster as PlayerId) || opp;
+      const casterState = nextState.players[caster];
+      const sh = casterState.shields.find((s) => s.id === selectedIds[0]);
+      if (sh) {
+        nextState = {
+          ...nextState,
+          actionLog: [
+            ...nextState.actionLog,
+            `Cosmic Darts: ${player} chose shield of ${caster}, revealing ${sh.card.name}.`
+          ]
+        };
+        if (sh.card.type === 'Spell') {
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [caster]: {
+                ...casterState,
+                shields: casterState.shields.filter((s) => s.id !== sh.id)
+              }
+            }
+          };
+          nextState = runRegisteredSpellHook(nextState, caster, sh.card);
+          const afterC = nextState.players[caster];
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [caster]: {
+                ...afterC,
+                graveyard: [...afterC.graveyard, { instanceId: sh.id, card: sh.card, owner: caster }]
+              }
+            }
+          };
+        }
+      }
+      break;
+    }
+
+    case 'TURN_SHIELD_FACE_UP': {
+      const chosenSet = new Set(selectedIds);
+      if (chosenSet.size > 0) {
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            player: {
+              ...nextState.players.player,
+              shields: nextState.players.player.shields.map((s) =>
+                chosenSet.has(s.id) ? { ...s, isFaceUp: true } : s
+              )
+            },
+            opponent: {
+              ...nextState.players.opponent,
+              shields: nextState.players.opponent.shields.map((s) =>
+                chosenSet.has(s.id) ? { ...s, isFaceUp: true } : s
+              )
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${interaction.sourceCardName}: turned ${chosenSet.size} shield(s) face up.`
+          ]
+        };
+      }
+      break;
+    }
+
+    case 'GIGANDURA_HAND_TO_MANA': {
+      if (selectedIds.length > 0) {
+        const oppS = nextState.players[opp];
+        const chosen = oppS.hand.find((h) => h.instanceId === selectedIds[0]);
+        if (chosen) {
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [opp]: {
+                ...oppS,
+                hand: oppS.hand.filter((h) => h.instanceId !== chosen.instanceId),
+                manaZone: [...oppS.manaZone, toManaCard(chosen)]
+              }
+            }
+          };
+          const manaOpts = buildZoneOptions(nextState, opp, ['manaZone']);
+          if (manaOpts.length > 0) {
+            nextState = enqueueInteraction(nextState, {
+              type: 'ZONE_SELECTION',
+              player,
+              sourceCardId: interaction.sourceCardId,
+              sourceCardName: interaction.sourceCardName,
+              actionKind: 'GIGANDURA_OPP_MANA_TO_HAND',
+              prompt: `${interaction.sourceCardName}: Choose 1 card in opponent's mana zone to put into opponent's hand.`,
+              options: manaOpts,
+              minSelections: 1,
+              maxSelections: 1
+            });
+          }
+        }
+      }
+      break;
+    }
+
+    case 'GIGANDURA_OPP_MANA_TO_HAND': {
+      if (selectedIds.length > 0) {
+        const oppS = nextState.players[opp];
+        const chosen = oppS.manaZone.find((m) => m.instanceId === selectedIds[0]);
+        if (chosen) {
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [opp]: {
+                ...oppS,
+                manaZone: oppS.manaZone.filter((m) => m.instanceId !== chosen.instanceId),
+                hand: [
+                  ...oppS.hand,
+                  { instanceId: chosen.instanceId, card: chosen.card, owner: opp }
+                ]
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${interaction.sourceCardName}: put ${chosen.card.name} from ${opp}'s mana zone to hand.`
+            ]
+          };
+        }
+      }
+      break;
+    }
+
     default:
       break;
   }
@@ -905,6 +1813,8 @@ export function resolveOptionalChoiceAction(
         attacker,
         bypassShieldSacrificePrompt: true
       });
+    } else if (interaction.effectType === 'GIGABEROS_SACRIFICE_TWO' && interaction.targetInstanceId) {
+      result = destroyCreature(result, interaction.targetInstanceId);
     }
 
     return result;
@@ -1061,6 +1971,84 @@ export function resolveOptionalChoiceAction(
 
     case 'MANA_ADD_SHIELD_DECK': {
       return addShieldFromDeck(result, player, 1);
+    }
+
+    case 'PEEK_OPP_HAND_AND_DECK': {
+      const oppId = getOpponentId(player);
+      const oppState = result.players[oppId];
+      const handList =
+        oppState.hand.length > 0
+          ? oppState.hand.map((c) => c.card.name).join(', ')
+          : 'empty';
+      const topDeckName = oppState.deck[0]?.card.name ?? 'empty';
+      return {
+        ...result,
+        actionLog: [
+          ...result.actionLog,
+          `${player} peeked with ${interaction.abilityName}: ${oppId}'s hand [${handList}]; top of deck [${topDeckName}].`
+        ]
+      };
+    }
+
+    case 'GIGABEROS_SACRIFICE_TWO': {
+      const selfId = interaction.targetInstanceId;
+      const othersOpts = buildZoneOptions(
+        result,
+        player,
+        ['battleZone'],
+        (o) => o.instanceId !== selfId
+      );
+      if (othersOpts.length < 2 && selfId) {
+        return destroyCreature(result, selfId);
+      }
+      return enqueueInteraction(result, {
+        type: 'ZONE_SELECTION',
+        player,
+        sourceCardId: interaction.sourceCardId,
+        sourceCardName: interaction.abilityName,
+        actionKind: 'PLAYER_SACRIFICE_BZ',
+        prompt: `${interaction.abilityName}: Choose 2 of your other creatures to destroy.`,
+        options: othersOpts,
+        minSelections: 2,
+        maxSelections: 2
+      });
+    }
+
+    case 'CAST_FREE_SPELL': {
+      const spellCard = interaction.freeSpellCard;
+      const shieldId = interaction.freeSpellShieldId;
+      if (spellCard && shieldId) {
+        const pS = result.players[player];
+        const removed = pS.shields.find((s) => s.id === shieldId);
+        if (removed) {
+          result = {
+            ...result,
+            players: {
+              ...result.players,
+              [player]: {
+                ...pS,
+                shields: pS.shields.filter((s) => s.id !== shieldId)
+              }
+            }
+          };
+          result = runRegisteredSpellHook(result, player, spellCard);
+          const afterP = result.players[player];
+          result = {
+            ...result,
+            players: {
+              ...result.players,
+              [player]: {
+                ...afterP,
+                graveyard: [
+                  ...afterP.graveyard,
+                  { instanceId: removed.id, card: removed.card, owner: player }
+                ]
+              }
+            }
+          };
+        }
+      }
+      return result;
     }
 
     default:

@@ -2,6 +2,10 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isDeckLegal,
+  LEGAL_DECK_SIZE,
+  MAX_COPIES_PER_CANONICAL_NAME,
+  getCanonicalCardName,
+  validateDeckLegality,
   createEmptyDeck,
   loadSavedDecks,
   saveDeckToList,
@@ -9,6 +13,7 @@ import {
   SAVED_DECKS_STORAGE_KEY,
   ACTIVE_DECK_STORAGE_KEY
 } from './deckStorage.ts';
+import { CARD_LIST } from '../data/cardLoader.ts';
 
 describe('Deck Storage & Validation Utilities', () => {
   describe('isDeckLegal', () => {
@@ -224,6 +229,118 @@ describe('Deck Storage & Validation Utilities', () => {
     it('defines expected storage key constants', () => {
       assert.equal(SAVED_DECKS_STORAGE_KEY, 'dm_saved_decks_v1');
       assert.equal(ACTIVE_DECK_STORAGE_KEY, 'dm_active_deck_v1');
+    });
+  });
+
+  describe('Canonical Card Identity & Cross-Set 4-Copy Legality', () => {
+    it('exports expected legality constants and normalizes canonical card names', () => {
+      assert.equal(LEGAL_DECK_SIZE, 40);
+      assert.equal(MAX_COPIES_PER_CANONICAL_NAME, 4);
+      assert.equal(getCanonicalCardName('  Death Smoke '), 'death smoke');
+      assert.equal(getCanonicalCardName('SPIRAL GATE'), 'spiral gate');
+      assert.equal(getCanonicalCardName(''), '');
+    });
+
+    it('rejects 40-card decks that exceed 4 total copies of a reprinted card across multiple sets', () => {
+      const deathSmokePrintings = CARD_LIST.filter(
+        (c) => getCanonicalCardName(c.name) === 'death smoke'
+      );
+      assert.ok(deathSmokePrintings.length >= 2, 'Expected multiple set printings of Death Smoke');
+
+      const fillers = CARD_LIST.filter(
+        (c) => getCanonicalCardName(c.name) !== 'death smoke'
+      ).slice(0, 9);
+
+      // 3 copies from printing A + 2 copies from printing B = 5 Death Smokes + 35 fillers = 40 cards total
+      const items = [
+        { card: deathSmokePrintings[0], count: 3 },
+        { card: deathSmokePrintings[1], count: 2 },
+        ...fillers.slice(0, 8).map((c) => ({ card: c, count: 4 })),
+        { card: fillers[8], count: 3 }
+      ];
+
+      const deck = { id: 'reprint-illegal', name: 'Mixed Printings Over Limit', items, updatedAt: 1 };
+      const result = validateDeckLegality(deck);
+
+      assert.equal(result.totalCards, 40);
+      assert.equal(result.isLegal, false);
+      assert.equal(result.overLimitCards.length, 1);
+      assert.deepEqual(result.overLimitCards[0], {
+        name: deathSmokePrintings[0].name,
+        canonicalName: 'death smoke',
+        count: 5,
+        limit: 4
+      });
+    });
+
+    it('permits 40-card decks mixing set printings when canonical copy count stays <= 4', () => {
+      const spiralPrintings = CARD_LIST.filter(
+        (c) => getCanonicalCardName(c.name) === 'spiral gate'
+      );
+      assert.ok(spiralPrintings.length >= 2, 'Expected multiple set printings of Spiral Gate');
+
+      const fillers = CARD_LIST.filter(
+        (c) => getCanonicalCardName(c.name) !== 'spiral gate'
+      ).slice(0, 9);
+
+      // 2 + 2 = 4 Spiral Gates + 9 * 4 = 36 fillers = 40 cards total
+      const items = [
+        { card: spiralPrintings[0], count: 2 },
+        { card: spiralPrintings[1], count: 2 },
+        ...fillers.map((c) => ({ card: c, count: 4 }))
+      ];
+
+      const deck = { id: 'reprint-legal', name: 'Mixed Printings Legal', items, updatedAt: 1 };
+      const result = validateDeckLegality(deck);
+
+      assert.equal(result.totalCards, 40);
+      assert.equal(result.isLegal, true);
+      assert.deepEqual(result.overLimitCards, []);
+    });
+
+    it('supports arena copy-only checks with requiredTotalCards: null while enforcing 4-copy caps', () => {
+      const cardA = {
+        id: 'DM01-X1',
+        name: 'Faerie Life',
+        set: 'DM-01',
+        civilizations: ['Nature'],
+        type: 'Spell',
+        manaCost: 2,
+        manaNumber: 1,
+        races: [],
+        rulesText: 'Shield trigger Put top card into mana'
+      };
+      const cardB = { ...cardA, id: 'DM06-X1', set: 'DM-06', name: '  faerie life ' };
+
+      const legalCasual = {
+        id: 'casual-ok',
+        name: 'Small Legal',
+        items: [
+          { card: cardA, count: 2 },
+          { card: cardB, count: 2 },
+          { card: { ...cardA, id: 'C3', name: 'Card 3' }, count: 4 },
+          { card: { ...cardA, id: 'C4', name: 'Card 4' }, count: 3 }
+        ],
+        updatedAt: 1
+      };
+      assert.equal(validateDeckLegality(legalCasual, { requiredTotalCards: null }).isLegal, true);
+
+      const illegalCasual = {
+        id: 'casual-bad',
+        name: 'Small Over Limit',
+        items: [
+          { card: cardA, count: 3 },
+          { card: cardB, count: 2 },
+          { card: { ...cardA, id: 'C3', name: 'Card 3' }, count: 4 },
+          { card: { ...cardA, id: 'C4', name: 'Card 4' }, count: 2 }
+        ],
+        updatedAt: 1
+      };
+      const illegalRes = validateDeckLegality(illegalCasual, { requiredTotalCards: null });
+      assert.equal(illegalRes.totalCards, 11);
+      assert.equal(illegalRes.isLegal, false);
+      assert.equal(illegalRes.overLimitCards.length, 1);
+      assert.equal(illegalRes.overLimitCards[0].count, 5);
     });
   });
 });
