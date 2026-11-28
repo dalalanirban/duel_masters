@@ -6,6 +6,7 @@ import { X, Plus, Minus, Info, Sparkles } from 'lucide-react';
 interface Props {
   card: CardDefinition | null;
   deckCount: number;
+  canonicalCount?: number;
   sets?: SetDefinition[];
   onClose: () => void;
   onAdd: (card: CardDefinition) => void;
@@ -15,12 +16,15 @@ interface Props {
 export const CardModal: React.FC<Props> = ({
   card,
   deckCount,
+  canonicalCount,
   sets,
   onClose,
   onAdd,
   onRemove
 }) => {
   if (!card) return null;
+
+  const effectiveCanonicalCount = canonicalCount ?? deckCount;
 
   const availableSets = sets ?? getRegisteredCardCatalog()?.sets ?? [];
   const imageSrc = card.imageAssetPath ? `/${card.imageAssetPath}` : card.imageUrl;
@@ -193,7 +197,7 @@ export const CardModal: React.FC<Props> = ({
               <span className="flex items-center gap-1 not-italic font-bold text-[10px] uppercase text-slate-500 mb-1">
                 <Sparkles className="w-3 h-3 text-amber-400/80" /> Flavor Quote
               </span>
-              "{card.flavorText}"
+              "{card.flavorText.trim().replace(/^"+|"+$/g, '')}"
             </div>
           )}
 
@@ -205,29 +209,37 @@ export const CardModal: React.FC<Props> = ({
           )}
 
           {/* Deck Builder Controls in Modal */}
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">In Active Deck:</span>
-              <span className="text-sm font-bold text-amber-400 font-mono">{deckCount} / 4</span>
+          <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs text-slate-400 shrink-0">In Active Deck:</span>
+              <span
+                className={`text-sm font-bold font-mono ${
+                  effectiveCanonicalCount > 4 ? 'text-red-400' : 'text-amber-400'
+                }`}
+              >
+                {effectiveCanonicalCount > deckCount
+                  ? `${deckCount} (${effectiveCanonicalCount} / 4 across printings)`
+                  : `${deckCount} / 4`}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => onRemove(card)}
                 disabled={deckCount <= 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                <Minus className="w-3.5 h-3.5" /> Remove
+                <Minus className="w-3.5 h-3.5 shrink-0" /> Remove
               </button>
 
               <button
                 type="button"
                 onClick={() => onAdd(card)}
-                disabled={deckCount >= 4}
-                className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-950 transition-colors shadow-md shadow-amber-500/20 cursor-pointer"
+                disabled={effectiveCanonicalCount >= 4}
+                className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-950 transition-colors shadow-md shadow-amber-500/20 cursor-pointer whitespace-nowrap shrink-0"
               >
-                <Plus className="w-3.5 h-3.5" /> Add to Deck
+                <Plus className="w-3.5 h-3.5 shrink-0" /> Add to Deck
               </button>
             </div>
           </div>

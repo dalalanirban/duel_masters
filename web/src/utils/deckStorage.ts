@@ -2,6 +2,69 @@ import type { Deck } from '../types/card';
 
 export const SAVED_DECKS_STORAGE_KEY = 'dm_saved_decks_v1';
 export const ACTIVE_DECK_STORAGE_KEY = 'dm_active_deck_v1';
+export const LEGAL_DECK_SIZE = 40;
+export const MAX_COPIES_PER_CANONICAL_NAME = 4;
+
+export interface DeckCopyViolation {
+  name: string;
+  canonicalName: string;
+  count: number;
+  limit: 4;
+}
+
+export interface DeckLegalityResult {
+  isLegal: boolean;
+  totalCards: number;
+  overLimitCards: DeckCopyViolation[];
+}
+
+export function getCanonicalCardName(name: string): string {
+  return (name || '').trim().toLowerCase();
+}
+
+export function validateDeckLegality(
+  deck: Pick<Deck, 'items'>,
+  options: { requiredTotalCards?: number | null } = {}
+): DeckLegalityResult {
+  const requiredTotal =
+    options.requiredTotalCards === undefined ? LEGAL_DECK_SIZE : options.requiredTotalCards;
+
+  const byCanonical = new Map<string, { name: string; count: number }>();
+  let totalCards = 0;
+
+  for (const item of deck.items || []) {
+    if (!item || !item.card || typeof item.count !== 'number' || item.count <= 0) {
+      continue;
+    }
+    totalCards += item.count;
+    const canonicalName = getCanonicalCardName(item.card.name);
+    const existing = byCanonical.get(canonicalName);
+    if (existing) {
+      existing.count += item.count;
+    } else {
+      byCanonical.set(canonicalName, { name: item.card.name.trim(), count: item.count });
+    }
+  }
+
+  const overLimitCards: DeckCopyViolation[] = [];
+  for (const [canonicalName, entry] of byCanonical.entries()) {
+    if (entry.count > MAX_COPIES_PER_CANONICAL_NAME) {
+      overLimitCards.push({
+        name: entry.name,
+        canonicalName,
+        count: entry.count,
+        limit: 4
+      });
+    }
+  }
+
+  const sizeValid = requiredTotal === null ? true : totalCards === requiredTotal;
+  return {
+    isLegal: sizeValid && overLimitCards.length === 0,
+    totalCards,
+    overLimitCards
+  };
+}
 
 function generateDeckId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

@@ -8,7 +8,13 @@ import type {
   ShieldTriggerChoiceInteraction,
   PlayerState
 } from './types.ts';
-import { getCardCapabilities, getOpponentId } from './cardUtils.ts';
+import {
+  getActiveForcedLureTargets,
+  getCardCapabilities,
+  getOpponentId,
+  isCreatureForcedBlocker,
+  isCreatureMandatoryAttacker
+} from './cardUtils.ts';
 import {
   checkStealth,
   isSurvivor,
@@ -28,6 +34,7 @@ import {
 } from './continuous.ts';
 import {
   breakOpponentShields,
+  destroyCreature,
   destroyCreaturesBatch,
   drawCards
 } from './zones.ts';
@@ -89,21 +96,93 @@ export function canDeclareAttack(
 
 /**
  * Checks whether any untapped blocker available to the defending player has a forced-block rule
- * against this attacker (e.g. Storm Wrangler).
+ * against this attacker (e.g. Storm Wrangler or `blocksIfAble` blockers like Pierr / Belmol).
  */
 function hasForcedBlocker(
   state: GameState,
   attackerId: string,
   validBlockerIds: string[]
 ): boolean {
+  if (
+    state.pendingInteraction?.type === 'BLOCK_DECLARATION' &&
+    state.pendingInteraction.isMandatory &&
+    state.pendingInteraction.validBlockerIds.length > 0
+  ) {
+    return true;
+  }
   const defendingId = getOpponentId(state.activePlayer);
   return state.players[defendingId].battleZone.some(
-    (b) => validBlockerIds.includes(b.instanceId) && b.tempMustBlockTargetId === attackerId
+    (b) => validBlockerIds.includes(b.instanceId) && isCreatureForcedBlocker(b, attackerId)
   );
 }
 
 /**
- * Enters either BLOCK stage (if legal blockers exist) or runs on-unblocked triggers and combat resolution.
+ * Shared blocker resolution core used by both automatic 1-blocker forced-blocks and manual `declareBlock`.
+ * Taps the chosen blocker (plus any additional forced blockers per multi-forced-blocker rulings),
+ * fires `triggerBlocked`, and resolves combat.
+ */
+function executeDeclaredBlock(
+  state: GameState,
+  activeId: PlayerId,
+  defendingId: PlayerId,
+  attacker: CreatureInstance,
+  blocker: CreatureInstance,
+  extraForcedIds: string[],
+  isAutoForced: boolean
+): GameState {
+  const defendingPlayer = state.players[defendingId];
+  const tapIds = new Set<string>([blocker.instanceId, ...extraForcedIds]);
+  const updatedBZ = defendingPlayer.battleZone.map((c) =>
+    tapIds.has(c.instanceId) ? { ...c, isTapped: true } : c
+  );
+  const tappedBlocker = updatedBZ.find((c) => c.instanceId === blocker.instanceId)!;
+
+  const extraNames = defendingPlayer.battleZone
+    .filter((c) => c.instanceId !== blocker.instanceId && extraForcedIds.includes(c.instanceId))
+    .map((c) => c.card.name);
+
+  const logs = [
+    ...state.actionLog,
+    isAutoForced
+      ? `${defendingId} forced-blocked with ${blocker.card.name}.`
+      : `${defendingId} blocked with ${blocker.card.name}.`
+  ];
+  if (extraNames.length > 0) {
+    logs.push(`${extraNames.join(', ')} also tapped due to forced-block effect.`);
+  }
+
+  const stateWithTappedBlocker: GameState = {
+    ...state,
+    pendingInteraction: null,
+    combatState: {
+      attackerId: attacker.instanceId,
+      blockerId: blocker.instanceId,
+      target: { type: 'creature', instanceId: blocker.instanceId },
+      stage: 'BATTLE'
+    },
+    players: {
+      ...state.players,
+      [defendingId]: {
+        ...defendingPlayer,
+        battleZone: updatedBZ
+      }
+    },
+    actionLog: logs
+  };
+
+  const stateAfterBlocked = triggerBlocked(
+    stateWithTappedBlocker,
+    activeId,
+    attacker,
+    tappedBlocker
+  );
+
+  return resolveCombat(stateAfterBlocked);
+}
+
+/**
+ * Enters either BLOCK stage (auto-blocking immediately when 1 forced blocker exists)
+ * or runs on-unblocked triggers and combat resolution.
  */
 function continueAfterAttackTriggers(
   stateAfterAttackTrigger: GameState,
@@ -120,7 +199,7 @@ function continueAfterAttackTriggers(
   const curDefendingPlayer = stateAfterAttackTrigger.players[defendingId];
   const curAttacker = curActivePlayer.battleZone.find((c) => c.instanceId === attackerId);
 
-  // If attacker was destroyed or removed during attack trigger, combat ends cleanly
+  // If attacker was destroyed or removed during attack trigger (e.g. Daidalos self-sacrifice), combat ends cleanly
   if (!curAttacker) {
     return {
       ...stateAfterAttackTrigger,
@@ -128,12 +207,7 @@ function continueAfterAttackTriggers(
     };
   }
 
-  // Compute per-blocker legal blockers via Single Source of Truth (`canBeBlockedBy`)
-  const validBlockers = curDefendingPlayer.battleZone.filter((c) =>
-    canBeBlockedBy(curAttacker, c, target, stateAfterAttackTrigger)
-  );
-
-  // If attack triggers opened a pending interaction (e.g. Aura Pegasus deck play -> CIP target/search),
+  // If attack triggers opened a pending interaction (e.g. Aura Pegasus / Daidalos / Bolzard / etc.),
   // hold combat at ATTACK stage so the reducer resumes blocker checks once that interaction clears.
   if (stateAfterAttackTrigger.pendingInteraction) {
     return {
@@ -147,7 +221,33 @@ function continueAfterAttackTriggers(
     };
   }
 
+  // Compute per-blocker legal blockers via Single Source of Truth (`canBeBlockedBy`)
+  const validBlockers = curDefendingPlayer.battleZone.filter((c) =>
+    canBeBlockedBy(curAttacker, c, target, stateAfterAttackTrigger)
+  );
+  const forcedBlockers = validBlockers.filter((b) => isCreatureForcedBlocker(b, attackerId));
+
+  // 1 legal native forced blocker (`blocksIfAble` e.g. Pierr, Ardent Lunatron, Messa Bahna, Belmol):
+  // auto-block immediately with zero modal prompt (Storm Wrangler's tempMustBlockTargetId still flows through BLOCK_DECLARATION)
+  if (
+    validBlockers.length === 1 &&
+    forcedBlockers.length === 1 &&
+    getCardCapabilities(forcedBlockers[0].card).blocksIfAble &&
+    !forcedBlockers[0].tempMustBlockTargetId
+  ) {
+    return executeDeclaredBlock(
+      stateAfterAttackTrigger,
+      activeId,
+      defendingId,
+      curAttacker,
+      forcedBlockers[0],
+      [],
+      true
+    );
+  }
+
   if (validBlockers.length > 0) {
+    const isMandatory = forcedBlockers.length > 0;
     const combatState: CombatState = {
       attackerId,
       target,
@@ -159,7 +259,8 @@ function continueAfterAttackTriggers(
       type: 'BLOCK_DECLARATION',
       defendingPlayer: defendingId,
       attackerId,
-      validBlockerIds: validBlockers.map((b) => b.instanceId)
+      validBlockerIds: validBlockers.map((b) => b.instanceId),
+      isMandatory
     };
 
     return {
@@ -168,7 +269,9 @@ function continueAfterAttackTriggers(
       pendingInteraction,
       actionLog: [
         ...stateAfterAttackTrigger.actionLog,
-        `${defendingId} has ${validBlockers.length} blocker(s) available.`
+        isMandatory
+          ? `${defendingId} must block with a forced blocker (${validBlockers.length} available).`
+          : `${defendingId} has ${validBlockers.length} blocker(s) available.`
       ]
     };
   }
@@ -214,12 +317,22 @@ export function declareAttack(
   }
 
   const activeId = state.activePlayer;
+  const defendingId = getOpponentId(activeId);
   const activePlayer = state.players[activeId];
+  const defendingPlayer = state.players[defendingId];
   const attacker = activePlayer.battleZone.find((c) => c.instanceId === attackerId)!;
 
   const updatedBattleZone = activePlayer.battleZone.map((c) =>
     c.instanceId === attackerId ? { ...c, isTapped: true } : c
   );
+
+  // Bodacious Giant tracking: record creature-targeted attack on defending creature immediately
+  const updatedDefBattleZone =
+    target.type === 'creature'
+      ? defendingPlayer.battleZone.map((c) =>
+          c.instanceId === target.instanceId ? { ...c, wasAttackedThisTurn: true } : c
+        )
+      : defendingPlayer.battleZone;
 
   const stateWithTappedAttacker: GameState = {
     ...state,
@@ -229,7 +342,15 @@ export function declareAttack(
       [activeId]: {
         ...activePlayer,
         battleZone: updatedBattleZone
-      }
+      },
+      ...(target.type === 'creature'
+        ? {
+            [defendingId]: {
+              ...defendingPlayer,
+              battleZone: updatedDefBattleZone
+            }
+          }
+        : {})
     },
     actionLog: [
       ...state.actionLog,
@@ -327,40 +448,25 @@ export function declareBlock(
     throw new Error(`Invalid blocker ${blockerId}.`);
   }
 
-  const defendingPlayer = state.players[defendingId];
-  const updatedBZ = defendingPlayer.battleZone.map((c) =>
-    c.instanceId === blockerId ? { ...c, isTapped: true } : c
-  );
-  const tappedBlocker = updatedBZ.find((c) => c.instanceId === blockerId)!;
+  // Official multi-forced-blocker ruling: tap any other legal forced blockers alongside the chosen defender
+  const otherForcedIds = state.players[defendingId].battleZone
+    .filter(
+      (c) =>
+        c.instanceId !== blockerId &&
+        isCreatureForcedBlocker(c, attackerId) &&
+        canBeBlockedBy(attacker, c, origTarget, state)
+    )
+    .map((c) => c.instanceId);
 
-  const stateWithTappedBlocker: GameState = {
-    ...state,
-    pendingInteraction: null,
-    combatState: {
-      ...state.combatState,
-      blockerId,
-      target: { type: 'creature', instanceId: blockerId },
-      stage: 'BATTLE'
-    },
-    players: {
-      ...state.players,
-      [defendingId]: {
-        ...defendingPlayer,
-        battleZone: updatedBZ
-      }
-    },
-    actionLog: [...state.actionLog, `${defendingId} blocked with ${blocker.card.name}.`]
-  };
-
-  // Fire blocked abilities (Emperor Maroll, Avalanche Giant, Splinterclaw Wasp, Storm Wrangler, Coliseum Shell, Carbonite Scarab, Agira)
-  const stateAfterBlocked = triggerBlocked(
-    stateWithTappedBlocker,
+  return executeDeclaredBlock(
+    state,
     activeId,
+    defendingId,
     attacker,
-    tappedBlocker
+    blocker,
+    otherForcedIds,
+    false
   );
-
-  return resolveCombat(stateAfterBlocked);
 }
 
 /**
@@ -377,7 +483,11 @@ export function resolveCombat(state: GameState): GameState {
     return state;
   }
 
-  if (state.combatState.stage === 'BLOCK' || state.combatState.stage === 'ATTACK') {
+  if (
+    state.pendingInteraction ||
+    state.combatState.stage === 'BLOCK' ||
+    state.combatState.stage === 'ATTACK'
+  ) {
     return state;
   }
 
@@ -410,7 +520,14 @@ export function resolveCombat(state: GameState): GameState {
       };
     }
 
-    return { ...state, combatState: null };
+    let directResolved: GameState = { ...state, combatState: null };
+    if (
+      attacker.tempDestroyAfterAttack &&
+      directResolved.players[activeId].battleZone.some((c) => c.instanceId === attacker.instanceId)
+    ) {
+      directResolved = destroyCreature(directResolved, attacker.instanceId);
+    }
+    return directResolved;
   }
 
   // Case 2: Creature vs Creature Battle
@@ -520,6 +637,7 @@ export function resolveCombat(state: GameState): GameState {
     }
     if (
       (attacker.tempDestroyAfterBattle ||
+        attacker.tempDestroyAfterAttack ||
         /when this creature battles,\s*destroy it after the battle/i.test(attacker.card.rulesText || '')) &&
       nextState.players[activeId].battleZone.some((c) => c.instanceId === attacker.instanceId) &&
       !postDestroyIds.includes(attacker.instanceId)
@@ -563,6 +681,35 @@ export function resolveCombat(state: GameState): GameState {
           actionLog: [...nextState.actionLog, `${defender.card.name} untapped after battling.`]
         };
       }
+    }
+
+    // - Ikaz, the Spydroid: untap chosen friendly creature after battle
+    const untapAfterBattleIds = nextState.players[defendingId].battleZone
+      .filter((c) => c.tempUntapAfterBattle)
+      .map((c) => c.instanceId);
+    if (untapAfterBattleIds.length > 0) {
+      const idSet = new Set(untapAfterBattleIds);
+      const untappedNames: string[] = [];
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [defendingId]: {
+            ...nextState.players[defendingId],
+            battleZone: nextState.players[defendingId].battleZone.map((c) => {
+              if (!idSet.has(c.instanceId)) return c;
+              untappedNames.push(c.card.name);
+              return { ...c, isTapped: false, tempUntapAfterBattle: undefined };
+            })
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          ...(untappedNames.length > 0
+            ? [`Ikaz, the Spydroid untapped ${untappedNames.join(', ')} after the battle.`]
+            : [])
+        ]
+      };
     }
 
     // - Fists of Forever: untap winning creature if marked with tempUntapOnWinBattle
@@ -651,6 +798,15 @@ export function resolveCombat(state: GameState): GameState {
     const drawPerShield = nextState.players[activeId].tempDrawPerShieldBrokenOnAttack || 0;
     if (brokenCount > 0 && drawPerShield > 0) {
       nextState = drawCards(nextState, activeId, brokenCount * drawPerShield);
+    }
+
+    // Marrow Ooze, the Twister: "When this creature attacks a player, destroy it after the attack."
+    if (
+      attacker.tempDestroyAfterAttack &&
+      !nextState.winner &&
+      nextState.players[activeId].battleZone.some((c) => c.instanceId === attacker.instanceId)
+    ) {
+      nextState = destroyCreature(nextState, attacker.instanceId);
     }
 
     return nextState;
@@ -859,20 +1015,13 @@ export function resolveShieldTrigger(
 export function hasMandatoryAttackers(state: GameState, playerId: PlayerId): boolean {
   const player = state.players[playerId];
   const forcedRaces = player.tempAttacksIfAbleRacesThisTurn || [];
+  const activeGiants = getActiveForcedLureTargets(state, playerId);
 
   return player.battleZone.some((creature) => {
-    const rules = creature.card.rulesText || '';
-    const hasForcedRace =
-      forcedRaces.length > 0 &&
-      (creature.card.races || []).some((r) => forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, '')));
-
-    const isMandatory =
-      creature.card.id === 'DM01-074' ||
-      Boolean(creature.tempAttacksIfAble) ||
-      hasForcedRace ||
-      /attacks each turn if able/i.test(rules);
-    if (!isMandatory) return false;
-
-    return canCreatureAttack(state, creature, undefined, playerId).valid;
+    const isLured = activeGiants.some(
+      (g) => canCreatureAttack(state, creature, { type: 'creature', instanceId: g.instanceId }, playerId).valid
+    );
+    const isMandatory = isCreatureMandatoryAttacker(creature, forcedRaces, state, playerId) || isLured;
+    return isMandatory && canCreatureAttack(state, creature, undefined, playerId).valid;
   });
 }

@@ -12,8 +12,10 @@ import {
   getManaPaymentFailureReason,
   payManaCost
 } from './mana.ts';
+import { shuffleCards } from './state.ts';
 import { isCreatureSummoningSick } from './continuous.ts';
 import { triggerCIP } from './triggers.ts';
+import { enqueueInteraction } from './interactionHelpers.ts';
 
 export { normalizeRace };
 
@@ -109,12 +111,27 @@ export function getEvolutionBaitRequirements(card: CardDefinition): string[] {
 }
 
 /**
+ * Checks whether a battle-zone creature allows an evolution creature of any race to evolve onto it
+ * (e.g. Innocent Hunter, Blade of All).
+ */
+export function isUniversalEvolutionBait(baitCreature: CreatureInstance): boolean {
+  const n = getCardCapabilities(baitCreature.card).nameLower;
+  return (
+    n.includes('innocent hunter') ||
+    /put an evolution creature of any race on this creature/i.test(baitCreature.card.rulesText || '')
+  );
+}
+
+/**
  * Validates whether a given creature instance can serve as bait for a standard or either-or evolution creature.
  */
 export function isValidEvolutionBait(
   evolutionCard: CardDefinition,
   baitCreature: CreatureInstance
 ): boolean {
+  if (isUniversalEvolutionBait(baitCreature)) {
+    return true;
+  }
   const reqs = getEvolutionBaitRequirements(evolutionCard);
   if (reqs.length === 0) return false;
   const baitRaces = getCreatureRaces(baitCreature);
@@ -135,10 +152,14 @@ export function isValidVortexEvolutionBaits(
 
   const races1 = getCreatureRaces(bait1);
   const races2 = getCreatureRaces(bait2);
+  const uni1 = isUniversalEvolutionBait(bait1);
+  const uni2 = isUniversalEvolutionBait(bait2);
 
   return (
-    (matchesBaitRace(races1, vortexReq.race1) && matchesBaitRace(races2, vortexReq.race2)) ||
-    (matchesBaitRace(races1, vortexReq.race2) && matchesBaitRace(races2, vortexReq.race1))
+    ((uni1 || matchesBaitRace(races1, vortexReq.race1)) &&
+      (uni2 || matchesBaitRace(races2, vortexReq.race2))) ||
+    ((uni1 || matchesBaitRace(races1, vortexReq.race2)) &&
+      (uni2 || matchesBaitRace(races2, vortexReq.race1)))
   );
 }
 
@@ -192,8 +213,34 @@ export function isSummoningSick(
 }
 
 /**
+ * Checks whether a creature satisfies summon-only preconditions
+ * (e.g. Moontear, Spectral Knight / Yuluk, the Oracle requiring a spell cast this turn).
+ */
+export function canSummonCreature(
+  state: GameState,
+  player: PlayerId,
+  card: CardDefinition
+): { allowed: boolean; reason?: string } {
+  const n = getCardCapabilities(card).nameLower;
+  const rules = card.rulesText || '';
+  if (
+    n.includes('moontear') ||
+    n.includes('yuluk') ||
+    /you can summon this creature only if you have cast a spell this turn/i.test(rules)
+  ) {
+    if ((state.players[player].spellsCastThisTurn || 0) < 1) {
+      return {
+        allowed: false,
+        reason: `${card.name} can only be summoned if you have cast a spell this turn.`
+      };
+    }
+  }
+  return { allowed: true };
+}
+
+/**
  * Summons a standard creature or evolution creature (single, either-or, or Vortex Evolution) from hand:
- * - Enforces cost reduction auras (Cocco Lupia, Elf-X, Fever Nuts) and multi-civ mana rules.
+ * - Enforces summon preconditions (Moontear / Yuluk), cost modifiers, and multi-civ mana rules.
  * - Preserves bait `summonedTurn` inside `evolvedOn` for accurate Vortex separation rulings.
  */
 export function summonCreature(
@@ -230,6 +277,11 @@ export function summonCreature(
 
   if (!isCreature) {
     throw new Error(`Card ${handCard.card.name} is not a creature.`);
+  }
+
+  const summonPrecondition = canSummonCreature(state, player, handCard.card);
+  if (!summonPrecondition.allowed) {
+    throw new Error(summonPrecondition.reason || `Cannot summon ${handCard.card.name}.`);
   }
 
   if (
@@ -412,5 +464,61 @@ export function summonCreature(
     actionLog: [...state.actionLog, actionMessage]
   };
 
-  return triggerCIP(stateWithSummonedCreature, player, newCreature, targets);
+  let postCip = triggerCIP(stateWithSummonedCreature, player, newCreature, targets);
+
+  // Live and Breathe: "Whenever you summon a creature this turn, search your deck. You may take a creature from your deck that has the same name as that creature and put it into the battle zone."
+  const liveCount = postCip.players[player].tempLiveAndBreatheCount || 0;
+  if (liveCount > 0 && !postCip.winner) {
+    const targetNameLower = handCard.card.name.trim().toLowerCase();
+    for (let s = 0; s < liveCount; s++) {
+      const curP = postCip.players[player];
+      const matches = curP.deck.filter(
+        (d) =>
+          !d.card.isEvolution &&
+          d.card.type === 'Creature' &&
+          d.card.name.trim().toLowerCase() === targetNameLower
+      );
+      if (matches.length === 0) break;
+
+      if (player === 'player' && postCip.interactiveHuman) {
+        postCip = enqueueInteraction(postCip, {
+          type: 'DECK_SEARCH',
+          player: 'player',
+          sourceCardName: 'Live and Breathe',
+          filterDescription: handCard.card.name,
+          validCardInstanceIds: matches.map((m) => m.instanceId),
+          destination: 'battleZone'
+        });
+      } else {
+        const picked = matches[0];
+        const remDeck = shuffleCards(curP.deck.filter((d) => d.instanceId !== picked.instanceId));
+        const cloneCreature: CreatureInstance = {
+          instanceId: picked.instanceId,
+          card: picked.card,
+          owner: player,
+          isTapped: false,
+          summonedTurn: postCip.turn,
+          powerModifier: 0
+        };
+        postCip = {
+          ...postCip,
+          players: {
+            ...postCip.players,
+            [player]: {
+              ...curP,
+              deck: remDeck,
+              battleZone: [...curP.battleZone, cloneCreature]
+            }
+          },
+          actionLog: [
+            ...postCip.actionLog,
+            `Live and Breathe: ${player} put ${picked.card.name} from deck into the battle zone!`
+          ]
+        };
+        postCip = triggerCIP(postCip, player, cloneCreature);
+      }
+    }
+  }
+
+  return postCip;
 }

@@ -6,6 +6,14 @@ import type {
   DeckItem
 } from '../types/card.ts';
 import { PRESET_DECK_RECIPES } from './presetRecipes.ts';
+export {
+  getCanonicalCardName,
+  validateDeckLegality,
+  LEGAL_DECK_SIZE,
+  MAX_COPIES_PER_CANONICAL_NAME,
+  type DeckCopyViolation,
+  type DeckLegalityResult
+} from '../utils/deckStorage.ts';
 
 export type { CardDefinition, SetDefinition, CardFilterOptions, Deck };
 

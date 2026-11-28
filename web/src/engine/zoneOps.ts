@@ -93,7 +93,10 @@ export function drawCards(
     ...state,
     players: {
       ...state.players,
-      [player]: playerState
+      [player]: {
+        ...playerState,
+        cardsDrawnThisTurn: (playerState.cardsDrawnThisTurn || 0) + drawnCount
+      }
     },
     actionLog: actionLogs
   };
@@ -780,13 +783,13 @@ export function searchDeckForCard(
 }
 
 /**
- * Searches the player's graveyard for the matching card and salvages it to `hand` or `battleZone`.
+ * Searches the player's graveyard for the matching card and salvages it to `hand`, `battleZone`, or `manaZone`.
  */
 export function salvageFromGraveyard(
   state: GameState,
   player: PlayerId,
   filterFn: (c: CardDefinition) => boolean,
-  destination: 'hand' | 'battleZone',
+  destination: 'hand' | 'battleZone' | 'manaZone',
   options?: { specificInstanceId?: string; pickMostRecent?: boolean }
 ): GameState {
   if (Boolean(state.winner)) {
@@ -846,6 +849,25 @@ export function salvageFromGraveyard(
     };
   }
 
+  if (destination === 'manaZone') {
+    const manaCard = toManaCard(targetCard);
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [player]: {
+          ...playerState,
+          graveyard: nextGraveyard,
+          manaZone: [...playerState.manaZone, manaCard]
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} put ${targetCard.card.name} from graveyard into mana zone.`
+      ]
+    };
+  }
+
   const creature: CreatureInstance = {
     instanceId: targetCard.instanceId,
     card: targetCard.card,
@@ -870,4 +892,127 @@ export function salvageFromGraveyard(
       `${player} salvaged ${targetCard.card.name} from graveyard to battle zone.`
     ]
   };
+}
+
+/**
+ * Moves 1 of `owner`'s unbroken shields directly to their graveyard (no Shield Trigger).
+ * Shared by self-shield-burn triggers (General Dark Fiend, Galbazeek, Steam Rumbler Kain, Bruiser Dragon).
+ */
+export function sendOwnShieldToGraveyard(
+  state: GameState,
+  owner: PlayerId,
+  sourceCard: CardDefinition
+): GameState {
+  const playerState = state.players[owner];
+  const unbroken = playerState.shields.filter((s) => !s.isBroken);
+  if (unbroken.length === 0) {
+    return {
+      ...state,
+      actionLog: [
+        ...state.actionLog,
+        `${sourceCard.name}: ${owner} has no shields to put into graveyard.`
+      ]
+    };
+  }
+
+  if (owner === 'player' && state.interactiveHuman) {
+    const shieldOpts = buildZoneOptions(state, 'player', ['shields'], undefined, { hideCards: true });
+    if (shieldOpts.length > 0) {
+      return enqueueInteraction(state, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: sourceCard.id,
+        sourceCardName: sourceCard.name,
+        actionKind: 'PLAYER_SHIELD_TO_GY',
+        prompt: `${sourceCard.name}: Choose 1 of your shields to put into your graveyard.`,
+        options: shieldOpts,
+        minSelections: 1,
+        maxSelections: 1
+      });
+    }
+  }
+
+  const lostShield = unbroken[0];
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [owner]: {
+        ...playerState,
+        shields: playerState.shields.filter((s) => s.id !== lostShield.id),
+        graveyard: [
+          ...playerState.graveyard,
+          { instanceId: lostShield.id, card: lostShield.card, owner }
+        ]
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${owner} put a shield (${lostShield.card.name}) into graveyard (${sourceCard.name}; no Shield Trigger).`
+    ]
+  };
+}
+
+/**
+ * Moves selected unbroken shields of `owner` into their hand, either allowing Shield Triggers
+ * (Benzo, Uliya, Necrodragon Bryzenaga) or suppressing them (Baraga, Gigabuster, Ashura Fang, Ghastly Drain, Trenchdive Shark).
+ */
+export function moveOwnShieldsToHand(
+  state: GameState,
+  owner: PlayerId,
+  shieldIds: string[],
+  allowShieldTrigger: boolean,
+  sourceCardName: string
+): GameState {
+  if (shieldIds.length === 0) return state;
+  const pState = state.players[owner];
+  const opp = getOpponentId(owner);
+  const pickedSet = new Set(shieldIds);
+  const movedShields = pState.shields.filter((s) => pickedSet.has(s.id));
+  if (movedShields.length === 0) return state;
+
+  const movedCards: CardInstance[] = movedShields.map((s) => ({
+    instanceId: s.id,
+    card: s.card,
+    owner
+  }));
+
+  let nextState: GameState = {
+    ...state,
+    players: {
+      ...state.players,
+      [owner]: {
+        ...pState,
+        shields: pState.shields.filter((s) => !pickedSet.has(s.id)),
+        hand: [...pState.hand, ...movedCards]
+      }
+    },
+    actionLog: [
+      ...state.actionLog,
+      `${owner} put ${movedShields.length} shield(s) into hand (${sourceCardName}${allowShieldTrigger ? '' : '; no Shield Trigger'}).`
+    ]
+  };
+
+  if (allowShieldTrigger && nextState.interactiveHuman) {
+    const allBZ = [...nextState.players[owner].battleZone, ...nextState.players[opp].battleZone];
+    const blockDarknessST = allBZ.some((c) => getCardCapabilities(c.card).nameLower.includes('fu reil'));
+    const blockLightST = allBZ.some((c) => getCardCapabilities(c.card).nameLower.includes('gigabolver'));
+    const triggers = movedShields.filter((s) => {
+      if (!s.card.isShieldTrigger) return false;
+      const civs = getCardCivilizations(s.card);
+      if (blockDarknessST && civs.includes('Darkness')) return false;
+      if (blockLightST && civs.includes('Light')) return false;
+      return true;
+    });
+    if (triggers.length > 0) {
+      nextState = enqueueInteraction(nextState, {
+        type: 'SHIELD_TRIGGER_RESOLUTION',
+        player: owner,
+        shieldCards: movedCards.filter((c) => triggers.some((t) => t.id === c.instanceId)),
+        triggers: triggers.map((t) => ({ shieldId: t.id, card: t.card }))
+      });
+    }
+  }
+
+  return nextState;
 }

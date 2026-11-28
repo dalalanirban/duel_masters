@@ -7,6 +7,7 @@ import type {
 } from './types.ts';
 import { canPayManaCost, getEffectiveManaCost } from './mana.ts';
 import {
+  canSummonCreature,
   isValidEvolutionBait,
   isEvolutionCreature,
   isVortexEvolution,
@@ -22,13 +23,64 @@ import { getSpellTargetRequirement } from './targeting.ts';
 import { canCastSpell } from './spells.ts';
 import { canActivateTapAbility } from './tapAbilities.ts';
 import { shouldAiActivateSilentSkill } from './advancedMechanics.ts';
-import { getCardCapabilities, getCreatureRaces, normalizeRace } from './cardUtils.ts';
+import {
+  getActiveForcedLureTargets,
+  getCardCapabilities,
+  getCreatureRaces,
+  isCreatureForcedBlocker,
+  isCreatureMandatoryAttacker,
+  normalizeRace
+} from './cardUtils.ts';
 
 /**
  * Intelligent AI player step generator.
  * Uses the engine's canonical legality helpers (`canCreatureAttack`, `canCastSpell`, `getSpellTargetRequirement`,
  * `canPayManaCost`) so the AI respects all DM-01–DM-12 card restrictions and never stalls on invalid moves.
  */
+/**
+ * Shared guard so AI never casts mandatory single-target removal/tap/bounce spells
+ * (in Main Phase or as Shield Triggers) when 0 valid choosable targets exist or only friendly creatures would be harmed.
+ */
+function shouldAiSkipSpell(
+  card: import('../types/card.ts').CardDefinition,
+  _aiState: import('./types.ts').PlayerState,
+  oppState: import('./types.ts').PlayerState,
+  req: ReturnType<typeof getSpellTargetRequirement>
+): boolean {
+  const rulesLower = (card.rulesText || '').toLowerCase();
+  const hasNonTargetBenefit =
+    /\bdraw\b|put the top|add the top|tap all|destroy all|return .* from your graveyard|search your deck|during your opponent's next turn|each of your opponent's creatures attacks/i.test(
+      rulesLower
+    );
+
+  if (req.minTargets > req.validTargetIds.length) {
+    return true;
+  }
+  if (req.requiresTarget && req.validTargetIds.length === 0) {
+    return true;
+  }
+  if (
+    !hasNonTargetBenefit &&
+    req.validTargetIds.length === 0 &&
+    /choose|destroy|return|tap/i.test(rulesLower)
+  ) {
+    return true;
+  }
+
+  // Never waste removal/bounce on own creatures if no opponent targets exist and spell doesn't mandate buffing self
+  if (req.requiresTarget && req.validTargetIds.length > 0) {
+    const oppHit = oppState.battleZone.some((c) => req.validTargetIds.includes(c.instanceId));
+    const isFriendlyBuff = /energy charger|colossus boost|protective force|magma gazer|burning power|sonic wing|cosmic wing|laser wing|miracle portal|fists of forever|lunar charger|supersonic jet pack|venom charger/i.test(
+      card.name.toLowerCase()
+    );
+    if (!oppHit && !isFriendlyBuff) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): GameAction | null {
   if (Boolean(state.winner)) return null;
 
@@ -52,17 +104,18 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         return { type: 'DECLARE_BLOCK', player: aiPlayer, blockerId: null };
       }
 
-      // Storm Wrangler forced-block check: must pick forced blocker if able
-      const forcedBlocker = validBlockers.find(
-        (b) => b.tempMustBlockTargetId === interaction.attackerId
+      // Forced-block check: Storm Wrangler OR native `blocksIfAble` (Pierr, Ardent Lunatron, Messa Bahna, Belmol)
+      const mandatoryBlockers = validBlockers.filter(
+        (b) => interaction.isMandatory || isCreatureForcedBlocker(b, interaction.attackerId)
       );
-      if (forcedBlocker) {
+      if (mandatoryBlockers.length === 1) {
         return {
           type: 'DECLARE_BLOCK',
           player: aiPlayer,
-          blockerId: forcedBlocker.instanceId
+          blockerId: mandatoryBlockers[0].instanceId
         };
       }
+      const candidateBlockers = mandatoryBlockers.length > 0 ? mandatoryBlockers : validBlockers;
 
       const attacker = oppState.battleZone.find((c) => c.instanceId === interaction.attackerId);
       const attPower = attacker
@@ -70,7 +123,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         : 0;
 
       // 1. Blocker that wins the battle cleanly
-      const winningBlocker = validBlockers.find(
+      const winningBlocker = candidateBlockers.find(
         (b) => getCreatureEffectivePower(b, false, aiState, oppState, true, state) > attPower
       );
       if (winningBlocker) {
@@ -83,8 +136,8 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
       // 2. Slayer trade against high-threat or lethal attackers
       const isDirectAttack = state.combatState?.target.type === 'player';
-      if (attPower >= 4000 || isDirectAttack) {
-        const slayerBlockers = validBlockers.filter((b) =>
+      if (attPower >= 4000 || isDirectAttack || mandatoryBlockers.length > 0) {
+        const slayerBlockers = candidateBlockers.filter((b) =>
           hasCreatureSlayer(b, aiState.battleZone, oppState.battleZone, aiState)
         );
         if (slayerBlockers.length > 0) {
@@ -101,10 +154,10 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         }
       }
 
-      // 3. Desperation chump block when at 0 unbroken shields against direct attack
+      // 3. Desperation chump block (or mandatory chump block)
       const unbrokenCount = aiState.shields.filter((s) => !s.isBroken).length;
-      if (unbrokenCount === 0 && isDirectAttack) {
-        const sorted = [...validBlockers].sort(
+      if ((unbrokenCount === 0 && isDirectAttack) || mandatoryBlockers.length > 0) {
+        const sorted = [...candidateBlockers].sort(
           (a, b) =>
             getCreatureEffectivePower(a, false, aiState, oppState, true, state) -
             getCreatureEffectivePower(b, false, aiState, oppState, true, state)
@@ -131,15 +184,9 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
         if (currentTrigger.card.type === 'Spell') {
           const req = getSpellTargetRequirement(currentTrigger.card, aiState, oppState);
-          const rulesLower = (currentTrigger.card.rulesText || '').toLowerCase();
-          const hasNonTargetBenefit =
-            /draw|mana|shield|tap all|return .* from your graveyard/i.test(rulesLower);
 
           // Decline if required targets are missing or pure removal spell has no legal target
-          if (
-            req.minTargets > req.validTargetIds.length ||
-            (!hasNonTargetBenefit && req.validTargetIds.length === 0 && /choose|destroy|return|tap/i.test(rulesLower))
-          ) {
+          if (shouldAiSkipSpell(currentTrigger.card, aiState, oppState, req)) {
             return {
               type: 'RESOLVE_SHIELD_TRIGGER',
               player: aiPlayer,
@@ -237,6 +284,10 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       } else if (interaction.effectType === 'SAVER_REPLACEMENT' && interaction.targetInstanceId) {
         const target = aiState.battleZone.find((c) => c.instanceId === interaction.targetInstanceId);
         accept = (target?.card.power ?? 0) >= 4000;
+      } else if (interaction.effectType === 'GIGABEROS_SACRIFICE_TWO') {
+        accept = aiState.battleZone.length >= 3;
+      } else if (interaction.effectType === 'CAST_FREE_SPELL') {
+        accept = true;
       }
       return {
         type: 'RESOLVE_OPTIONAL_CHOICE',
@@ -257,11 +308,28 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
     // Generic 6-zone interactive selection
     if (interaction.type === 'ZONE_SELECTION' && interaction.player === aiPlayer) {
-      if (interaction.actionKind === 'TAP_CHOOSE_RACE') {
+      if (
+        interaction.actionKind === 'TAP_CHOOSE_RACE' ||
+        interaction.actionKind === 'SPELL_CHOOSE_RACE' ||
+        interaction.actionKind === 'CIP_CHOOSE_RACE' ||
+        interaction.actionKind === 'CHOOSE_NUMBER'
+      ) {
+        if (interaction.actionKind === 'CHOOSE_NUMBER') {
+          return {
+            type: 'RESOLVE_ZONE_SELECTION',
+            player: aiPlayer,
+            selectedIds: [],
+            selectedRace: interaction.raceOptions?.[0] || '2000'
+          };
+        }
+        const allowedSet = interaction.raceOptions?.length
+          ? new Set(interaction.raceOptions.map(normalizeRace))
+          : null;
         const raceCounts = new Map<string, { raw: string; count: number }>();
         for (const c of aiState.battleZone) {
           for (const r of getCreatureRaces(c)) {
             const norm = normalizeRace(r);
+            if (allowedSet && !allowedSet.has(norm)) continue;
             const cur = raceCounts.get(norm) || { raw: r, count: 0 };
             raceCounts.set(norm, { raw: cur.raw, count: cur.count + 1 });
           }
@@ -282,19 +350,32 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
       const opts = [...interaction.options];
       const count = Math.min(Math.max(interaction.minSelections, 1), opts.length);
 
-      if (kind === 'MIRACULOUS_MELTDOWN_KEEP') {
-        opts.sort((a, b) => (b.card.isShieldTrigger ? 1 : 0) - (a.card.isShieldTrigger ? 1 : 0));
-      } else if (kind === 'OPPONENT_CHOOSE_SHIELD') {
+      if (kind === 'MIRACULOUS_MELTDOWN_KEEP' || kind === 'OPPONENT_CHOOSE_SHIELD' || kind === 'COSMIC_DARTS_PICK_SHIELD') {
         opts.sort((a, b) => (b.card.isShieldTrigger ? 1 : 0) - (a.card.isShieldTrigger ? 1 : 0));
       } else if (
+        kind === 'PLAYER_SACRIFICE_BZ' ||
         kind === 'OPPONENT_SACRIFICE_BZ' ||
         kind === 'OPPONENT_DISCARD_HAND' ||
         kind === 'PLAYER_DISCARD_FROM_HAND' ||
         kind === 'OPPONENT_MANA_SEND_BZ' ||
         kind === 'PLAYER_MANA_TO_GY' ||
+        kind === 'OPPONENT_MANA_TO_GY' ||
+        kind === 'PLAYER_MANA_RECOVERY' ||
+        kind === 'PLAYER_SHIELD_TO_GY' ||
+        kind === 'PLAYER_SHIELD_TO_HAND' ||
+        kind === 'PLAYER_SHIELD_TO_MANA' ||
         kind === 'OPPONENT_CRISIS_BOULDER' ||
         kind === 'OPPONENT_GRINNING_HUNGER' ||
-        kind === 'RONDOBIL_CREATURE_TO_SHIELD'
+        kind === 'RONDOBIL_CREATURE_TO_SHIELD' ||
+        kind === 'DE_EVOLVE_TO_GY' ||
+        kind === 'DE_EVOLVE_TO_MANA' ||
+        kind === 'OPPONENT_DECK_TO_GY' ||
+        kind === 'SEARCH_DECK_TO_GY' ||
+        kind === 'TRANSMOGRIFY_DESTROY' ||
+        kind === 'SOULSWAP_BZ_TO_MANA' ||
+        kind === 'RAPID_REINCARNATION_SACRIFICE' ||
+        kind === 'MIRACULOUS_PLAGUE_OPP_CREATURES' ||
+        kind === 'MIRACULOUS_PLAGUE_OPP_MANA'
       ) {
         const ownsOptions = opts[0]?.owner === aiPlayer;
         if (ownsOptions) {
@@ -305,7 +386,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
           opts.sort((a, b) => (b.card.power ?? b.card.manaCost * 1000) - (a.card.power ?? a.card.manaCost * 1000));
         }
       } else {
-        // Beneficial salvage / ramp / buff: prefer highest power/cost
+        // Beneficial salvage / ramp / buff / Static Warp keep / deck multi: prefer highest power/cost
         opts.sort((a, b) => (b.card.power ?? b.card.manaCost * 1000) - (a.card.power ?? a.card.manaCost * 1000));
       }
 
@@ -379,6 +460,9 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
 
       for (const item of aiState.hand) {
         if (!item.card.type.includes('Creature')) continue;
+        if (!canSummonCreature(state, aiPlayer, item.card).allowed) {
+          continue;
+        }
         if (!canPayManaCost(aiState.manaZone, item.card, aiState.battleZone, oppState.battleZone)) {
           continue;
         }
@@ -432,7 +516,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         }
 
         const req = getSpellTargetRequirement(item.card, aiState, oppState);
-        if (req.minTargets > 0 && req.validTargetIds.length < req.minTargets) {
+        if (shouldAiSkipSpell(item.card, aiState, oppState, req)) {
           continue;
         }
 
@@ -467,19 +551,16 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
     case 'ATTACK': {
       // Consider high-value $tap abilities before declaring attacks (when no mandatory attack blocks them)
       const forcedRaces = aiState.tempAttacksIfAbleRacesThisTurn || [];
-      const hasMandatoryPending = aiState.battleZone.some((c) => {
-        const hasForcedRace =
-          forcedRaces.length > 0 &&
-          (c.card.races || []).some((r) =>
-            forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, ''))
-          );
-        const isMand =
-          c.card.id === 'DM01-074' ||
-          Boolean(c.tempAttacksIfAble) ||
-          hasForcedRace ||
-          /attacks each turn if able/i.test(c.card.rulesText || '');
-        return isMand && canCreatureAttack(state, c, undefined, aiPlayer).valid;
-      });
+      const activeGiants = getActiveForcedLureTargets(state, aiPlayer);
+      const isForcedAttacker = (c: typeof aiState.battleZone[number]) =>
+        isCreatureMandatoryAttacker(c, forcedRaces, state, aiPlayer) ||
+        activeGiants.some((g) => canCreatureAttack(state, c, { type: 'creature', instanceId: g.instanceId }, aiPlayer).valid);
+
+      const hasMandatoryPending = aiState.battleZone.some(
+        (c) =>
+          isForcedAttacker(c) &&
+          canCreatureAttack(state, c, undefined, aiPlayer).valid
+      );
 
       if (!hasMandatoryPending) {
         const tapCandidate = aiState.battleZone.find((c) => {
@@ -512,19 +593,7 @@ export function getAiAction(state: GameState, aiPlayer: PlayerId = 'opponent'): 
         return { type: 'END_TURN', player: aiPlayer };
       }
 
-      const mandatory = eligible.filter((c) => {
-        const hasForcedRace =
-          forcedRaces.length > 0 &&
-          (c.card.races || []).some((r) =>
-            forcedRaces.includes(r.toLowerCase().replace(/[^a-z0-9]/g, ''))
-          );
-        return (
-          c.card.id === 'DM01-074' ||
-          Boolean(c.tempAttacksIfAble) ||
-          hasForcedRace ||
-          /attacks each turn if able/i.test(c.card.rulesText || '')
-        );
-      });
+      const mandatory = eligible.filter((c) => isForcedAttacker(c));
 
       const orderedAttackers =
         mandatory.length > 0

@@ -4,8 +4,15 @@ import type {
   CreatureInstance
 } from './types.ts';
 import type { CardDefinition } from '../types/card.ts';
-import { getCardCapabilities, getOpponentId } from './cardUtils.ts';
+import {
+  getCardCapabilities,
+  getCardCivilizations,
+  getCardRaces,
+  getOpponentId,
+  hasDragonRace
+} from './cardUtils.ts';
 import { buildZoneOptions, enqueueInteraction } from './interactionHelpers.ts';
+import { runRegisteredCipHook } from './cardEffectRegistry.ts';
 import {
   isWaveStriker,
   isWaveStrikerConditionMet,
@@ -37,7 +44,10 @@ import {
   rampTopDeckToManaZone,
   breakOpponentShields,
   addShieldFromDeck,
-  discardRandomHandCards
+  discardHandCardsByIndices,
+  discardRandomHandCards,
+  makeShieldId,
+  moveOwnShieldsToHand
 } from './zones.ts';
 
 // Re-export query primitives from continuous.ts so existing callers continue working with zero duplication
@@ -331,6 +341,33 @@ export function resolveTurboRushOnAttack(
     return searchDeckForCard(state, player, () => true, 'hand', { shuffleAfter: true });
   }
 
+  if (nameLower.includes('migalo')) {
+    const oppShieldOpts = buildZoneOptions(state, opponent, ['shields'], undefined, { hideCards: true });
+    if (oppShieldOpts.length > 0) {
+      const maxCount = Math.min(2, oppShieldOpts.length);
+      if (player === 'player' && state.interactiveHuman) {
+        return enqueueInteraction(state, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_SHIELD_PEEK',
+          prompt: `${attacker.card.name} (Turbo Rush): Look at up to ${maxCount} of your opponent's shields?`,
+          options: oppShieldOpts,
+          minSelections: 0,
+          maxSelections: maxCount
+        });
+      }
+      return {
+        ...state,
+        actionLog: [
+          ...state.actionLog,
+          `Turbo Rush: ${player} peeked at ${maxCount} of ${opponent}'s shield(s) with ${attacker.card.name}.`
+        ]
+      };
+    }
+  }
+
   return state;
 }
 
@@ -560,6 +597,24 @@ export function resolveSilentSkill(
       const targetId = targets?.[0] || oppBZ[0].instanceId;
       return bounceCreature(nextState, targetId);
     }
+    const oppMana = nextState.players[opponent].manaZone;
+    if (oppMana.length > 0) {
+      const chosen = oppMana[0];
+      return {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [opponent]: {
+            ...nextState.players[opponent],
+            manaZone: oppMana.filter((m) => m.instanceId !== chosen.instanceId),
+            hand: [
+              ...nextState.players[opponent].hand,
+              { instanceId: chosen.instanceId, card: chosen.card, owner: opponent }
+            ]
+          }
+        }
+      };
+    }
     return nextState;
   }
 
@@ -581,6 +636,196 @@ export function resolveSilentSkill(
         `Silent Skill: Gankloak gave Fire creatures Double Breaker until end of turn.`
       ]
     };
+  }
+
+  // DM10-032 Charge Whipper: add a card from hand to shields face down; if you do, return a shield to hand (no ST)
+  if (nameLower.includes('charge whipper')) {
+    const pS = nextState.players[player];
+    if (pS.hand.length === 0) return nextState;
+    if (player === 'player' && nextState.interactiveHuman && !targets?.length) {
+      return enqueueInteraction(nextState, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: targetCreature.card.id,
+        sourceCardName: targetCreature.card.name,
+        actionKind: 'CHARGE_WHIPPER_HAND_TO_SHIELD',
+        prompt: `${targetCreature.card.name}: Add 1 card from your hand to your shields face down? (Then put a shield into hand without Shield Trigger.)`,
+        options: buildZoneOptions(nextState, 'player', ['hand']),
+        minSelections: 0,
+        maxSelections: 1
+      });
+    }
+    const chosenHand =
+      (targets?.[0] && pS.hand.find((h) => h.instanceId === targets[0])) || pS.hand[0];
+    const sid = makeShieldId(player, pS.shields.length);
+    const afterAdd: GameState = {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [player]: {
+          ...pS,
+          hand: pS.hand.filter((h) => h.instanceId !== chosenHand.instanceId),
+          shields: [
+            ...pS.shields,
+            { id: sid, shieldId: sid, card: chosenHand.card, isBroken: false }
+          ]
+        }
+      },
+      actionLog: [
+        ...nextState.actionLog,
+        `${targetCreature.card.name}: ${player} added a card from hand to shields face down.`
+      ]
+    };
+    const pAfterAdd = afterAdd.players[player];
+    const shieldToPick =
+      (targets?.[1] && pAfterAdd.shields.find((s) => s.id === targets[1] && !s.isBroken)) ||
+      pAfterAdd.shields.find((s) => !s.isBroken && s.id !== sid) ||
+      pAfterAdd.shields.find((s) => !s.isBroken);
+    if (!shieldToPick) return afterAdd;
+    return moveOwnShieldsToHand(afterAdd, player, [shieldToPick.id], false, targetCreature.card.name);
+  }
+
+  // DM11-007 Baraid, the Explorer: Your Light creatures can't be blocked this turn
+  if (nameLower.includes('baraid')) {
+    const pS = nextState.players[player];
+    const existing = pS.tempUnblockableCivsThisTurn || [];
+    return {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [player]: {
+          ...pS,
+          tempUnblockableCivsThisTurn: existing.includes('Light') ? existing : [...existing, 'Light']
+        }
+      },
+      actionLog: [
+        ...nextState.actionLog,
+        `Silent Skill: Baraid, the Explorer made ${player}'s Light creatures unblockable this turn!`
+      ]
+    };
+  }
+
+  // DM11-021 Squawking Lunatron: Return up to 3 cards from mana zone to hand
+  if (nameLower.includes('squawking lunatron')) {
+    const pS = nextState.players[player];
+    if (pS.manaZone.length === 0) return nextState;
+    if (player === 'player' && nextState.interactiveHuman && !targets?.length) {
+      return enqueueInteraction(nextState, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: targetCreature.card.id,
+        sourceCardName: targetCreature.card.name,
+        actionKind: 'PLAYER_MANA_RECOVERY',
+        prompt: `${targetCreature.card.name}: Return up to 3 cards from your mana zone to your hand.`,
+        options: buildZoneOptions(nextState, 'player', ['manaZone']),
+        minSelections: 0,
+        maxSelections: Math.min(3, pS.manaZone.length)
+      });
+    }
+    const chosen = (
+      targets?.length ? pS.manaZone.filter((m) => targets.includes(m.instanceId)) : pS.manaZone
+    ).slice(0, 3);
+    if (chosen.length === 0) return nextState;
+    const chosenIds = new Set(chosen.map((m) => m.instanceId));
+    return {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [player]: {
+          ...pS,
+          manaZone: pS.manaZone.filter((m) => !chosenIds.has(m.instanceId)),
+          hand: [
+            ...pS.hand,
+            ...chosen.map((m) => ({ instanceId: m.instanceId, card: m.card, owner: player }))
+          ]
+        }
+      },
+      actionLog: [
+        ...nextState.actionLog,
+        `Silent Skill: Squawking Lunatron returned ${chosen.map((c) => c.card.name).join(', ')} from mana zone to hand.`
+      ]
+    };
+  }
+
+  // DM11-026 Gazer Eyes, Shadow of Secrets: Look at opponent's hand and choose 1 card to discard
+  if (nameLower.includes('gazer eyes')) {
+    const oppS = nextState.players[opponent];
+    if (oppS.hand.length === 0) return nextState;
+    if (player === 'player' && nextState.interactiveHuman && !targets?.length) {
+      return enqueueInteraction(nextState, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: targetCreature.card.id,
+        sourceCardName: targetCreature.card.name,
+        actionKind: 'OPPONENT_DISCARD_HAND',
+        prompt: `${targetCreature.card.name}: Look at opponent's hand and choose 1 card to discard.`,
+        options: buildZoneOptions(nextState, opponent, ['hand']),
+        minSelections: 1,
+        maxSelections: 1
+      });
+    }
+    let pickIdx = targets?.[0] ? oppS.hand.findIndex((h) => h.instanceId === targets[0]) : -1;
+    if (pickIdx === -1) {
+      pickIdx = 0;
+      let bestCost = -1;
+      oppS.hand.forEach((h, i) => {
+        if ((h.card.manaCost ?? 0) > bestCost) {
+          bestCost = h.card.manaCost ?? 0;
+          pickIdx = i;
+        }
+      });
+    }
+    return discardHandCardsByIndices(nextState, opponent, [pickIdx], `discarded by ${targetCreature.card.name}`);
+  }
+
+  // DM11-048 Rollicking Totem & DM11-049 Royal Durian: Put a Dragon creature from mana zone into battle zone
+  if (nameLower.includes('rollicking totem') || nameLower.includes('royal durian')) {
+    const pS = nextState.players[player];
+    const dragons = pS.manaZone.filter(
+      (m) => m.card.type === 'Creature' && !m.card.isEvolution && hasDragonRace(getCardRaces(m.card))
+    );
+    if (dragons.length === 0) return nextState;
+    if (player === 'player' && nextState.interactiveHuman && !targets?.length) {
+      const dSet = new Set(dragons.map((d) => d.instanceId));
+      return enqueueInteraction(nextState, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: targetCreature.card.id,
+        sourceCardName: targetCreature.card.name,
+        actionKind: 'PUT_MANA_CREATURE_TO_BZ',
+        prompt: `${targetCreature.card.name}: Put a Dragon creature from your mana zone into the battle zone.`,
+        options: buildZoneOptions(nextState, 'player', ['manaZone'], (o) => dSet.has(o.instanceId)),
+        minSelections: 1,
+        maxSelections: 1
+      });
+    }
+    const picked =
+      (targets?.[0] && dragons.find((d) => d.instanceId === targets[0])) ||
+      [...dragons].sort((a, b) => (b.card.power ?? 0) - (a.card.power ?? 0))[0];
+    const placed: CreatureInstance = {
+      instanceId: picked.instanceId,
+      card: picked.card,
+      owner: player,
+      isTapped: false,
+      summonedTurn: nextState.turn,
+      powerModifier: 0
+    };
+    const afterPut: GameState = {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [player]: {
+          ...pS,
+          manaZone: pS.manaZone.filter((m) => m.instanceId !== picked.instanceId),
+          battleZone: [...pS.battleZone, placed]
+        }
+      },
+      actionLog: [
+        ...nextState.actionLog,
+        `Silent Skill: ${targetCreature.card.name} put ${picked.card.name} from mana zone into the battle zone!`
+      ]
+    };
+    return runRegisteredCipHook(afterPut, player, placed);
   }
 
   return nextState;
@@ -630,6 +875,23 @@ export function shouldAiActivateSilentSkill(
   }
   if (n.includes('gigamente')) {
     return p.graveyard.some((g) => g.card.type.includes('Creature'));
+  }
+  if (n.includes('charge whipper')) {
+    return p.hand.length > 0 && p.shields.some((s) => !s.isBroken);
+  }
+  if (n.includes('baraid')) {
+    return p.battleZone.some((c) => getCardCivilizations(c.card).includes('Light'));
+  }
+  if (n.includes('squawking lunatron')) {
+    return p.manaZone.length >= 6 && p.hand.length <= 3;
+  }
+  if (n.includes('gazer eyes')) {
+    return opp.hand.length > 0;
+  }
+  if (n.includes('rollicking totem') || n.includes('royal durian')) {
+    return p.manaZone.some(
+      (m) => m.card.type === 'Creature' && !m.card.isEvolution && hasDragonRace(getCardRaces(m.card))
+    );
   }
   return true;
 }

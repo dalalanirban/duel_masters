@@ -4,6 +4,7 @@ import { m, AnimatePresence } from 'motion/react';
 import type { CardInstance, CreatureInstance, ManaCardInstance, Phase, PlayerId } from '../../engine/types';
 import type { CardDefinition } from '../../types/card';
 import { canPayManaCost, getEffectiveManaCost } from '../../engine/mana';
+import { getCardCapabilities } from '../../engine/cardUtils';
 import { CardBack } from './CardBack.tsx';
 
 interface HandViewProps {
@@ -12,6 +13,7 @@ interface HandViewProps {
   manaZone: ManaCardInstance[];
   battleZone?: CreatureInstance[];
   opponentBattleZone?: CreatureInstance[];
+  spellsCastThisTurn?: number;
   isPlayerTurn: boolean;
   phase: Phase;
   manaChargedThisTurn: boolean;
@@ -31,6 +33,7 @@ export const HandView: React.FC<HandViewProps> = ({
   manaZone,
   battleZone = [],
   opponentBattleZone = [],
+  spellsCastThisTurn = 0,
   isPlayerTurn,
   phase,
   manaChargedThisTurn,
@@ -88,12 +91,25 @@ export const HandView: React.FC<HandViewProps> = ({
     );
   }
 
+  const hasSpellGateMet = (card: CardDefinition): boolean => {
+    const n = getCardCapabilities(card).nameLower;
+    if (
+      n.includes('moontear') ||
+      n.includes('yuluk') ||
+      /you can summon this creature only if you have cast a spell this turn/i.test(card.rulesText || '')
+    ) {
+      return spellsCastThisTurn >= 1;
+    }
+    return true;
+  };
+
   const selectedItem = selectedCardId ? hand.find((c) => c.instanceId === selectedCardId) ?? null : null;
   const selectedCanPlay = Boolean(
     selectedItem &&
       !disableActions &&
       isPlayerTurn &&
       (phase === 'MAIN' || phase === 'MANA_CHARGE') &&
+      hasSpellGateMet(selectedItem.card) &&
       canPayManaCost(manaZone, selectedItem.card, battleZone, opponentBattleZone)
   );
   const selectedCanCharge = Boolean(
@@ -134,6 +150,7 @@ export const HandView: React.FC<HandViewProps> = ({
                   !disableActions &&
                   isPlayerTurn &&
                   (phase === 'MAIN' || phase === 'MANA_CHARGE') &&
+                  hasSpellGateMet(card) &&
                   affordable;
 
                 const isPendingPay = pendingManaCardInstanceId === item.instanceId;

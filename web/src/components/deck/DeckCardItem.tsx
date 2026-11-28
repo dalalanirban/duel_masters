@@ -6,6 +6,7 @@ import { Plus, Minus, Trash2 } from 'lucide-react';
 interface Props {
   card: CardDefinition;
   count: number;
+  canonicalCount?: number;
   onIncrement: (card: CardDefinition) => void;
   onDecrement: (card: CardDefinition) => void;
   onRemoveAll: (card: CardDefinition) => void;
@@ -23,11 +24,15 @@ const CIV_BORDER: Record<string, string> = {
 export const DeckCardItem: React.FC<Props> = ({
   card,
   count,
+  canonicalCount,
   onIncrement,
   onDecrement,
   onRemoveAll,
   onInspect
 }) => {
+  const effectiveCanonicalCount = canonicalCount ?? count;
+  const hasMixedPrintings = effectiveCanonicalCount > count;
+  const isOverLimit = effectiveCanonicalCount > 4;
   const primaryCiv = card.civilizations[0] || 'Fire';
   const borderClass = CIV_BORDER[primaryCiv] || CIV_BORDER.Fire;
 
@@ -73,8 +78,19 @@ export const DeckCardItem: React.FC<Props> = ({
 
       {/* Right: Quantity controls */}
       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-        <span className="text-xs font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded bg-slate-950/90 border border-slate-700/80 mr-0.5">
-          x{count}
+        <span
+          className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-slate-950/90 border mr-0.5 ${
+            isOverLimit
+              ? 'text-red-300 border-red-500/60'
+              : 'text-amber-300 border-slate-700/80'
+          }`}
+          title={
+            hasMixedPrintings
+              ? `${count}x ${card.set} (${effectiveCanonicalCount}/4 across printings)`
+              : `${count}x in deck`
+          }
+        >
+          {hasMixedPrintings ? `x${count} (${effectiveCanonicalCount}/4)` : `x${count}`}
         </span>
 
         <button
@@ -89,9 +105,13 @@ export const DeckCardItem: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => onIncrement(card)}
-          disabled={count >= 4}
+          disabled={effectiveCanonicalCount >= 4}
           className="p-1 rounded bg-slate-800/80 hover:bg-amber-500 hover:text-slate-950 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 transition-colors cursor-pointer"
-          title={count >= 4 ? 'Max 4 copies allowed' : 'Add 1 copy'}
+          title={
+            effectiveCanonicalCount >= 4
+              ? `Max 4 copies per card name allowed (${effectiveCanonicalCount}/4 across printings)`
+              : 'Add 1 copy'
+          }
         >
           <Plus className="w-3 h-3" />
         </button>

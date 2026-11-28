@@ -115,9 +115,9 @@ export const FilterBar: React.FC<Props> = ({
   return (
     <div className="relative z-30 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3.5">
       {/* Row 1: Search & Toolbar Controls */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+      <div className="flex flex-col 2xl:flex-row gap-3 items-stretch 2xl:items-center justify-between">
         {/* Search Input */}
-        <div className="relative flex-1 max-w-lg">
+        <div className="relative flex-1 min-w-0 2xl:max-w-lg">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
@@ -137,9 +137,9 @@ export const FilterBar: React.FC<Props> = ({
         </div>
 
         {/* Dropdowns, Count Badge, & Reset Button */}
-        <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0 relative z-40">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 relative z-40">
           {/* Integrated Count & Reset Badge */}
-          <div className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs text-slate-300">
+          <div className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs text-slate-300 shrink-0">
             <span className="text-amber-400 font-bold">{totalMatches}</span>
             <span className="text-slate-500">cards</span>
             {isFiltered && (
@@ -158,11 +158,11 @@ export const FilterBar: React.FC<Props> = ({
           </div>
 
           {/* Set / Expansion Selector */}
-          <div className="relative inline-flex items-center">
+          <div className="relative flex w-full sm:w-auto max-w-full min-w-0 items-center">
             <select
               value={filters.set || 'all'}
               onChange={e => onChange({ ...filters, set: e.target.value === 'all' ? undefined : e.target.value })}
-              className={`h-9 pl-3 pr-8 text-xs bg-slate-950/90 border rounded-xl text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors appearance-none font-medium ${
+              className={`w-full sm:w-auto max-w-full truncate h-9 pl-3 pr-8 text-xs bg-slate-950/90 border rounded-xl text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors appearance-none font-medium ${
                 filters.set && filters.set !== 'all' ? 'border-amber-500/60 text-amber-300 font-semibold' : 'border-slate-700/80'
               }`}
             >
@@ -184,11 +184,11 @@ export const FilterBar: React.FC<Props> = ({
           />
 
           {/* Sort Dropdown */}
-          <div className="relative inline-flex items-center">
+          <div className="relative flex w-full sm:w-auto max-w-full min-w-0 items-center">
             <select
               value={filters.sortBy || 'id-asc'}
               onChange={e => onChange({ ...filters, sortBy: e.target.value as any })}
-              className={`h-9 pl-3 pr-8 text-xs bg-slate-950/90 border rounded-xl text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors appearance-none font-medium ${
+              className={`w-full sm:w-auto max-w-full truncate h-9 pl-3 pr-8 text-xs bg-slate-950/90 border rounded-xl text-slate-200 focus:outline-none focus:border-amber-400/80 cursor-pointer hover:border-slate-600 transition-colors appearance-none font-medium ${
                 filters.sortBy && filters.sortBy !== 'id-asc' ? 'border-amber-500/60 text-amber-300 font-semibold' : 'border-slate-700/80'
               }`}
             >

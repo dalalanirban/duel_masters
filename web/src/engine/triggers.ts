@@ -26,14 +26,17 @@ import {
   destroyCreature,
   destroyCreaturesBatch,
   destroyOpponentShields,
+  discardHandCardsByIndices,
   discardRandomHandCards,
   drawCards,
   rampTopDeckToManaZone,
   salvageFromGraveyard,
   searchDeckForCard,
   sendCreatureToManaZone,
-  sendCreatureToTopOfDeck
+  sendCreatureToTopOfDeck,
+  sendOwnShieldToGraveyard
 } from './zones.ts';
+import { isUntargetableByOpponent } from './targeting.ts';
 import { toManaCard } from './mana.ts';
 import {
   resolveWaveStrikerCIP,
@@ -45,6 +48,12 @@ import {
   resolveAuraPegasusTopDeckReveal
 } from './boardRemoval.ts';
 import { buildZoneOptions, enqueueInteraction } from './interactionHelpers.ts';
+import {
+  dispatchRegisteredAttack,
+  dispatchRegisteredCIP,
+  registerEngineDispatchHooks,
+  resolveSummonWatchersInTriggers
+} from './cardEffectRegistry.ts';
 
 /**
  * Helper: puts a chosen opponent creature on top of its owner's deck or resolves Emeral/Wind Axe/etc.
@@ -85,42 +94,8 @@ export function triggerCIP(
   const opponent = getOpponentId(player);
   let nextState = state;
 
-  // Global watcher: Emperor Maroll ("Whenever you put another creature into the battle zone, return this creature to your hand.")
-  for (const pid of ['player', 'opponent'] as const) {
-    const marolls = nextState.players[pid].battleZone.filter(
-      (c) =>
-        c.instanceId !== creature.instanceId &&
-        pid === player &&
-        getCardCapabilities(c.card).nameLower.includes('emperor maroll')
-    );
-    for (const m of marolls) {
-      nextState = bounceCreature(nextState, m.instanceId);
-    }
-  }
-
-  // Global watcher: Vreemah, Freaky Mojo Totem ("Whenever you put another creature into the battle zone, each Beast Folk in the battle zone gets +2000 power and double breaker until end of turn")
-  const vreemahCount = nextState.players[player].battleZone.filter(
-    (c) =>
-      c.instanceId !== creature.instanceId &&
-      getCardCapabilities(c.card).nameLower.includes('vreemah')
-  ).length;
-  if (vreemahCount > 0) {
-    for (const pid of ['player', 'opponent'] as const) {
-      const bz = nextState.players[pid].battleZone;
-      const updatedBZ = bz.map((c) =>
-        getCreatureRaces(c).some((r) => normalizeRace(r) === 'beastfolk')
-          ? { ...c, powerModifier: c.powerModifier + vreemahCount * 2000, tempDoubleBreaker: true }
-          : c
-      );
-      nextState = {
-        ...nextState,
-        players: {
-          ...nextState.players,
-          [pid]: { ...nextState.players[pid], battleZone: updatedBZ }
-        }
-      };
-    }
-  }
+  // Global summon watchers (Emperor Maroll, Vreemah, Scout Cluster, Marching Motherboard, Scream Slicer, Azaghast, Bakkra Horn, Micute, Zaltan)
+  nextState = resolveSummonWatchersInTriggers(nextState, player, creature);
 
   // 0. Survivor Come-Into-Play Abilities
   if (isSurvivorCard(card)) {
@@ -288,6 +263,12 @@ export function triggerCIP(
     }
   }
 
+  // 0b2. Hybrid Registry CIP Dispatch
+  const registeredCIP = dispatchRegisteredCIP(nextState, player, creature, targets);
+  if (registeredCIP) {
+    return registeredCIP;
+  }
+
   // 0c. Wind Axe, the Warrior Savage: Destroy 1 opponent blocker + ramp top deck to mana
   if (cardName.includes('wind axe')) {
     const oppBZ = nextState.players[opponent].battleZone;
@@ -343,7 +324,7 @@ export function triggerCIP(
   }
 
   // 0e. Emeral (DM-03): Add a card from hand to shields, then put a shield into hand (cannot trigger ST)
-  if (cardName === 'emeral' || card.id === 'DM03-014') {
+  if (cardName === 'emeral') {
     const pState = nextState.players[player];
     if (player === 'player' && nextState.interactiveHuman && !targets?.length && pState.hand.length > 0) {
       const handOpts = buildZoneOptions(nextState, 'player', ['hand']);
@@ -601,12 +582,68 @@ export function triggerCIP(
     };
   }
 
-  // 3. Shield Action CIP Effects (Fortress Shell, Aqua Patrol, Sven)
+  // 3. Fortress Shell (DM-02): Choose up to 2 cards in opponent's mana zone and put them into graveyard
+  if (cardName.includes('fortress shell')) {
+    const oppManaOpts = buildZoneOptions(nextState, opponent, ['manaZone']);
+    if (oppManaOpts.length === 0) return nextState;
+    if (player === 'player' && nextState.interactiveHuman && !targets?.length) {
+      return enqueueInteraction(nextState, {
+        type: 'ZONE_SELECTION',
+        player: 'player',
+        sourceCardId: card.id,
+        sourceCardName: card.name,
+        actionKind: 'OPPONENT_MANA_TO_GY',
+        prompt: `${card.name}: Choose up to 2 cards in your opponent's mana zone to put into his graveyard.`,
+        options: oppManaOpts,
+        minSelections: 0,
+        maxSelections: Math.min(2, oppManaOpts.length)
+      });
+    }
+    const oppState = nextState.players[opponent];
+    const targetIds =
+      targets && targets.length > 0
+        ? new Set(targets.slice(0, 2))
+        : new Set(oppState.manaZone.slice(0, 2).map((m) => m.instanceId));
+    const burned = oppState.manaZone.filter((m) => targetIds.has(m.instanceId));
+    if (burned.length === 0) return nextState;
+    return {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [opponent]: {
+          ...oppState,
+          manaZone: oppState.manaZone.filter((m) => !targetIds.has(m.instanceId)),
+          graveyard: [
+            ...oppState.graveyard,
+            ...burned.map((m) => ({ instanceId: m.instanceId, card: m.card, owner: opponent }))
+          ]
+        }
+      },
+      actionLog: [
+        ...nextState.actionLog,
+        `${card.name}: ${opponent} put ${burned.length} card(s) from mana zone into graveyard.`
+      ]
+    };
+  }
+
+  // 3b. Shield Burn CIP Effects (Gajirabute, Vile Centurion / Core-Crash Lizard / multi-shield burn)
   const burnShieldMatch = rules.match(
     /choose up to (\d+) of your opponent's shields and put them into (?:his|their) graveyard/i
   );
-  if (cardName.includes('fortress shell') || Boolean(burnShieldMatch)) {
-    const count = burnShieldMatch ? parseInt(burnShieldMatch[1], 10) : 2;
+  const singleShieldBurnMatch = rules.match(
+    /choose (?:one|1) of your opponent's shields and put it into (?:his|their) graveyard/i
+  );
+  if (
+    cardName.includes('gajirabute') ||
+    cardName.includes('core-crash lizard') ||
+    Boolean(burnShieldMatch) ||
+    Boolean(singleShieldBurnMatch)
+  ) {
+    const isSingleMandatory =
+      cardName.includes('gajirabute') ||
+      cardName.includes('core-crash lizard') ||
+      (Boolean(singleShieldBurnMatch) && !burnShieldMatch);
+    const count = burnShieldMatch ? parseInt(burnShieldMatch[1], 10) : 1;
     const oppShieldOpts = buildZoneOptions(nextState, opponent, ['shields'], undefined, { hideCards: true });
     const oppHasMeloppe = nextState.players[opponent].battleZone.some((c) =>
       getCardCapabilities(c.card).nameLower.includes('meloppe')
@@ -618,9 +655,9 @@ export function triggerCIP(
         sourceCardId: card.id,
         sourceCardName: card.name,
         actionKind: 'PLAYER_BURN_OPP_SHIELD',
-        prompt: `${card.name}: Choose up to ${count} opponent shield(s) to put into graveyard.`,
+        prompt: `${card.name}: Choose ${isSingleMandatory ? '1 opponent shield' : `up to ${count} opponent shield(s)`} to put into graveyard (no Shield Trigger).`,
         options: oppShieldOpts,
-        minSelections: 0,
+        minSelections: isSingleMandatory ? 1 : 0,
         maxSelections: Math.min(count, oppShieldOpts.length)
       });
     }
@@ -1189,6 +1226,11 @@ export function triggerAttack(
   const opponent = getOpponentId(player);
   let nextState = state;
 
+  const registeredAtk = dispatchRegisteredAttack(nextState, player, attacker, target);
+  if (registeredAtk) {
+    nextState = registeredAtk;
+  }
+
   // Headlong Giant: "Whenever this creature attacks, discard a card from your hand."
   if (nameLower.includes('headlong giant') && nextState.players[player].hand.length > 0) {
     nextState = discardRandomHandCards(nextState, player, 1);
@@ -1578,7 +1620,7 @@ export function triggerAttack(
     }
   }
 
-  // 9. Amber Piercer & Wyn / Stinger Ball on-attack triggers
+  // 9. Amber Piercer, Wyn / Stinger Ball / Curious Eye, and DM-02..DM-10 On-Attack Effects
   if (nameLower.includes('amber piercer') && player === 'player' && nextState.interactiveHuman) {
     const gyOpts = buildZoneOptions(nextState, 'player', ['graveyard'], (o) => o.card.type.includes('Creature'));
     if (gyOpts.length > 0) {
@@ -1595,20 +1637,518 @@ export function triggerAttack(
       });
     }
   }
-  if ((nameLower.includes('wyn') || nameLower.includes('stinger ball')) && player === 'player' && nextState.interactiveHuman) {
+  if (nameLower.includes('wyn') || nameLower.includes('stinger ball') || nameLower.includes('curious eye')) {
     const oppShieldOpts = buildZoneOptions(nextState, opponent, ['shields'], undefined, { hideCards: true });
     if (oppShieldOpts.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_SHIELD_PEEK',
+          prompt: `${attacker.card.name}: Look at 1 of your opponent's shields? (Optional)`,
+          options: oppShieldOpts,
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        nextState = {
+          ...nextState,
+          actionLog: [
+            ...nextState.actionLog,
+            `${player} peeked at 1 of ${opponent}'s shields with ${attacker.card.name}.`
+          ]
+        };
+      }
+    }
+  }
+
+  // Self-shield burn on attack: General Dark Fiend, Necrodragon Galbazeek, Steam Rumbler Kain
+  if (
+    nameLower.includes('general dark fiend') ||
+    nameLower.includes('galbazeek') ||
+    nameLower.includes('steam rumbler kain')
+  ) {
+    nextState = sendOwnShieldToGraveyard(nextState, player, attacker.card);
+  }
+
+  // Daidalos, General of Fury: destroy one of your creatures on attack (combat-abort safe if self-chosen!)
+  if (nameLower.includes('daidalos')) {
+    const friendlyNow = nextState.players[player].battleZone;
+    if (friendlyNow.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_SACRIFICE_BZ',
+          prompt: `${attacker.card.name}: Choose 1 of your creatures in the battle zone to destroy.`,
+          options: buildZoneOptions(nextState, 'player', ['battleZone']),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      } else {
+        const weakest = [...friendlyNow].sort(
+          (a, b) => (a.card.power ?? 0) + a.powerModifier - ((b.card.power ?? 0) + b.powerModifier)
+        )[0];
+        nextState = destroyCreature(nextState, weakest.instanceId);
+      }
+    }
+  }
+
+  // Marrow Ooze, the Twister: "When this creature attacks a player, destroy it after the attack."
+  if (
+    (nameLower.includes('marrow ooze') ||
+      /when this creature attacks a player,\s*destroy it after the attack/i.test(rules)) &&
+    (target.type === 'shield' || target.type === 'player')
+  ) {
+    nextState = {
+      ...nextState,
+      players: {
+        ...nextState.players,
+        [player]: {
+          ...nextState.players[player],
+          battleZone: nextState.players[player].battleZone.map((c) =>
+            c.instanceId === attacker.instanceId ? { ...c, tempDestroyAfterAttack: true } : c
+          )
+        }
+      }
+    };
+  }
+
+  // Plasma Chaser: draw cards equal to number of opponent creatures in BZ
+  if (nameLower.includes('plasma chaser')) {
+    const oppCount = nextState.players[opponent].battleZone.length;
+    if (oppCount > 0 && nextState.players[player].deck.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'OPTIONAL_CHOICE',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceInstanceId: attacker.instanceId,
+          abilityName: attacker.card.name,
+          effectType: 'DRAW',
+          drawCount: oppCount,
+          prompt: `${attacker.card.name}: Draw ${oppCount} card(s) (equal to opponent's battle zone)?`
+        });
+      } else {
+        nextState = drawCards(nextState, player, oppCount);
+      }
+    }
+  }
+
+  // Stained Glass: bounce 1 opponent Fire or Nature creature
+  if (nameLower.includes('stained glass')) {
+    const validTargets = nextState.players[opponent].battleZone.filter(
+      (c) =>
+        !isUntargetableByOpponent(c) &&
+        getCardCivilizations(c.card).some((civ) => civ === 'Fire' || civ === 'Nature')
+    );
+    if (validTargets.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        const validSet = new Set(validTargets.map((c) => c.instanceId));
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'OPPONENT_BOUNCE_BZ',
+          prompt: `${attacker.card.name}: Choose 1 opponent Fire or Nature creature to return to hand? (Optional)`,
+          options: buildZoneOptions(nextState, opponent, ['battleZone'], (o) => validSet.has(o.instanceId)),
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        const strongest = [...validTargets].sort(
+          (a, b) => (b.card.power ?? 0) + b.powerModifier - ((a.card.power ?? 0) + a.powerModifier)
+        )[0];
+        nextState = bounceCreature(nextState, strongest.instanceId);
+      }
+    }
+  }
+
+  // Bolzard Dragon: opponent puts 1 card from mana zone into graveyard
+  if (nameLower.includes('bolzard dragon')) {
+    const oppMana = nextState.players[opponent].manaZone;
+    if (oppMana.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'OPPONENT_MANA_TO_GY',
+          prompt: `${attacker.card.name}: Choose 1 card in opponent's mana zone to put into their graveyard.`,
+          options: buildZoneOptions(nextState, opponent, ['manaZone']),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      } else {
+        const lost = oppMana[0];
+        const oppS = nextState.players[opponent];
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [opponent]: {
+              ...oppS,
+              manaZone: oppMana.slice(1),
+              graveyard: [
+                ...oppS.graveyard,
+                { instanceId: lost.instanceId, card: lost.card, owner: opponent }
+              ]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${attacker.card.name} put ${lost.card.name} from ${opponent}'s mana zone into graveyard.`
+          ]
+        };
+      }
+    }
+  }
+
+  // Ra Vu, Seeker of Lightning: return a Light spell from graveyard to hand
+  if (nameLower.includes('ra vu')) {
+    const validGyOpts = buildZoneOptions(
+      nextState,
+      player,
+      ['graveyard'],
+      (o) => o.card.type === 'Spell' && getCardCivilizations(o.card).includes('Light')
+    );
+    if (validGyOpts.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_SALVAGE_GY',
+          prompt: `${attacker.card.name}: Return 1 Light spell from your graveyard to hand? (Optional)`,
+          options: validGyOpts,
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        nextState = salvageFromGraveyard(
+          nextState,
+          player,
+          (c) => c.type === 'Spell' && getCardCivilizations(c).includes('Light'),
+          'hand',
+          { pickMostRecent: true }
+        );
+      }
+    }
+  }
+
+  // Gamil, Knight of Hatred: return a Darkness creature from graveyard to hand
+  if (nameLower.includes('gamil')) {
+    const validGyOpts = buildZoneOptions(
+      nextState,
+      player,
+      ['graveyard'],
+      (o) => o.card.type.includes('Creature') && getCardCivilizations(o.card).includes('Darkness')
+    );
+    if (validGyOpts.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_SALVAGE_GY',
+          prompt: `${attacker.card.name}: Return 1 Darkness creature from your graveyard to hand? (Optional)`,
+          options: validGyOpts,
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        nextState = salvageFromGraveyard(
+          nextState,
+          player,
+          (c) => c.type.includes('Creature') && getCardCivilizations(c).includes('Darkness'),
+          'hand',
+          { pickMostRecent: true }
+        );
+      }
+    }
+  }
+
+  // Psyshroom: put a Nature card from graveyard into mana zone
+  if (nameLower.includes('psyshroom')) {
+    const validGyOpts = buildZoneOptions(
+      nextState,
+      player,
+      ['graveyard'],
+      (o) => getCardCivilizations(o.card).includes('Nature')
+    );
+    if (validGyOpts.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_GY_TO_MANA',
+          prompt: `${attacker.card.name}: Put 1 Nature card from your graveyard into your mana zone? (Optional)`,
+          options: validGyOpts,
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        nextState = salvageFromGraveyard(
+          nextState,
+          player,
+          (c) => getCardCivilizations(c).includes('Nature'),
+          'manaZone',
+          { pickMostRecent: true }
+        );
+      }
+    }
+  }
+
+  // King Neptas: return a creature with power <= 2000 from either BZ to owner's hand
+  if (nameLower.includes('king neptas')) {
+    const pS = nextState.players[player];
+    const oppS = nextState.players[opponent];
+    const validOpp = oppS.battleZone.filter(
+      (c) =>
+        !isUntargetableByOpponent(c) &&
+        getCreatureEffectivePower(c, false, oppS, pS, false, nextState) <= 2000
+    );
+    const validFriendly = pS.battleZone.filter(
+      (c) => getCreatureEffectivePower(c, false, pS, oppS, false, nextState) <= 2000
+    );
+    const allValidIds = new Set([...validOpp, ...validFriendly].map((c) => c.instanceId));
+    if (allValidIds.size > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        const opts = [
+          ...buildZoneOptions(nextState, opponent, ['battleZone'], (o) => allValidIds.has(o.instanceId)),
+          ...buildZoneOptions(nextState, player, ['battleZone'], (o) => allValidIds.has(o.instanceId))
+        ];
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'OPPONENT_BOUNCE_BZ',
+          prompt: `${attacker.card.name}: Return a creature with power 2000 or less to hand? (Optional)`,
+          options: opts,
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else if (validOpp.length > 0) {
+        nextState = bounceCreature(nextState, validOpp[0].instanceId);
+      }
+    }
+  }
+
+  // King Ponitas: search deck for a Water card -> hand
+  if (nameLower.includes('king ponitas')) {
+    const waterDeckCards = nextState.players[player].deck.filter((d) =>
+      getCardCivilizations(d.card).includes('Water')
+    );
+    if (waterDeckCards.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'DECK_SEARCH',
+          player: 'player',
+          sourceCardName: attacker.card.name,
+          filterDescription: 'Water card',
+          validCardInstanceIds: waterDeckCards.map((d) => d.instanceId),
+          destination: 'hand'
+        });
+      } else {
+        nextState = searchDeckForCard(
+          nextState,
+          player,
+          (c) => getCardCivilizations(c).includes('Water'),
+          'hand',
+          { shuffleAfter: true }
+        );
+      }
+    }
+  }
+
+  // Sniper Mosquito & Sabermask Scarab: mandatory return 1 card from your mana zone to hand
+  if (nameLower.includes('sniper mosquito') || nameLower.includes('sabermask scarab')) {
+    const playerMana = nextState.players[player].manaZone;
+    if (playerMana.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'PLAYER_MANA_RECOVERY',
+          prompt: `${attacker.card.name}: Return 1 card from your mana zone to your hand.`,
+          options: buildZoneOptions(nextState, player, ['manaZone']),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      } else {
+        const ret = playerMana[0];
+        const curP = nextState.players[player];
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [player]: {
+              ...curP,
+              manaZone: curP.manaZone.slice(1),
+              hand: [...curP.hand, { instanceId: ret.instanceId, card: ret.card, owner: player }]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${attacker.card.name} returned ${ret.card.name} from mana zone to hand.`
+          ]
+        };
+      }
+    }
+  }
+
+  // Earthstomp Giant: return ALL creatures from your mana zone to hand
+  if (nameLower.includes('earthstomp giant')) {
+    const curP = nextState.players[player];
+    const manaCreatures = curP.manaZone.filter((m) => m.card.type.includes('Creature'));
+    if (manaCreatures.length > 0) {
+      const ids = new Set(manaCreatures.map((m) => m.instanceId));
+      nextState = {
+        ...nextState,
+        players: {
+          ...nextState.players,
+          [player]: {
+            ...curP,
+            manaZone: curP.manaZone.filter((m) => !ids.has(m.instanceId)),
+            hand: [
+              ...curP.hand,
+              ...manaCreatures.map((m) => ({ instanceId: m.instanceId, card: m.card, owner: player }))
+            ]
+          }
+        },
+        actionLog: [
+          ...nextState.actionLog,
+          `${attacker.card.name} returned ${manaCreatures.length} creature(s) from mana zone to hand.`
+        ]
+      };
+    }
+  }
+
+  // Smile Angler: bounce 1 card from opponent's mana zone to their hand
+  if (nameLower.includes('smile angler')) {
+    const oppMana = nextState.players[opponent].manaZone;
+    if (oppMana.length > 0) {
+      if (player === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: attacker.card.id,
+          sourceCardName: attacker.card.name,
+          actionKind: 'OPPONENT_MANA_TO_HAND',
+          prompt: `${attacker.card.name}: Return 1 card from opponent's mana zone to their hand? (Optional)`,
+          options: buildZoneOptions(nextState, opponent, ['manaZone']),
+          minSelections: 0,
+          maxSelections: 1
+        });
+      } else {
+        const ret = oppMana[0];
+        const oppS = nextState.players[opponent];
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [opponent]: {
+              ...oppS,
+              manaZone: oppMana.slice(1),
+              hand: [...oppS.hand, { instanceId: ret.instanceId, card: ret.card, owner: opponent }]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${attacker.card.name} returned ${ret.card.name} from ${opponent}'s mana zone to hand.`
+          ]
+        };
+      }
+    }
+  }
+
+  // Lalicious: look at opponent's hand and top card of their deck
+  if (nameLower.includes('lalicious')) {
+    if (player === 'player' && nextState.interactiveHuman) {
       nextState = enqueueInteraction(nextState, {
-        type: 'ZONE_SELECTION',
+        type: 'OPTIONAL_CHOICE',
         player: 'player',
         sourceCardId: attacker.card.id,
-        sourceCardName: attacker.card.name,
-        actionKind: 'PLAYER_SHIELD_PEEK',
-        prompt: `${attacker.card.name}: Look at 1 of your opponent's shields? (Optional)`,
-        options: oppShieldOpts,
-        minSelections: 0,
-        maxSelections: 1
+        sourceInstanceId: attacker.instanceId,
+        abilityName: attacker.card.name,
+        effectType: 'PEEK_OPP_HAND_AND_DECK',
+        prompt: `${attacker.card.name}: Look at your opponent's hand and top card of deck?`
       });
+    } else {
+      const oppS = nextState.players[opponent];
+      const handStr = oppS.hand.length > 0 ? oppS.hand.map((h) => h.card.name).join(', ') : 'empty';
+      const topDeckStr = oppS.deck[0]?.card.name ?? 'empty';
+      nextState = {
+        ...nextState,
+        actionLog: [
+          ...nextState.actionLog,
+          `${player} peeked with ${attacker.card.name}: ${opponent}'s hand [${handStr}]; top deck [${topDeckStr}].`
+        ]
+      };
+    }
+  }
+
+  // Board-wide ally attack triggers: Thrumiss (tap opp creature) & Zero Nemesis (opp random discard)
+  const friendlyBZAtAttack = [...nextState.players[player].battleZone];
+  for (const ally of friendlyBZAtAttack) {
+    const allyName = getCardCapabilities(ally.card).nameLower;
+    if (allyName.includes('thrumiss')) {
+      const choosableOpp = nextState.players[opponent].battleZone.filter(
+        (c) => !isUntargetableByOpponent(c)
+      );
+      if (choosableOpp.length > 0) {
+        if (player === 'player' && nextState.interactiveHuman) {
+          const validSet = new Set(choosableOpp.map((c) => c.instanceId));
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player: 'player',
+            sourceCardId: ally.card.id,
+            sourceCardName: ally.card.name,
+            actionKind: 'PLAYER_TAP_OPP_BZ',
+            prompt: `${ally.card.name}: Choose 1 opponent creature to tap? (Optional)`,
+            options: buildZoneOptions(nextState, opponent, ['battleZone'], (o) => validSet.has(o.instanceId)),
+            minSelections: 0,
+            maxSelections: 1
+          });
+        } else {
+          const targetToTap =
+            choosableOpp.find((c) => !c.isTapped) ?? choosableOpp[0];
+          const oppNow = nextState.players[opponent];
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [opponent]: {
+                ...oppNow,
+                battleZone: oppNow.battleZone.map((c) =>
+                  c.instanceId === targetToTap.instanceId ? { ...c, isTapped: true } : c
+                )
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${ally.card.name} tapped ${targetToTap.card.name}.`
+            ]
+          };
+        }
+      }
+    }
+
+    if (allyName.includes('zero nemesis')) {
+      nextState = discardRandomHandCards(nextState, opponent, 1);
     }
   }
 
@@ -1758,6 +2298,95 @@ export function triggerBlocked(
       } else {
         const weakest = [...attBZ].sort((a, b) => (a.card.power ?? 0) - (b.card.power ?? 0))[0];
         nextState = bounceCreature(nextState, weakest.instanceId);
+      }
+    }
+  }
+
+  // DM09-020 Kelp Candle & DM09-025 Zeppelin Crawler: Whenever blocks, look at top 4, put 1 to hand, rest on bottom
+  if (blkName.includes('kelp candle') || blkName.includes('zeppelin crawler')) {
+    const defS = nextState.players[defendingPlayer];
+    const count = Math.min(4, defS.deck.length);
+    if (count > 0) {
+      const topCards = defS.deck.slice(0, count);
+      if (defendingPlayer === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: blocker.card.id,
+          sourceCardName: blocker.card.name,
+          actionKind: 'LOOK_TOP_N_PICK_HAND_REST_BOTTOM',
+          prompt: `${blocker.card.name}: Look at top ${count} card(s). Put 1 into hand; rest go to bottom of deck.`,
+          options: topCards.map((c) => ({
+            instanceId: c.instanceId,
+            zone: 'deck' as const,
+            owner: defendingPlayer,
+            card: c.card,
+            label: c.card.name
+          })),
+          minSelections: 1,
+          maxSelections: 1,
+          contextData: { count }
+        });
+      } else {
+        const picked = [...topCards].sort(
+          (a, b) => (b.card.manaCost ?? 0) - (a.card.manaCost ?? 0)
+        )[0];
+        const remainingTop = topCards.filter((c) => c.instanceId !== picked.instanceId);
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [defendingPlayer]: {
+              ...defS,
+              hand: [...defS.hand, picked],
+              deck: [...defS.deck.slice(count), ...remainingTop]
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${blocker.card.name}: ${defendingPlayer} looked at the top ${count} cards of deck, put 1 into hand, and put the rest on the bottom.`
+          ]
+        };
+      }
+    }
+  }
+
+  // DM10-017 Ikaz, the Spydroid: Whenever blocks, choose one of your creatures in BZ to untap after the battle
+  if (blkName.includes('ikaz')) {
+    const defS = nextState.players[defendingPlayer];
+    if (defS.battleZone.length > 0) {
+      if (defendingPlayer === 'player' && nextState.interactiveHuman) {
+        nextState = enqueueInteraction(nextState, {
+          type: 'ZONE_SELECTION',
+          player: 'player',
+          sourceCardId: blocker.card.id,
+          sourceCardName: blocker.card.name,
+          actionKind: 'IKAZ_MARK_UNTAP_AFTER_BATTLE',
+          prompt: `${blocker.card.name}: Choose 1 of your creatures in the battle zone to untap after the battle.`,
+          options: buildZoneOptions(nextState, 'player', ['battleZone']),
+          minSelections: 1,
+          maxSelections: 1
+        });
+      } else {
+        const chosenTarget =
+          defS.battleZone.find((c) => c.isTapped && c.instanceId !== blocker.instanceId) ||
+          blocker;
+        nextState = {
+          ...nextState,
+          players: {
+            ...nextState.players,
+            [defendingPlayer]: {
+              ...defS,
+              battleZone: defS.battleZone.map((c) =>
+                c.instanceId === chosenTarget.instanceId ? { ...c, tempUntapAfterBattle: true } : c
+              )
+            }
+          },
+          actionLog: [
+            ...nextState.actionLog,
+            `${blocker.card.name} chose ${chosenTarget.card.name} to untap after the battle.`
+          ]
+        };
       }
     }
   }
@@ -1928,6 +2557,61 @@ export function triggerUnblocked(
         nextState = searchDeckForCard(nextState, attackingPlayer, (c) => c.type === 'Spell', 'hand', { shuffleAfter: true });
       }
     }
+
+    // DM09-004 Balesk Baj, the Timeburner: attacking opponent and isn't blocked -> take an extra turn after this one
+    if (attName.includes('balesk baj')) {
+      nextState = {
+        ...nextState,
+        extraTurnPlayer: attackingPlayer,
+        actionLog: [
+          ...nextState.actionLog,
+          `${attacker.card.name} was not blocked: ${attackingPlayer} will take an extra turn after this one!`
+        ]
+      };
+    }
+
+    // DM09-S02 Aqua Master: attacking opponent and isn't blocked -> turn 1 of opponent's shields face up
+    if (attName.includes('aqua master')) {
+      const defS = nextState.players[defendingPlayer];
+      const unbrokenFaceDown = defS.shields.filter((s) => !s.isBroken && !s.isFaceUp);
+      const candidates = unbrokenFaceDown.length > 0 ? unbrokenFaceDown : defS.shields.filter((s) => !s.isBroken);
+      if (candidates.length > 0) {
+        if (attackingPlayer === 'player' && nextState.interactiveHuman) {
+          const cSet = new Set(candidates.map((s) => s.id));
+          nextState = enqueueInteraction(nextState, {
+            type: 'ZONE_SELECTION',
+            player: 'player',
+            sourceCardId: attacker.card.id,
+            sourceCardName: attacker.card.name,
+            actionKind: 'TURN_SHIELD_FACE_UP',
+            prompt: `${attacker.card.name}: Choose 1 of your opponent's shields to turn face up.`,
+            options: buildZoneOptions(nextState, defendingPlayer, ['shields'], (o) => cSet.has(o.instanceId), {
+              hideCards: true
+            }),
+            minSelections: 1,
+            maxSelections: 1
+          });
+        } else {
+          const targetShield = candidates[0];
+          nextState = {
+            ...nextState,
+            players: {
+              ...nextState.players,
+              [defendingPlayer]: {
+                ...defS,
+                shields: defS.shields.map((s) =>
+                  s.id === targetShield.id ? { ...s, isFaceUp: true } : s
+                )
+              }
+            },
+            actionLog: [
+              ...nextState.actionLog,
+              `${attacker.card.name}: ${attackingPlayer} turned 1 of ${defendingPlayer}'s shields face up.`
+            ]
+          };
+        }
+      }
+    }
   }
 
   return resolveTurboRushOnUnblocked(nextState, attackingPlayer, attacker);
@@ -1950,12 +2634,16 @@ function clearTurnCreatureFields(c: CreatureInstance): CreatureInstance {
     tempCanAttackUntapped: undefined,
     tempCantAttack: undefined,
     tempCantAttackPlayers: undefined,
+    tempAttacksIfAble: c.tempAttacksIfAbleUntilTurnOf ? true : undefined,
     tempDestroyAfterBattle: undefined,
+    tempDestroyAfterAttack: undefined,
+    wasAttackedThisTurn: undefined,
     tempUntapOnWinBattle: undefined,
     tempUntapAtEndTurn: undefined,
     tempBreakShieldOnBlocked: undefined,
     tempMustBlockTargetId: undefined,
-    tempExtraRaces: undefined
+    tempExtraRaces: undefined,
+    tempUntapAfterBattle: undefined
   };
 }
 
@@ -1982,7 +2670,7 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
     const caps = getCardCapabilities(c.card);
     if (caps.selfDestroyAtEndTurn || c.tempDestroyAtEndTurn) {
       toDestroy.push(c);
-    } else if (caps.selfBounceAtEndTurn) {
+    } else if (caps.selfBounceAtEndTurn || caps.nameLower.includes('balesk baj')) {
       toBounce.push(c);
     }
   }
@@ -2089,7 +2777,7 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
   const oppState = nextState.players[opponentId];
   const resetOppBZ = oppState.battleZone.map(clearTurnCreatureFields);
 
-  return {
+  let finalState: GameState = {
     ...nextState,
     players: {
       ...nextState.players,
@@ -2100,6 +2788,7 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
         tempIgnoreAttackPrevention: undefined,
         tempAllUnblockableThisTurn: undefined,
         tempUnblockableRacesThisTurn: undefined,
+        tempUnblockableCivsThisTurn: undefined,
         tempAttackUntappedAllThisTurn: undefined,
         tempAttackUntappedRacesThisTurn: undefined,
         tempUnblockableVsCreaturesRacesThisTurn: undefined,
@@ -2114,7 +2803,9 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
         tempUntapAllAtEndTurn: undefined,
         tempEndTurnUntapRaces: undefined,
         tempDrawPerShieldBrokenOnAttack: undefined,
-        tempOppDestroyTriggerPenalties: undefined
+        tempOppDestroyTriggerPenalties: undefined,
+        tempSwordMalevolentDeathCount: undefined,
+        tempLiveAndBreatheCount: undefined
       },
       [opponentId]: {
         ...oppState,
@@ -2125,4 +2816,41 @@ export function triggerEndTurn(state: GameState, activePlayer: PlayerId): GameSt
     },
     actionLog: [...nextState.actionLog, ...untapLogs]
   };
+
+  // DM12-010 Gigavrand: "At the end of each turn, if your opponent drew 2 or more cards that turn, he discards his hand."
+  for (const gOwner of ['player', 'opponent'] as const) {
+    const hasGigavrand = finalState.players[gOwner].battleZone.some((c) =>
+      getCardCapabilities(c.card).nameLower.includes('gigavrand')
+    );
+    if (!hasGigavrand) continue;
+    const gOpp = getOpponentId(gOwner);
+    const drawn = finalState.players[gOpp].cardsDrawnThisTurn || 0;
+    if (drawn >= 2 && finalState.players[gOpp].hand.length > 0) {
+      finalState = discardHandCardsByIndices(
+        finalState,
+        gOpp,
+        finalState.players[gOpp].hand.map((_, idx) => idx),
+        'discarded by Gigavrand'
+      );
+    }
+  }
+
+  return {
+    ...finalState,
+    players: {
+      ...finalState.players,
+      player: {
+        ...finalState.players.player,
+        spellsCastThisTurn: 0,
+        cardsDrawnThisTurn: 0
+      },
+      opponent: {
+        ...finalState.players.opponent,
+        spellsCastThisTurn: 0,
+        cardsDrawnThisTurn: 0
+      }
+    }
+  };
 }
+
+registerEngineDispatchHooks({ triggerCIP });

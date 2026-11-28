@@ -5,6 +5,7 @@ import { ManaCurve } from './ManaCurve';
 import { CivBreakdown } from './CivBreakdown';
 import { TestDrawModal } from './TestDrawModal';
 import { getRegisteredCardCatalog } from '../../data/cardCatalogCore';
+import { getCanonicalCardName, type DeckCopyViolation } from '../../utils/deckStorage';
 import { Play, RotateCcw, Download, Sparkles, CheckCircle2, AlertTriangle, Layers, Save, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   deckName: string;
   totalCards: number;
   deckStatus: 'building' | 'legal' | 'over';
+  overLimitCards?: DeckCopyViolation[];
   savedDecks: Deck[];
   presetDecks?: Deck[];
   onIncrement: (card: CardDefinition) => void;
@@ -34,6 +36,7 @@ export const DeckPanel: React.FC<Props> = ({
   deckName,
   totalCards,
   deckStatus,
+  overLimitCards = [],
   savedDecks,
   presetDecks,
   onIncrement,
@@ -54,6 +57,14 @@ export const DeckPanel: React.FC<Props> = ({
   const availablePresets = presetDecks ?? getRegisteredCardCatalog()?.presetDecks ?? [];
   const isSaved = savedDecks.some(d => d.id === deckId);
   const isPreset = availablePresets.some(p => p.id === deckId);
+  const hasCopyViolations = overLimitCards.length > 0;
+  const isStrictlyLegal = totalCards === 40 && !hasCopyViolations;
+
+  const canonicalCounts = new Map<string, number>();
+  for (const it of items) {
+    const k = getCanonicalCardName(it.card.name);
+    canonicalCounts.set(k, (canonicalCounts.get(k) || 0) + it.count);
+  }
 
   const fillPercentage = Math.min(100, Math.round((totalCards / 40) * 100));
 
@@ -135,7 +146,11 @@ export const DeckPanel: React.FC<Props> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
-              {deckStatus === 'legal' ? (
+              {hasCopyViolations ? (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-red-400 bg-red-950/60 border border-red-500/50 px-2.5 py-0.5 rounded-full">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Copy Limit Exceeded
+                </span>
+              ) : isStrictlyLegal && deckStatus === 'legal' ? (
                 <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/50 px-2.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.25)]">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Tournament Legal
                 </span>
@@ -151,14 +166,28 @@ export const DeckPanel: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Inline Copy-Limit Violation Banner (Preserves legacy localStorage decks) */}
+          {hasCopyViolations && (
+            <div
+              data-testid="deck-copy-limit-warning"
+              role="alert"
+              className="rounded-xl bg-red-950/55 border border-red-500/55 px-2.5 py-2 text-[11px] text-red-200 leading-relaxed"
+            >
+              <span className="font-bold text-red-300">Max 4 copies per card name: </span>
+              {overLimitCards
+                .map(v => `${v.name} (${v.count}/${v.limit} across printings)`)
+                .join(', ')}
+            </div>
+          )}
+
           {/* Clean Progress Meter */}
           <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
             <div
               className={`h-full transition-all duration-300 rounded-full ${
-                deckStatus === 'legal'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                  : deckStatus === 'over'
-                    ? 'bg-red-500'
+                hasCopyViolations || deckStatus === 'over'
+                  ? 'bg-red-500'
+                  : isStrictlyLegal && deckStatus === 'legal'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
                     : 'bg-gradient-to-r from-amber-500 to-yellow-400'
               }`}
               style={{ width: `${fillPercentage}%` }}
@@ -171,14 +200,16 @@ export const DeckPanel: React.FC<Props> = ({
           <button
             type="button"
             onClick={onSaveClick}
-            disabled={totalCards !== 40}
+            disabled={!isStrictlyLegal}
             title={
-              totalCards === 40
+              hasCopyViolations
+                ? 'Reduce duplicate card names to at most 4 total copies across printings'
+                : totalCards === 40
                 ? 'Save custom deck'
                 : `Requires exactly 40 cards to save (current: ${totalCards}/40)`
             }
             className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition-all ${
-              totalCards === 40
+              isStrictlyLegal
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 ring-1 ring-amber-400/60 cursor-pointer'
                 : 'bg-slate-950/60 border border-slate-800 text-slate-500 opacity-60 cursor-not-allowed'
             }`}
@@ -242,6 +273,7 @@ export const DeckPanel: React.FC<Props> = ({
                 key={card.id}
                 card={card}
                 count={count}
+                canonicalCount={canonicalCounts.get(getCanonicalCardName(card.name)) ?? count}
                 onIncrement={onIncrement}
                 onDecrement={onDecrement}
                 onRemoveAll={onRemoveAll}

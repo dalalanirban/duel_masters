@@ -84,6 +84,7 @@ const AppWorkspace: React.FC<AppWorkspaceProps> = ({
     savedDecks,
     totalCards,
     deckStatus,
+    deckLegality,
     isSaveModalOpen,
     setIsSaveModalOpen,
     addCard,
@@ -96,6 +97,7 @@ const AppWorkspace: React.FC<AppWorkspaceProps> = ({
     deleteDeck,
     setDeckName,
     getCardCountInDeck,
+    getCanonicalCardCountInDeck,
     exportAsText
   } = useDeckBuilder(catalog);
 
@@ -141,6 +143,7 @@ const AppWorkspace: React.FC<AppWorkspaceProps> = ({
                 savedDecks={savedDecks}
                 totalCards={totalCards}
                 deckStatus={deckStatus}
+                overLimitCards={deckLegality.overLimitCards}
                 isSaveModalOpen={isSaveModalOpen}
                 setIsSaveModalOpen={setIsSaveModalOpen}
                 addCard={addCard}
@@ -153,6 +156,7 @@ const AppWorkspace: React.FC<AppWorkspaceProps> = ({
                 deleteDeck={deleteDeck}
                 setDeckName={setDeckName}
                 getCardCountInDeck={getCardCountInDeck}
+                getCanonicalCardCountInDeck={getCanonicalCardCountInDeck}
                 onExportText={handleExportText}
                 onNotify={onNotify}
               />

@@ -629,6 +629,58 @@ export function compilePresentationBeats(
       return beats;
     }
 
+    // Detect single-blocker forced auto-block that resolved within DECLARE_ATTACK without emitting a BLOCK_DECLARATION prompt
+    const newLogs = nextState.actionLog.slice(prevState.actionLog.length);
+    const autoBlockLog = newLogs.find((line) =>
+      new RegExp(`^${defId} (?:forced-)?blocked with .+`).test(line)
+    );
+    if (autoBlockLog) {
+      const m = autoBlockLog.match(new RegExp(`^${defId} (?:forced-)?blocked with (.+?)\\.$`));
+      const blockerName = m?.[1]?.trim();
+      const blockerPrev =
+        prevState.players[defId].battleZone.find(
+          (c) => !c.isTapped && (!blockerName || c.card.name === blockerName)
+        ) || prevState.players[defId].battleZone.find((c) => c.card.name === blockerName);
+      if (blockerPrev) {
+        const blockDisplayState: GameState = {
+          ...attackDisplayState,
+          players: {
+            ...attackDisplayState.players,
+            [defId]: {
+              ...attackDisplayState.players[defId],
+              battleZone: attackDisplayState.players[defId].battleZone.map((c) =>
+                c.instanceId === blockerPrev.instanceId ? { ...c, isTapped: true } : c
+              )
+            }
+          }
+        };
+        beats.push(
+          buildBeat(
+            {
+              type: 'BLOCK',
+              actor: defId,
+              card: blockerPrev.card,
+              civilizations: getCardCivilizations(blockerPrev.card),
+              source: { player: defId, zone: 'battleZone', instanceId: blockerPrev.instanceId },
+              targets: attackerId
+                ? [{ player: actor, zone: 'battleZone', instanceId: attackerId }]
+                : undefined
+            },
+            blockDisplayState
+          )
+        );
+        appendRemovalAndWinBeats(
+          beats,
+          prevState,
+          nextState,
+          blockDisplayState,
+          attackerId ? { player: actor, zone: 'battleZone', instanceId: attackerId } : undefined,
+          evolvedBaitIds
+        );
+        return beats;
+      }
+    }
+
     appendRemovalAndWinBeats(
       beats,
       prevState,

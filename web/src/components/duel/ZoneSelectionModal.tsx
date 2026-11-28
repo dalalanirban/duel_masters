@@ -77,7 +77,11 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
     );
   }
 
-  const isRaceMode = interaction.actionKind === 'TAP_CHOOSE_RACE';
+  const isRaceMode =
+    interaction.actionKind === 'TAP_CHOOSE_RACE' ||
+    interaction.actionKind === 'SPELL_CHOOSE_RACE' ||
+    interaction.actionKind === 'CIP_CHOOSE_RACE' ||
+    interaction.actionKind === 'CHOOSE_NUMBER';
   const powerExceeded = maxTotalPower !== undefined && currentTotalPower > maxTotalPower;
   const validSelectionCount =
     selectedIds.length >= interaction.minSelections &&
@@ -261,15 +265,20 @@ export const ZoneSelectionModal: React.FC<ZoneSelectionModalProps> = ({
                         {opt.card.name}
                       </div>
                     )}
-                    {!opt.isHidden && opt.card.power !== undefined && (
+                    {!opt.isHidden && (
                       <div className="text-[10px] font-mono text-slate-400">
-                        {opt.card.power} Power &bull; {opt.card.manaCost} Mana
+                        {opt.card.power !== null && opt.card.power !== undefined
+                          ? `${opt.card.power} Power \u2022 `
+                          : ''}
+                        {opt.card.manaCost} Mana
                       </div>
                     )}
 
                     {isSelected && (
                       <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center shadow-md">
-                        {interaction.actionKind === 'GARATYANO_TOP3' ? selectedIdx + 1 : <Check className="w-3.5 h-3.5" />}
+                        {interaction.actionKind === 'GARATYANO_TOP3' || interaction.actionKind === 'REORDER_TOP_N'
+                          ? selectedIdx + 1
+                          : <Check className="w-3.5 h-3.5" />}
                       </div>
                     )}
                   </div>

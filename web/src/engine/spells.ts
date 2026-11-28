@@ -26,6 +26,7 @@ import {
   getCreatureEffectivePower,
   hasCreatureBlocker
 } from './continuous.ts';
+import { isUntargetableByOpponent } from './targeting.ts';
 import {
   addShieldFromDeck,
   bounceCreature,
@@ -36,7 +37,6 @@ import {
   discardHandCardsByIndices,
   discardRandomHandCards,
   drawCards,
-  findCreature,
   makeShieldId,
   rampTopDeckToManaZone,
   searchDeckForCard,
@@ -46,6 +46,7 @@ import {
 import { shuffleCards } from './state.ts';
 import { triggerCIP } from './triggers.ts';
 import { buildZoneOptions, enqueueInteraction } from './interactionHelpers.ts';
+import { dispatchRegisteredSpell, registerEngineDispatchHooks } from './cardEffectRegistry.ts';
 
 // Re-export zone primitives for existing direct imports from './spells.ts' without duplication
 export {
@@ -111,6 +112,75 @@ function pickDominantRaceOnBoard(bz: CreatureInstance[]): string {
 }
 
 /**
+ * Resolves a single-target creature spell against legal choosable targets:
+ * - If explicit `targets?.[0]` was supplied, validates existence, untargetability, and spell predicate.
+ * - If omitted or empty, filters out opponent untargetable creatures (`!isUntargetableByOpponent`) and picks the first legal match,
+ *   or returns a logged no-op state instead of throwing when no valid targets exist (e.g. empty board or Petrova-only board).
+ */
+function resolveSingleCreatureTarget(
+  state: GameState,
+  player: PlayerId,
+  card: CardDefinition,
+  scope: 'opponent' | 'friendly' | 'any',
+  targets: string[] | undefined,
+  opts?: {
+    isValid?: (c: CreatureInstance) => boolean;
+    validateError?: (c: CreatureInstance) => string | null;
+    notFoundError?: (targetId: string) => string;
+  }
+): { target: CreatureInstance } | { target: null; state: GameState } {
+  const opp = getOpponentId(player);
+  const candidates =
+    scope === 'opponent'
+      ? state.players[opp].battleZone
+      : scope === 'friendly'
+      ? state.players[player].battleZone
+      : [...state.players[opp].battleZone, ...state.players[player].battleZone];
+
+  if (targets && targets.length > 0) {
+    const targetId = targets[0];
+    const found = candidates.find((c) => c.instanceId === targetId);
+    if (!found) {
+      throw new Error(
+        opts?.notFoundError
+          ? opts.notFoundError(targetId)
+          : `Target creature ${targetId} not found in ${
+              scope === 'any'
+                ? 'battle zone'
+                : scope === 'opponent'
+                ? "opponent's battle zone"
+                : `${player}'s battle zone`
+            }.`
+      );
+    }
+    if (found.owner !== player && isUntargetableByOpponent(found)) {
+      throw new Error(`${found.card.name} cannot be chosen by opponent spells or abilities.`);
+    }
+    if (opts?.validateError) {
+      const err = opts.validateError(found);
+      if (err) throw new Error(err);
+    }
+    return { target: found };
+  }
+
+  const valid = candidates.filter(
+    (c) =>
+      (c.owner === player || !isUntargetableByOpponent(c)) &&
+      (!opts?.isValid || opts.isValid(c))
+  );
+  if (valid.length === 0) {
+    return {
+      target: null,
+      state: {
+        ...state,
+        actionLog: [...state.actionLog, `${player} cast ${card.name} with no legal targets.`]
+      }
+    };
+  }
+  return { target: valid[0] };
+}
+
+/**
  * Resolves the rules text effects of a cast spell (or Shield Trigger spell).
  */
 export function resolveSpellEffect(
@@ -119,6 +189,11 @@ export function resolveSpellEffect(
   card: CardDefinition,
   targets?: string[]
 ): GameState {
+  const registeredResult = dispatchRegisteredSpell(state, player, card, targets);
+  if (registeredResult) {
+    return registeredResult;
+  }
+
   const opponent = getOpponentId(player);
   const casterState = state.players[player];
   const opponentState = state.players[opponent];
@@ -243,15 +318,12 @@ export function resolveSpellEffect(
     cardName === 'dracobarrier' ||
     /choose (?:1|one) of your opponent's creatures.*and tap it/i.test(rules)
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      throw new Error(`Spell ${card.name} requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => !c.isTapped
+    });
+    if (!resolved.target) return resolved.state;
+    const targetCreature = resolved.target;
+    const targetId = targetCreature.instanceId;
     let nextState: GameState = {
       ...state,
       players: {
@@ -276,7 +348,9 @@ export function resolveSpellEffect(
   if (cardName === 'laser whip') {
     let nextState = state;
     const oppBZ = nextState.players[opponent].battleZone;
-    const tapId = targets?.[0] || oppBZ.find((c) => !c.isTapped)?.instanceId;
+    const tapId =
+      targets?.[0] ||
+      oppBZ.find((c) => !c.isTapped && !isUntargetableByOpponent(c))?.instanceId;
     if (tapId) {
       nextState = {
         ...nextState,
@@ -311,30 +385,27 @@ export function resolveSpellEffect(
     cardName === 'death smoke' ||
     /destroy (?:1|one) of your opponent's untapped creatures/i.test(rules)
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      const untapped = opponentState.battleZone.find((c) => !c.isTapped);
-      if (!untapped) return state; // No valid untapped targets -> no-op rather than crashing ST
-      throw new Error(`Spell Death Smoke requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    if (targetCreature.isTapped) {
-      throw new Error(`Death Smoke can only target an untapped creature.`);
-    }
-    return destroyCreature(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => !c.isTapped,
+      validateError: (c) => (c.isTapped ? 'Death Smoke can only target an untapped creature.' : null)
+    });
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   if (cardName === 'vacuum gel') {
-    const valid = opponentState.battleZone.filter(
-      (c) => !c.isTapped && getCardCivilizations(c.card).some((civ) => civ === 'Light' || civ === 'Nature')
-    );
-    if (valid.length === 0) return state;
-    const tid = targets?.[0] || valid[0].instanceId;
-    return destroyCreature(state, tid);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => !c.isTapped && getCardCivilizations(c.card).some((civ) => civ === 'Light' || civ === 'Nature'),
+      validateError: (c) => {
+        if (c.isTapped) return 'Vacuum Gel can only target an untapped creature.';
+        if (!getCardCivilizations(c.card).some((civ) => civ === 'Light' || civ === 'Nature')) {
+          return 'Vacuum Gel can only target a Light or Nature creature.';
+        }
+        return null;
+      }
+    });
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   // 4a. Comet Missile: Destroy 1 opponent creature with Blocker and power <= 6000
@@ -342,28 +413,23 @@ export function resolveSpellEffect(
     cardName === 'comet missile' ||
     /destroy (?:1|one) of your opponent's creatures that has "blocker" and power 6000 or less/i.test(rules)
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      const anyValid = opponentState.battleZone.some(
-        (c) =>
-          hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState) &&
-          effPower(c, opponentState, casterState) <= 6000
-      );
-      if (!anyValid) return state;
-      throw new Error(`Spell Comet Missile requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    if (!hasCreatureBlocker(targetCreature, opponentState.battleZone, casterState.battleZone, opponentState)) {
-      throw new Error(`Comet Missile can only target a creature with Blocker.`);
-    }
-    if (effPower(targetCreature, opponentState, casterState) > 6000) {
-      throw new Error(`Comet Missile can only target a creature with power 6000 or less.`);
-    }
-    return destroyCreature(state, targetId);
+    const isMatch = (c: CreatureInstance) =>
+      hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState) &&
+      effPower(c, opponentState, casterState) <= 6000;
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: isMatch,
+      validateError: (c) => {
+        if (!hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState)) {
+          return 'Comet Missile can only target a creature with Blocker.';
+        }
+        if (effPower(c, opponentState, casterState) > 6000) {
+          return 'Comet Missile can only target a creature with power 6000 or less.';
+        }
+        return null;
+      }
+    });
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   // 4b. Critical Blade: Destroy 1 opponent Blocker
@@ -372,23 +438,15 @@ export function resolveSpellEffect(
     (/destroy (?:1|one) of your opponent's creatures that has "blocker"/i.test(rules) &&
       !/power \d+ or less/i.test(rules))
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      const anyBlocker = opponentState.battleZone.some((c) =>
-        hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState)
-      );
-      if (!anyBlocker) return state;
-      throw new Error(`Spell Critical Blade requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    if (!hasCreatureBlocker(targetCreature, opponentState.battleZone, casterState.battleZone, opponentState)) {
-      throw new Error(`Critical Blade can only target a creature with Blocker.`);
-    }
-    return destroyCreature(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState),
+      validateError: (c) =>
+        !hasCreatureBlocker(c, opponentState.battleZone, casterState.battleZone, opponentState)
+          ? 'Critical Blade can only target a creature with Blocker.'
+          : null
+    });
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   // 4c. Hand Discard spells (Ghost Touch, Lost Soul, Cranium Clamp, Soul Gulp, Rain of Arrows)
@@ -469,7 +527,6 @@ export function resolveSpellEffect(
     cardName === 'spastic missile' ||
     cardName === 'ten-ton crunch'
   ) {
-    if (opponentState.battleZone.length === 0) return state;
     const maxPower = thresholdDestroyMatch
       ? parseInt(thresholdDestroyMatch[1], 10)
       : cardName === 'tornado flame'
@@ -478,31 +535,39 @@ export function resolveSpellEffect(
       ? 3000
       : 2000;
 
-    const targetId =
-      targets?.[0] ||
-      opponentState.battleZone.find((c) => effPower(c, opponentState, casterState) <= maxPower)?.instanceId;
-    if (!targetId) return state;
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    const power = effPower(targetCreature, opponentState, casterState);
-    if (power > maxPower) {
-      throw new Error(`Target creature has power ${power} (cannot target power > ${maxPower}).`);
-    }
-    return destroyCreature(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => effPower(c, opponentState, casterState) <= maxPower,
+      validateError: (c) => {
+        const power = effPower(c, opponentState, casterState);
+        return power > maxPower
+          ? `Target creature has power ${power} (cannot target power > ${maxPower}).`
+          : null;
+      }
+    });
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   // Volcanic Arrows: destroy a creature <= 6000, put 1 friendly shield into graveyard
   if (cardName === 'volcanic arrows') {
     let nextState = state;
-    const allValid = [
-      ...casterState.battleZone.filter((c) => effPower(c, casterState, opponentState) <= 6000),
-      ...opponentState.battleZone.filter((c) => effPower(c, opponentState, casterState) <= 6000)
-    ];
-    const targetId = targets?.[0] || allValid.find((c) => c.owner === opponent)?.instanceId || allValid[0]?.instanceId;
-    if (targetId) {
-      nextState = destroyCreature(nextState, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'any', targets, {
+      isValid: (c) =>
+        c.owner === player
+          ? effPower(c, casterState, opponentState) <= 6000
+          : effPower(c, opponentState, casterState) <= 6000,
+      validateError: (c) => {
+        const p =
+          c.owner === player
+            ? effPower(c, casterState, opponentState)
+            : effPower(c, opponentState, casterState);
+        return p > 6000 ? `Target creature has power ${p} (cannot target power > 6000).` : null;
+      }
+    });
+    if (resolved.target) {
+      nextState = destroyCreature(nextState, resolved.target.instanceId);
+    } else {
+      nextState = resolved.state;
     }
     const cState = nextState.players[player];
     const unbroken = cState.shields.filter((s) => !s.isBroken);
@@ -684,9 +749,9 @@ export function resolveSpellEffect(
       }
       targetsToDestroy = targetCreatures.map((c) => c.instanceId);
     } else {
-      const sorted = [...opponentBZ].sort(
-        (a, b) => effPower(b, opponentState, casterState) - effPower(a, opponentState, casterState)
-      );
+      const sorted = opponentBZ
+        .filter((c) => !isUntargetableByOpponent(c))
+        .sort((a, b) => effPower(b, opponentState, casterState) - effPower(a, opponentState, casterState));
       let remainingPower = 8000;
       for (const c of sorted) {
         const p = effPower(c, opponentState, casterState);
@@ -880,16 +945,9 @@ export function resolveSpellEffect(
     cardName === 'hopeless vortex' ||
     /destroy (?:1|one) of your opponent's creatures/i.test(rules)
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      throw new Error(`Spell ${card.name} requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    return destroyCreature(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets);
+    if (!resolved.target) return resolved.state;
+    return destroyCreature(state, resolved.target.instanceId);
   }
 
   // 7. Bounce Spells (Spiral Gate, Riptide Charger, Wave Lance, Hide and Seek, Teleportation, Abduction Charger, Hydro Hurricane)
@@ -957,14 +1015,14 @@ export function resolveSpellEffect(
   }
 
   if (cardName === 'hide and seek') {
-    const valid = opponentState.battleZone.filter(
-      (c) => c.card.type !== 'Evolution Creature' && !c.card.isEvolution
-    );
-    let nextState = state;
-    if (valid.length > 0) {
-      const targetId = targets?.[0] && valid.some((c) => c.instanceId === targets[0]) ? targets[0] : valid[0].instanceId;
-      nextState = bounceCreature(nextState, targetId);
-    }
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => c.card.type !== 'Evolution Creature' && !c.card.isEvolution,
+      validateError: (c) =>
+        c.card.type === 'Evolution Creature' || c.card.isEvolution
+          ? 'Hide and Seek can only target a non-evolution creature.'
+          : null
+    });
+    const nextState = resolved.target ? bounceCreature(state, resolved.target.instanceId) : resolved.state;
     return discardRandomHandCards(nextState, opponent, 1);
   }
 
@@ -974,21 +1032,15 @@ export function resolveSpellEffect(
     cardName === 'wave lance' ||
     /choose a creature in the battle zone and return it to its owner's hand/i.test(rules)
   ) {
-    const totalCreatures =
-      state.players.player.battleZone.length + state.players.opponent.battleZone.length;
-    if (totalCreatures === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      throw new Error(`Spell ${card.name} requires a target creature.`);
-    }
-    const found = findCreature(state, targetId);
-    if (!found) {
-      throw new Error(`Target creature ${targetId} not found in battle zone.`);
-    }
-    const isDragon = getCreatureRaces(found.creature).some(
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'any', targets, {
+      notFoundError: (tid) => `Target creature ${tid} not found in battle zone.`
+    });
+    if (!resolved.target) return resolved.state;
+    const foundCreature = resolved.target;
+    const isDragon = getCreatureRaces(foundCreature).some(
       (r) => r.toLowerCase().includes('dragon') && !r.toLowerCase().includes('dragonoid')
     );
-    let nextState = bounceCreature(state, targetId);
+    let nextState = bounceCreature(state, foundCreature.instanceId);
     if (cardName === 'wave lance' && isDragon) {
       nextState = drawCards(nextState, player, 1);
     }
@@ -1004,7 +1056,8 @@ export function resolveSpellEffect(
     if (targets && targets.length > 0) {
       targetsToBounce = targets.slice(0, 2);
     } else if (opponentState.battleZone.length > 0) {
-      targetsToBounce = [...opponentState.battleZone]
+      targetsToBounce = opponentState.battleZone
+        .filter((c) => !isUntargetableByOpponent(c))
         .sort((a, b) => effPower(b, opponentState, casterState) - effPower(a, opponentState, casterState))
         .slice(0, 2)
         .map((c) => c.instanceId);
@@ -1019,23 +1072,24 @@ export function resolveSpellEffect(
 
   // 8b. Miraculous Snare (non-evolution creature -> shields)
   if (cardName === 'miraculous snare') {
-    const allNonEvo = [
-      ...opponentState.battleZone.filter((c) => c.card.type !== 'Evolution Creature' && !c.card.isEvolution),
-      ...casterState.battleZone.filter((c) => c.card.type !== 'Evolution Creature' && !c.card.isEvolution)
-    ];
-    if (allNonEvo.length === 0) return state;
-    const tid = targets?.[0] || allNonEvo[0].instanceId;
-    return sendCreatureToShields(state, tid);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'any', targets, {
+      isValid: (c) => c.card.type !== 'Evolution Creature' && !c.card.isEvolution,
+      validateError: (c) =>
+        c.card.type === 'Evolution Creature' || c.card.isEvolution
+          ? 'Miraculous Snare can only target a non-evolution creature.'
+          : null
+    });
+    if (!resolved.target) return resolved.state;
+    return sendCreatureToShields(state, resolved.target.instanceId);
   }
 
   // 9. Natural Snare / Freezing Icehammer / Vine Charger / Mulch Charger / Pangaea's Song (creature -> mana zone)
   if (cardName === 'freezing icehammer') {
-    const valid = opponentState.battleZone.filter((c) =>
-      getCardCivilizations(c.card).some((civ) => civ === 'Water' || civ === 'Darkness')
-    );
-    if (valid.length === 0) return state;
-    const tid = targets?.[0] || valid[0].instanceId;
-    return sendCreatureToManaZone(state, tid);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => getCardCivilizations(c.card).some((civ) => civ === 'Water' || civ === 'Darkness')
+    });
+    if (!resolved.target) return resolved.state;
+    return sendCreatureToManaZone(state, resolved.target.instanceId);
   }
 
   if (cardName === 'vine charger') {
@@ -1063,16 +1117,9 @@ export function resolveSpellEffect(
     cardName === 'natural snare' ||
     /choose 1 of your opponent's creatures in the battle zone and put it into (?:his|their) mana zone/i.test(rules)
   ) {
-    if (opponentState.battleZone.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) {
-      throw new Error(`Spell Natural Snare requires a target creature.`);
-    }
-    const targetCreature = opponentState.battleZone.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in opponent's battle zone.`);
-    }
-    return sendCreatureToManaZone(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets);
+    if (!resolved.target) return resolved.state;
+    return sendCreatureToManaZone(state, resolved.target.instanceId);
   }
 
   if (
@@ -1080,17 +1127,9 @@ export function resolveSpellEffect(
     cardName === "pangaea's song" ||
     /put (?:1|one) of your creatures from the battle zone into your mana zone/i.test(rules)
   ) {
-    const friendlyBZ = state.players[player].battleZone;
-    if (friendlyBZ.length === 0) return state;
-    const targetId = targets?.[0] || (cardName === "pangaea's song" ? friendlyBZ[0].instanceId : undefined);
-    if (!targetId) {
-      throw new Error(`Spell ${card.name} requires a target creature.`);
-    }
-    const targetCreature = friendlyBZ.find((c) => c.instanceId === targetId);
-    if (!targetCreature) {
-      throw new Error(`Target creature ${targetId} not found in ${player}'s battle zone.`);
-    }
-    return sendCreatureToManaZone(state, targetId);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'friendly', targets);
+    if (!resolved.target) return resolved.state;
+    return sendCreatureToManaZone(state, resolved.target.instanceId);
   }
 
   // 11. Mana Ramp Spells (Faerie Life, Ultimate Force, Glory Snow, Mana Bonanza, Rainbow Stone, Mystic Treasure Chest)
@@ -1719,19 +1758,17 @@ export function resolveSpellEffect(
 
   // Buffs & Temporary Combat/Rule Grants
   if (cardName === 'energy charger' || /gets \+2000 power until the end of the turn/i.test(rules)) {
-    const friendlyBZ = casterState.battleZone;
-    if (friendlyBZ.length === 0) return state;
-    const targetId = targets?.[0];
-    if (!targetId) throw new Error(`Spell Energy Charger requires a target creature.`);
-    const targetCreature = friendlyBZ.find((c) => c.instanceId === targetId);
-    if (!targetCreature) throw new Error(`Target creature ${targetId} not found in ${player}'s battle zone.`);
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'friendly', targets);
+    if (!resolved.target) return resolved.state;
+    const targetCreature = resolved.target;
+    const targetId = targetCreature.instanceId;
     return {
       ...state,
       players: {
         ...state.players,
         [player]: {
           ...casterState,
-          battleZone: friendlyBZ.map((c) =>
+          battleZone: casterState.battleZone.map((c) =>
             c.instanceId === targetId ? { ...c, powerModifier: c.powerModifier + 2000 } : c
           )
         }
@@ -1973,21 +2010,23 @@ export function resolveSpellEffect(
     };
   }
 
-  if (cardName === 'chaos strike' && opponentState.battleZone.length > 0) {
-    const tid = targets?.[0] || opponentState.battleZone.find((c) => !c.isTapped)?.instanceId;
-    if (tid) {
-      return {
-        ...state,
-        players: {
-          ...state.players,
-          [opponent]: {
-            ...opponentState,
-            tempAttackableUntappedIds: [...(opponentState.tempAttackableUntappedIds || []), tid]
-          }
-        },
-        actionLog: [...state.actionLog, `${player} cast Chaos Strike on an untapped creature.`]
-      };
-    }
+  if (cardName === 'chaos strike') {
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets, {
+      isValid: (c) => !c.isTapped
+    });
+    if (!resolved.target) return resolved.state;
+    const tid = resolved.target.instanceId;
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          tempAttackableUntappedIds: [...(opponentState.tempAttackableUntappedIds || []), tid]
+        }
+      },
+      actionLog: [...state.actionLog, `${player} cast Chaos Strike on ${resolved.target.card.name}.`]
+    };
   }
 
   if (cardName === 'sonic wing' || cardName === 'cosmic wing' || cardName === 'laser wing') {
@@ -2088,6 +2127,70 @@ export function resolveSpellEffect(
       ...state,
       players: { ...state.players, [player]: { ...casterState, tempSlayerOnBlockedThisTurn: true } },
       actionLog: [...state.actionLog, `${player} cast Creeping Plague.`]
+    };
+  }
+
+  // Forced Attack Spells: Slime Veil, Infernal Command, Forced Frenzy
+  if (cardName === 'slime veil') {
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          tempForceAllAttacksUntilNextTurn: true,
+          tempForceAllAttacksGrantedBy: player
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} cast Slime Veil: all of ${opponent}'s creatures must attack if able next turn.`
+      ]
+    };
+  }
+
+  if (cardName === 'infernal command') {
+    const resolved = resolveSingleCreatureTarget(state, player, card, 'opponent', targets);
+    if (!resolved.target) return resolved.state;
+    const tid = resolved.target.instanceId;
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          battleZone: opponentState.battleZone.map((c) =>
+            c.instanceId === tid
+              ? { ...c, tempAttacksIfAble: true, tempAttacksIfAbleUntilTurnOf: player }
+              : c
+          )
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} cast Infernal Command on ${resolved.target.card.name} (attacks if able until start of ${player}'s next turn).`
+      ]
+    };
+  }
+
+  if (cardName === 'forced frenzy') {
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [opponent]: {
+          ...opponentState,
+          battleZone: opponentState.battleZone.map((c) => ({
+            ...c,
+            tempAttacksIfAble: true,
+            tempAttacksIfAbleUntilTurnOf: player
+          }))
+        }
+      },
+      actionLog: [
+        ...state.actionLog,
+        `${player} cast Forced Frenzy: ${opponent}'s creatures get "attacks if able" until start of ${player}'s next turn.`
+      ]
     };
   }
 
@@ -2389,7 +2492,8 @@ export function castSpell(
       [player]: {
         ...playerState,
         hand: nextHand,
-        manaZone: updatedManaZone
+        manaZone: updatedManaZone,
+        spellsCastThisTurn: (playerState.spellsCastThisTurn || 0) + 1
       }
     },
     actionLog: [...state.actionLog, spellActionLog]
@@ -2431,3 +2535,5 @@ export function castSpell(
     }
   };
 }
+
+registerEngineDispatchHooks({ resolveSpellEffect });
